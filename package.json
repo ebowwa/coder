@@ -1,7 +1,20 @@
 {
   "name": "@ebowwa/claude-code-remake",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Claude Code CLI reimplementation in TypeScript + Rust",
+  "author": "ebowwa",
+  "license": "MIT",
+  "keywords": [
+    "claude",
+    "cli",
+    "ai",
+    "anthropic",
+    "mcp"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ebowwa/codespaces"
+  },
   "type": "module",
   "main": "dist/index.js",
   "bin": {
@@ -20,6 +33,7 @@
     "native"
   ],
   "dependencies": {
+    "@ebowwa/claude-code-native": "^0.1.0",
     "@anthropic-ai/sdk": "^0.39.0",
     "@modelcontextprotocol/sdk": "^1.10.0",
     "ink": "^5.0.1",
