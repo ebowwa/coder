@@ -15,7 +15,7 @@ export {
   calculateCacheMetrics,
 } from "./core/api-client.js";
 export type { StreamOptionsType as StreamOptions, StreamResultType as StreamResult } from "./core/api-client.js";
-export { agentLoop, formatCost, formatMetrics, formatCacheMetrics } from "./core/agent-loop.js";
+export { agentLoop, formatCost, formatMetrics, formatCostBrief, formatCacheMetrics } from "./core/agent-loop.js";
 export type { AgentLoopOptions, AgentLoopResult } from "./core/agent-loop.js";
 
 // Permissions

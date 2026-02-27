@@ -5,6 +5,8 @@
 
 import type { Teammate, Team, TeammateMessage, TeammateStatus } from "../types/index.js";
 import { spawn } from "child_process";
+import { mkdirSync, rmSync, existsSync, readFileSync } from "fs";
+import { join } from "path";
 
 // ============================================
 // TEAMMATE MANAGER
@@ -18,6 +20,12 @@ export class TeammateManager {
 
   constructor(storagePath = "~/.claude/teams") {
     this.storagePath = storagePath.replace("~", process.env.HOME || "");
+    // Ensure storage directory exists
+    if (!existsSync(this.storagePath)) {
+      mkdirSync(this.storagePath, { recursive: true });
+    }
+    // Load existing teams from disk
+    this.loadTeams();
   }
 
   // ============================================
@@ -37,8 +45,10 @@ export class TeammateManager {
       this.teammates.set(teammate.teammateId, teammate);
     }
 
-    // Persist to disk
-    this.persistTeam(team);
+    // Persist to disk (fire and forget)
+    this.persistTeam(team).catch((err) => {
+      console.error(`Failed to persist team ${config.name}:`, err);
+    });
 
     return team;
   }
@@ -60,6 +70,14 @@ export class TeammateManager {
         this.messageQueue.delete(teammate.teammateId);
       }
       this.teams.delete(name);
+
+      // Delete team directory from disk
+      const teamDir = join(this.storagePath, name);
+      try {
+        rmSync(teamDir, { recursive: true, force: true });
+      } catch (err) {
+        console.error(`Failed to delete team directory ${teamDir}:`, err);
+      }
     }
   }
 
@@ -276,15 +294,105 @@ export class TeammateManager {
   // PERSISTENCE
   // ============================================
 
-  private persistTeam(team: Team): void {
-    const path = `${this.storagePath}/${team.name}/config.json`;
-    // Write team config to disk
-    // In full implementation, use fs.writeFileSync
+  /**
+   * Persist a team configuration to disk
+   */
+  private async persistTeam(team: Team): Promise<void> {
+    const teamDir = join(this.storagePath, team.name);
+    const configPath = join(teamDir, "config.json");
+
+    // Ensure directory exists
+    if (!existsSync(teamDir)) {
+      mkdirSync(teamDir, { recursive: true });
+    }
+
+    // Write .gitkeep to ensure directory is tracked
+    await Bun.write(join(teamDir, ".gitkeep"), "");
+
+    // Build config object
+    const config = {
+      name: team.name,
+      description: team.description,
+      teammates: team.teammates,
+      taskListId: team.taskListId,
+      status: team.status,
+      coordination: team.coordination,
+      updatedAt: Date.now(),
+    };
+
+    // Write config as formatted JSON
+    await Bun.write(configPath, JSON.stringify(config, null, 2));
   }
 
+  /**
+   * Load all teams from disk at startup
+   * Uses synchronous operations for constructor compatibility
+   */
   loadTeams(): void {
-    // Load teams from disk
-    // In full implementation, scan storagePath and load configs
+    // Use Bun's glob to find team configs
+    const glob = new Bun.Glob("**/config.json");
+
+    try {
+      const files = Array.from(glob.scanSync(this.storagePath));
+      for (const file of files) {
+        try {
+          const filePath = join(this.storagePath, file);
+          const content = Bun.file(filePath);
+
+          // Check if file exists and is readable (sync check via size)
+          const size = content.size;
+          if (size === 0) {
+            continue;
+          }
+
+          // Read file synchronously using readFileSync
+          // Bun.file().text() is async, so we use fs.readFileSync for sync operation
+          const text = readFileSync(filePath, "utf-8");
+          const config = JSON.parse(text);
+
+          // Validate required fields - skip if missing teammates or name
+          if (!config.name || !config.teammates || !Array.isArray(config.teammates)) {
+            // Skip configs that don't match our expected structure
+            continue;
+          }
+
+          const team: Team = {
+            name: config.name,
+            description: config.description || "",
+            teammates: config.teammates,
+            taskListId: config.taskListId || "",
+            status: config.status || "active",
+            coordination: config.coordination || {
+              dependencyOrder: [],
+              communicationProtocol: "broadcast",
+              taskAssignmentStrategy: "manual",
+            },
+          };
+
+          this.teams.set(team.name, team);
+
+          // Index teammates
+          for (const teammate of team.teammates) {
+            this.teammates.set(teammate.teammateId, teammate);
+          }
+        } catch (error) {
+          // Silently skip malformed configs
+        }
+      }
+    } catch (error) {
+      // Storage path may not exist yet - that's okay
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+        // Ignore permission errors too
+      }
+    }
+  }
+
+  /**
+   * Persist all teams to disk (useful for shutdown)
+   */
+  async persistAllTeams(): Promise<void> {
+    const promises = Array.from(this.teams.values()).map((team) => this.persistTeam(team));
+    await Promise.all(promises);
   }
 }
 

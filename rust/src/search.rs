@@ -3,7 +3,7 @@
 use crate::{SearchMatch, SearchOptions, SearchResult};
 use grep::regex::RegexMatcher;
 use grep::searcher::sinks::UTF8;
-use grep::searcher::{Searcher, SearcherBuilder};
+use grep::searcher::SearcherBuilder;
 use ignore::{WalkBuilder, WalkState};
 use std::path::Path;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -23,7 +23,7 @@ pub fn search_files(pattern: &str, path: &str, options: SearchOptions) -> anyhow
     };
 
     // Build searcher
-    let mut searcher = SearcherBuilder::new()
+    let searcher = SearcherBuilder::new()
         .line_number(true)
         .build();
 

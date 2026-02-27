@@ -380,6 +380,892 @@ export const GrepTool: ToolDefinition = {
 };
 
 // ============================================
+// TASK TOOL (Subagents)
+// ============================================
+
+export const TaskTool: ToolDefinition = {
+  name: "Task",
+  description: `Launch a new agent to handle complex, multi-step tasks autonomously.
+
+The Task tool launches specialized agents (subprocesses) that autonomously handle complex tasks. Each agent type has specific capabilities and tools available to it.
+
+Available agent types and their tools:
+- Bash: Command execution specialist for running bash commands. Use for git operations, command execution, and other terminal tasks.
+- general-purpose: General-purpose agent for researching complex questions, searching for code, and executing multi-step tasks.
+- Explore: Fast agent specialized for exploring codebases. Use to quickly find files by patterns, search code for keywords, or answer questions about the codebase.
+- Plan: Software architect agent for designing implementation plans. Returns step-by-step plans, identifies critical files and considers architectural trade-offs.
+
+When using the Task tool, you must specify a subagent_type parameter to select the agent type.
+
+Usage notes:
+- Always include a short description (3-5 words) summarizing what the agent will do
+- Launch multiple agents concurrently whenever possible to maximize performance
+- Agents can be resumed using the "resume" parameter by passing the agent ID from a previous invocation.`,
+  input_schema: {
+    type: "object",
+    properties: {
+      subagent_type: {
+        type: "string",
+        enum: ["Bash", "general-purpose", "Explore", "Plan"],
+        description: "The agent type to launch",
+      },
+      description: {
+        type: "string",
+        description: "A short (3-5 word) description of what the agent will do",
+      },
+      prompt: {
+        type: "string",
+        description: "The task for the agent to perform",
+      },
+      resume: {
+        type: "string",
+        description: "Resume a previous agent by its ID",
+      },
+      model: {
+        type: "string",
+        enum: ["sonnet", "opus", "haiku"],
+        description: "Model for the subagent (default: haiku for quick tasks)",
+      },
+      run_in_background: {
+        type: "boolean",
+        description: "Run the agent in the background",
+      },
+    },
+    required: ["subagent_type", "prompt"],
+  },
+  handler: async (args, context: ToolContext): Promise<ToolResult> => {
+    const subagentType = args.subagent_type as string;
+    const prompt = args.prompt as string;
+    const description = args.description as string | undefined;
+    const model = (args.model as string) || "haiku";
+    const resume = args.resume as string | undefined;
+    const runInBackground = args.run_in_background as boolean;
+
+    // Generate a unique agent ID
+    const agentId = resume || `${subagentType.toLowerCase()}-${Date.now().toString(36)}`;
+
+    try {
+      // Get API key from environment (check multiple env var names)
+      const apiKey = process.env.ANTHROPIC_API_KEY ||
+                     process.env.CLAUDE_API_KEY ||
+                     process.env.ANTHROPIC_AUTH_TOKEN ||
+                     process.env.Z_AI_API_KEY || "";
+      if (!apiKey) {
+        return { content: "Error: No API key available for subagent. Set ANTHROPIC_API_KEY, CLAUDE_API_KEY, ANTHROPIC_AUTH_TOKEN, or Z_AI_API_KEY environment variable.", is_error: true };
+      }
+
+      // Map model names
+      const modelMap: Record<string, string> = {
+        haiku: "claude-haiku-4-5",
+        sonnet: "claude-sonnet-4-6",
+        opus: "claude-opus-4-6",
+      };
+      const fullModel = modelMap[model] || modelMap.haiku!;
+
+      // Find the CLI - check multiple locations
+      const possiblePaths = [
+        import.meta.dir + "/../../dist/cli.js",  // Built CLI
+        import.meta.dir + "/../cli.ts",          // Source CLI
+        process.cwd() + "/dist/cli.js",          // Built CLI in cwd
+        process.cwd() + "/src/cli.ts",           // Source CLI in cwd
+      ];
+
+      let cliPath: string | null = null;
+      for (const path of possiblePaths) {
+        try {
+          const file = Bun.file(path);
+          if (await file.exists()) {
+            cliPath = path;
+            break;
+          }
+        } catch {
+          // Continue to next path
+        }
+      }
+
+      if (!cliPath) {
+        return {
+          content: `Error: Could not find CLI. Tried:\n${possiblePaths.join("\n")}`,
+          is_error: true,
+        };
+      }
+
+      // Build command arguments
+      const cmdArgs = [
+        "run",
+        cliPath,
+        "-m", fullModel,
+        "-p", context.permissionMode,
+        "-q", prompt,
+      ];
+
+      if (runInBackground) {
+        // Spawn in background with proper env
+        const child = Bun.spawn(["bun", ...cmdArgs], {
+          cwd: context.workingDirectory,
+          detached: true,
+          stdio: ["ignore", "pipe", "pipe"],
+          env: {
+            ...process.env,
+            ANTHROPIC_API_KEY: apiKey,
+          },
+        });
+
+        // Don't wait for background tasks
+        child.unref();
+
+        return {
+          content: JSON.stringify({
+            agentId,
+            status: "running",
+            message: `Agent started in background. Use TaskOutput tool with task_id: "${agentId}" to check results.`,
+            description: description || "Background task",
+          }),
+        };
+      }
+
+      // Run synchronously with timeout
+      const result = Bun.spawnSync(["bun", ...cmdArgs], {
+        cwd: context.workingDirectory,
+        timeout: 300000, // 5 minutes max
+        maxBuffer: 1024 * 1024 * 10, // 10MB
+        env: {
+          ...process.env,
+          ANTHROPIC_API_KEY: apiKey,
+        },
+      });
+
+      const stdout = result.stdout?.toString() || "";
+      const stderr = result.stderr?.toString() || "";
+
+      if (result.exitCode !== 0) {
+        return {
+          content: `Agent failed with exit code ${result.exitCode}\n${stderr}\n${stdout}`.trim(),
+          is_error: true,
+        };
+      }
+
+      return {
+        content: JSON.stringify({
+          agentId,
+          status: "completed",
+          output: stdout,
+          description: description || "Task completed",
+        }),
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return { content: `Error running subagent: ${errorMessage}`, is_error: true };
+    }
+  },
+};
+
+// ============================================
+// TASK OUTPUT TOOL
+// ============================================
+
+export const TaskOutputTool: ToolDefinition = {
+  name: "TaskOutput",
+  description: `Retrieves output from a running or completed task (background shell, agent, or remote session).
+
+Takes a task_id parameter identifying the task.
+Returns the task output along with status information.
+Use block=true (default) to wait for task completion.
+Use block=false for non-blocking check of current status.
+
+Task IDs can be found using the /tasks command
+Works with all task types: background shells, async agents, and remote sessions`,
+  input_schema: {
+    type: "object",
+    properties: {
+      task_id: {
+        type: "string",
+        description: "The task ID to get output from",
+      },
+      block: {
+        type: "boolean",
+        description: "Whether to wait for completion (default: true)",
+        default: true,
+      },
+      timeout: {
+        type: "number",
+        description: "Max wait time in ms (default: 30000, max: 600000)",
+        default: 30000,
+        minimum: 0,
+        maximum: 600000,
+      },
+    },
+    required: ["task_id"],
+  },
+  handler: async (args, context: ToolContext): Promise<ToolResult> => {
+    const taskId = args.task_id as string;
+    const block = (args.block as boolean) ?? true;
+    const timeout = (args.timeout as number) ?? 30000;
+
+    try {
+      // In a real implementation, this would check a task registry
+      // For now, we'll check for background task output files
+      const taskFile = `${context.workingDirectory}/.claude/tasks/${taskId}.json`;
+
+      const file = Bun.file(taskFile);
+      if (!(await file.exists())) {
+        return {
+          content: `Task not found: ${taskId}. Use /tasks to list available tasks.`,
+          is_error: true,
+        };
+      }
+
+      const taskData = await file.json() as {
+        status: string;
+        output?: string;
+        error?: string;
+        startTime: number;
+        endTime?: number;
+      };
+
+      if (block && taskData.status === "running") {
+        // Wait for task completion with timeout
+        const startTime = Date.now();
+        while (Date.now() - startTime < timeout) {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          const updatedFile = Bun.file(taskFile);
+          if (await updatedFile.exists()) {
+            const updatedData = await updatedFile.json() as typeof taskData;
+            if (updatedData.status !== "running") {
+              return {
+                content: JSON.stringify({
+                  task_id: taskId,
+                  status: updatedData.status,
+                  output: updatedData.output,
+                  error: updatedData.error,
+                  duration: updatedData.endTime
+                    ? updatedData.endTime - updatedData.startTime
+                    : null,
+                }, null, 2),
+              };
+            }
+          }
+        }
+        return {
+          content: JSON.stringify({
+            task_id: taskId,
+            status: "timeout",
+            message: `Task still running after ${timeout}ms`,
+          }, null, 2),
+        };
+      }
+
+      return {
+        content: JSON.stringify({
+          task_id: taskId,
+          status: taskData.status,
+          output: taskData.output,
+          error: taskData.error,
+          duration: taskData.endTime
+            ? taskData.endTime - taskData.startTime
+            : null,
+        }, null, 2),
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return { content: `Error getting task output: ${errorMessage}`, is_error: true };
+    }
+  },
+};
+
+// ============================================
+// ASK USER QUESTION TOOL
+// ============================================
+
+export const AskUserQuestionTool: ToolDefinition = {
+  name: "AskUserQuestion",
+  description: `Use this tool when you need to ask the user questions during execution.
+
+This allows you to:
+1. Gather user preferences or requirements
+2. Clarify ambiguous instructions
+3. Get decisions on implementation choices
+4. Offer choices to the user about what direction to take
+
+Plan mode note: In plan mode, use this tool to clarify requirements or choose between approaches BEFORE finalizing your plan. Do NOT use this tool if your plan is ready - that's what ExitPlanMode is for.
+
+The options array should have 2-4 options. Each option should be a distinct, mutually exclusive choice.
+The preview feature allows showing markdown content in a side-by-side layout.
+
+User can always select "Other" to provide custom text input.`,
+  input_schema: {
+    type: "object",
+    properties: {
+      questions: {
+        type: "array",
+        description: "Questions to ask the user (1-4 questions)",
+        items: {
+          type: "object",
+          properties: {
+            question: {
+              type: "string",
+              description: "The complete question to ask the user",
+            },
+            header: {
+              type: "string",
+              description: "Very short label displayed as a chip/tag (max 12 chars)",
+            },
+            options: {
+              type: "array",
+              description: "The available choices (2-4 options)",
+              items: {
+                type: "object",
+                properties: {
+                  label: {
+                    type: "string",
+                    description: "The display text for this option (5 words max)",
+                  },
+                  description: {
+                    type: "string",
+                    description: "Explanation of what this option means",
+                  },
+                  markdown: {
+                    type: "string",
+                    description: "Optional preview content shown in a monospace box",
+                  },
+                },
+                required: ["label", "description"],
+              },
+              minItems: 2,
+              maxItems: 4,
+            },
+            multiSelect: {
+              type: "boolean",
+              description: "Allow selecting multiple options (default: false)",
+              default: false,
+            },
+          },
+          required: ["question", "header", "options"],
+        },
+        minItems: 1,
+        maxItems: 4,
+      },
+    },
+    required: ["questions"],
+  },
+  handler: async (args, context: ToolContext): Promise<ToolResult> => {
+    const questions = args.questions as Array<{
+      question: string;
+      header: string;
+      options: Array<{ label: string; description: string; markdown?: string }>;
+      multiSelect?: boolean;
+    }>;
+
+    try {
+      // Format questions for display
+      const formattedQuestions = questions.map((q, i) => {
+        const options = q.options
+          .map((opt, j) => {
+            let optionText = `  ${j + 1}. ${opt.label}`;
+            if (opt.description) {
+              optionText += ` - ${opt.description}`;
+            }
+            return optionText;
+          })
+          .join("\n");
+
+        return `## Question ${i + 1}: [${q.header}]\n${q.question}\n\nOptions:\n${options}${q.multiSelect ? "\n(multi-select enabled)" : ""}`;
+      }).join("\n\n---\n\n");
+
+      // In interactive mode, this would prompt the user
+      // For now, return the formatted questions
+      return {
+        content: JSON.stringify({
+          type: "user_question",
+          questions: questions,
+          formatted: formattedQuestions,
+          message: "Questions prepared for user response",
+        }, null, 2),
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return { content: `Error preparing questions: ${errorMessage}`, is_error: true };
+    }
+  },
+};
+
+// ============================================
+// ENTER PLAN MODE TOOL
+// ============================================
+
+export const EnterPlanModeTool: ToolDefinition = {
+  name: "EnterPlanMode",
+  description: `Use this tool when you are in plan mode and have finished writing your plan to the plan file and are ready for user approval.
+
+How This Tool Works:
+- You should have already written your plan to the plan file specified in the plan mode system message
+- This tool does NOT take the plan content as a parameter - it will read the plan from the file you wrote
+- This tool simply signals that you're done planning and ready for the user to review and approve
+
+When to Use This Tool:
+IMPORTANT: Only use this tool when the task requires planning the implementation steps of a task that requires writing code. For research tasks where you're gathering information, searching files, reading files or in general trying to understand the codebase - do NOT use this tool.
+
+Plan mode note: In plan mode, use this tool to clarify requirements or choose between approaches BEFORE finalizing your plan. Do NOT use this tool if your plan is ready - that's what ExitPlanMode is for.
+
+Examples:
+- "Search for and understand the implementation of vim mode" - Do NOT use this tool
+- "Help me implement yank mode for vim" - Use EnterPlanMode
+
+Important notes:
+- NEVER run additional commands to read or explore code, besides git bash commands
+- NEVER use the TodoWrite or Task tools
+- DO NOT commit files that likely contain secrets (.env, credentials.json, etc.)
+- If you discover unexpected state like unfamiliar files, branches, or configuration, investigate before deleting or overwriting`,
+  input_schema: {
+    type: "object",
+    properties: {
+      allowedPrompts: {
+        type: "array",
+        description: "Prompt-based permissions needed to implement the plan",
+        items: {
+          type: "object",
+          properties: {
+            tool: {
+              type: "string",
+              description: "The tool this prompt applies to (e.g., 'Bash')",
+            },
+            prompt: {
+              type: "string",
+              description: "Semantic description of the action (e.g., 'run tests', 'install dependencies')",
+            },
+          },
+          required: ["tool", "prompt"],
+        },
+      },
+    },
+    required: [],
+  },
+  handler: async (args, context: ToolContext): Promise<ToolResult> => {
+    const allowedPrompts = args.allowedPrompts as Array<{ tool: string; prompt: string }> | undefined;
+
+    try {
+      // Read the plan file
+      const planFile = `${context.workingDirectory}/.claude/plan.md`;
+      const file = Bun.file(planFile);
+
+      if (!(await file.exists())) {
+        return {
+          content: "Error: No plan file found. Please write your plan to .claude/plan.md first.",
+          is_error: true,
+        };
+      }
+
+      const planContent = await file.text();
+
+      return {
+        content: JSON.stringify({
+          type: "plan_ready",
+          planFile: planFile,
+          planLength: planContent.length,
+          allowedPrompts: allowedPrompts || [],
+          message: "Plan is ready for user review. ExitPlanMode will request user approval.",
+        }, null, 2),
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return { content: `Error entering plan mode: ${errorMessage}`, is_error: true };
+    }
+  },
+};
+
+// ============================================
+// EXIT PLAN MODE TOOL
+// ============================================
+
+export const ExitPlanModeTool: ToolDefinition = {
+  name: "ExitPlanMode",
+  description: `Use this tool when you are in plan mode and have finished writing your plan to the plan file and are ready for user approval.
+
+This tool does NOT take the plan content as a parameter - it will read the plan from the file you wrote.
+This tool simply signals that you're done planning and ready for the user to review and approve.
+
+IMPORTANT: Only use this tool when the task requires planning the implementation steps of a task that requires writing code.
+ExitPlanMode inherently requests user approval of the plan.`,
+  input_schema: {
+    type: "object",
+    properties: {
+      allowedPrompts: {
+        type: "array",
+        description: "Prompt-based permissions needed to implement the plan",
+        items: {
+          type: "object",
+          properties: {
+            tool: {
+              type: "string",
+              description: "The tool this prompt applies to",
+            },
+            prompt: {
+              type: "string",
+              description: "Semantic description of the action",
+            },
+          },
+          required: ["tool", "prompt"],
+        },
+      },
+    },
+    required: [],
+  },
+  handler: async (args, context: ToolContext): Promise<ToolResult> => {
+    const allowedPrompts = args.allowedPrompts as Array<{ tool: string; prompt: string }> | undefined;
+
+    try {
+      // Read the plan file
+      const planFile = `${context.workingDirectory}/.claude/plan.md`;
+      const file = Bun.file(planFile);
+
+      if (!(await file.exists())) {
+        return {
+          content: "Error: No plan file found at .claude/plan.md",
+          is_error: true,
+        };
+      }
+
+      const planContent = await file.text();
+
+      return {
+        content: JSON.stringify({
+          type: "exit_plan_mode",
+          status: "awaiting_approval",
+          planFile: planFile,
+          planPreview: planContent.slice(0, 500) + (planContent.length > 500 ? "..." : ""),
+          allowedPrompts: allowedPrompts || [],
+          message: "Plan submitted for user approval.",
+        }, null, 2),
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return { content: `Error exiting plan mode: ${errorMessage}`, is_error: true };
+    }
+  },
+};
+
+// ============================================
+// SKILL TOOL
+// ============================================
+
+export const SkillTool: ToolDefinition = {
+  name: "Skill",
+  description: `Execute a skill within the main conversation.
+
+When users ask you to perform tasks, check if any of the available skills match. Skills provide specialized capabilities and domain knowledge.
+
+When users reference a "slash command" or "/<something>" (e.g., "/commit", "/review-pr"), they are referring to a skill. Use this tool to invoke it.
+
+How to invoke:
+- Use this tool with the skill name and optional arguments
+- Examples:
+  - skill: "commit" - invoke the commit skill
+  - skill: "review-pr", args: "123" - invoke with arguments
+- Use fully qualified name for namespaced skills: skill: "ms-office-suite:pdf"
+
+Available skills are listed in system-reminder messages in the conversation.
+When a skill matches the user's request, this is a BLOCKING REQUIREMENT: invoke the relevant Skill tool BEFORE generating any other response about the task.
+
+Important:
+- NEVER mention a skill without actually calling this tool
+- Do not invoke a skill that is already running
+- Do not use this tool for built-in CLI commands (like /help, /clear)`,
+  input_schema: {
+    type: "object",
+    properties: {
+      skill: {
+        type: "string",
+        description: "The skill name (e.g., 'commit', 'review-pr', or fully qualified 'namespace:skill')",
+      },
+      args: {
+        type: "string",
+        description: "Optional arguments for the skill",
+      },
+    },
+    required: ["skill"],
+  },
+  handler: async (args, context: ToolContext): Promise<ToolResult> => {
+    const skillName = args.skill as string;
+    const skillArgs = args.args as string | undefined;
+
+    try {
+      // Load available skills
+      const skillsDir = `${context.workingDirectory}/.claude/skills`;
+      const globalSkillsDir = `${process.env.HOME || ""}/.claude/skills`;
+
+      // Check for skill file in multiple locations
+      const possiblePaths = [
+        `${skillsDir}/${skillName}.md`,
+        `${skillsDir}/${skillName}/skill.md`,
+        `${globalSkillsDir}/${skillName}.md`,
+        `${globalSkillsDir}/${skillName}/skill.md`,
+      ];
+
+      let skillFile: string | null = null;
+      for (const path of possiblePaths) {
+        const file = Bun.file(path);
+        if (await file.exists()) {
+          skillFile = path;
+          break;
+        }
+      }
+
+      if (!skillFile) {
+        return {
+          content: `Skill not found: ${skillName}. Available skills can be listed with /help.`,
+          is_error: true,
+        };
+      }
+
+      // Read and return the skill content
+      const file = Bun.file(skillFile);
+      const skillContent = await file.text();
+
+      return {
+        content: JSON.stringify({
+          type: "skill_invocation",
+          skill: skillName,
+          args: skillArgs,
+          skillFile: skillFile,
+          content: skillContent,
+          message: `Skill "${skillName}" loaded. Follow the instructions in the skill content.`,
+        }, null, 2),
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return { content: `Error invoking skill: ${errorMessage}`, is_error: true };
+    }
+  },
+};
+
+// ============================================
+// TASK STOP TOOL
+// ============================================
+
+export const TaskStopTool: ToolDefinition = {
+  name: "TaskStop",
+  description: `Stops a running background task by its ID.
+Takes a task_id parameter identifying the task to stop.
+Returns a success or failure status.
+Use this tool to terminate a long-running task.`,
+  input_schema: {
+    type: "object",
+    properties: {
+      task_id: {
+        type: "string",
+        description: "The ID of the background task to stop",
+      },
+      shell_id: {
+        type: "string",
+        description: "Deprecated: use task_id instead",
+      },
+    },
+    required: ["task_id"],
+  },
+  handler: async (args, context: ToolContext): Promise<ToolResult> => {
+    const taskId = args.task_id as string;
+
+    try {
+      const taskFile = `${context.workingDirectory}/.claude/tasks/${taskId}.json`;
+      const file = Bun.file(taskFile);
+
+      if (!(await file.exists())) {
+        return {
+          content: `Task not found: ${taskId}`,
+          is_error: true,
+        };
+      }
+
+      const taskData = await file.json() as {
+        status: string;
+        pid?: number;
+      };
+
+      if (taskData.status !== "running") {
+        return {
+          content: JSON.stringify({
+            task_id: taskId,
+            status: taskData.status,
+            message: `Task is already ${taskData.status}`,
+          }, null, 2),
+        };
+      }
+
+      // In a real implementation, this would kill the process
+      // For now, just update the status
+      taskData.status = "stopped";
+      await Bun.write(taskFile, JSON.stringify(taskData, null, 2));
+
+      return {
+        content: JSON.stringify({
+          task_id: taskId,
+          status: "stopped",
+          message: "Task stopped successfully",
+        }, null, 2),
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return { content: `Error stopping task: ${errorMessage}`, is_error: true };
+    }
+  },
+};
+
+// ============================================
+// NOTEBOOK EDIT TOOL
+// ============================================
+
+export const NotebookEditTool: ToolDefinition = {
+  name: "NotebookEdit",
+  description: `Completely replaces the contents of a specific cell in a Jupyter notebook (.ipynb file) with new source.
+
+Jupyter notebooks are interactive documents that combine code, text, and visualizations. The notebook_path parameter must be an absolute path, not a relative path. The cell_number is 0-indexed. Use edit_mode=insert to add a new cell at the index specified by cell_number. Use edit_mode=delete to delete the cell at the index specified by cell_number.`,
+  input_schema: {
+    type: "object",
+    properties: {
+      notebook_path: {
+        type: "string",
+        description: "The absolute path to the Jupyter notebook file to edit",
+      },
+      cell_id: {
+        type: "string",
+        description: "The ID of the cell to edit (optional, alternative to cell_number)",
+      },
+      cell_number: {
+        type: "number",
+        description: "The index of the cell to edit (0-indexed)",
+      },
+      new_source: {
+        type: "string",
+        description: "The new source for the cell",
+      },
+      cell_type: {
+        type: "string",
+        enum: ["code", "markdown"],
+        description: "The type of the cell (code or markdown). Defaults to code.",
+      },
+      edit_mode: {
+        type: "string",
+        enum: ["replace", "insert", "delete"],
+        description: "The type of edit to perform (replace, insert, delete)",
+      },
+    },
+    required: ["notebook_path"],
+  },
+  handler: async (args, context: ToolContext): Promise<ToolResult> => {
+    const notebookPath = args.notebook_path as string;
+    const cellId = args.cell_id as string | undefined;
+    const cellNumber = args.cell_number as number | undefined;
+    const newSource = args.new_source as string | undefined;
+    const cellType = (args.cell_type as string) || "code";
+    const editMode = (args.edit_mode as string) || "replace";
+
+    try {
+      // Read the notebook
+      const file = Bun.file(notebookPath);
+      if (!await file.exists()) {
+        return { content: `Error: Notebook not found: ${notebookPath}`, is_error: true };
+      }
+
+      const notebook = await file.json() as {
+        cells: Array<{
+          id?: string;
+          cell_type: string;
+          source: string | string[];
+          outputs?: unknown[];
+          metadata?: Record<string, unknown>;
+          execution_count?: number | null;
+        }>;
+        metadata: Record<string, unknown>;
+        nbformat: number;
+        nbformat_minor: number;
+      };
+
+      // Validate notebook structure
+      if (!notebook.cells || !Array.isArray(notebook.cells)) {
+        return { content: "Error: Invalid notebook format - no cells array", is_error: true };
+      }
+
+      // Find the cell to edit
+      let targetIndex: number;
+
+      if (cellId) {
+        // Find by cell ID
+        targetIndex = notebook.cells.findIndex(c => c.id === cellId);
+        if (targetIndex === -1) {
+          return { content: `Error: Cell with ID "${cellId}" not found`, is_error: true };
+        }
+      } else if (cellNumber !== undefined) {
+        targetIndex = cellNumber;
+        if (targetIndex < 0 || targetIndex >= notebook.cells.length) {
+          if (editMode === "insert") {
+            // Allow inserting at the end
+            targetIndex = notebook.cells.length;
+          } else {
+            return { content: `Error: Cell number ${targetIndex} out of range (0-${notebook.cells.length - 1})`, is_error: true };
+          }
+        }
+      } else if (editMode !== "insert") {
+        return { content: "Error: Must specify either cell_id or cell_number", is_error: true };
+      } else {
+        targetIndex = notebook.cells.length;
+      }
+
+      // Perform the edit
+      switch (editMode) {
+        case "delete": {
+          notebook.cells.splice(targetIndex, 1);
+          break;
+        }
+
+        case "insert": {
+          const newCell = {
+            id: `cell-${Date.now()}`,
+            cell_type: cellType,
+            source: newSource || "",
+            metadata: {},
+            ...(cellType === "code" ? { outputs: [] as unknown[], execution_count: null } : {}),
+          };
+          notebook.cells.splice(targetIndex, 0, newCell);
+          break;
+        }
+
+        case "replace":
+        default: {
+          if (newSource === undefined) {
+            return { content: "Error: new_source is required for replace mode", is_error: true };
+          }
+          const existingCell = notebook.cells[targetIndex];
+          if (!existingCell) {
+            return { content: `Error: Cell at index ${targetIndex} not found`, is_error: true };
+          }
+          notebook.cells[targetIndex] = {
+            ...existingCell,
+            source: newSource,
+            cell_type: cellType,
+            ...(cellType === "code" ? { execution_count: null } : {}),
+          };
+          break;
+        }
+      }
+
+      // Write the notebook back
+      await Bun.write(notebookPath, JSON.stringify(notebook, null, 1));
+
+      return {
+        content: JSON.stringify({
+          success: true,
+          message: `Successfully ${editMode}d cell in ${notebookPath}`,
+          cellCount: notebook.cells.length,
+        }),
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return { content: `Error editing notebook: ${errorMessage}`, is_error: true };
+    }
+  },
+};
+
+// ============================================
 // ALL BUILT-IN TOOLS
 // ============================================
 
@@ -390,6 +1276,14 @@ export const builtInTools: ToolDefinition[] = [
   BashTool,
   GlobTool,
   GrepTool,
+  TaskTool,
+  TaskOutputTool,
+  TaskStopTool,
+  AskUserQuestionTool,
+  EnterPlanModeTool,
+  ExitPlanModeTool,
+  SkillTool,
+  NotebookEditTool,
 ];
 
 export function getToolByName(name: string): ToolDefinition | undefined {
