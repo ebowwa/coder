@@ -13,6 +13,9 @@ pub mod structure;
 pub mod tool_pairs;
 pub mod tool_use;
 
+// Cognitive Security Module (temporarily disabled - needs fixes)
+// pub mod cognitive_security;
+
 // ===== Shared Types =====
 
 #[napi(object)]
@@ -491,3 +494,7 @@ pub fn apply_multi_edits(edits: Vec<MultiEditEntry>) -> MultiEditResult {
         rolled_back: result.rolled_back,
     }
 }
+
+// ===== Cognitive Security: Intent Module =====
+// Temporarily disabled - module needs fixes
+

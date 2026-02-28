@@ -2,6 +2,7 @@ use sha2::{Sha256, Sha512, Digest};
 use md5::Md5;
 use std::hash::Hasher;
 use twox_hash::XxHash64;
+use xxhash_rust::xxh3::xxh3_64;
 use super::HashResult;
 
 pub fn calculate_hash(content: &str, algorithm: Option<&str>) -> anyhow::Result<HashResult> {
@@ -26,13 +27,17 @@ pub fn calculate_hash(content: &str, algorithm: Option<&str>) -> anyhow::Result<
             let result = hasher.finalize();
             hex::encode(result)
         }
-        "xxh64" => {
+        "xxh64" | "xxhash64" => {
             let mut hasher = XxHash64::default();
             hasher.write(content.as_bytes());
             let result = hasher.finish();
             format!("{:016x}", result)
         }
-        _ => return Err(anyhow::anyhow!("Unsupported algorithm: {}", algo)),
+        "xxh3" | "xxhash3" => {
+            let result = xxh3_64(content.as_bytes());
+            format!("{:016x}", result)
+        }
+        _ => return Err(anyhow::anyhow!("Unsupported algorithm: {}. Supported: sha256, sha512, md5, xxh64, xxh3", algo)),
     };
 
     Ok(HashResult {

@@ -30,6 +30,7 @@ anyhow = "1"
 sha2 = "0.10"
 md-5 = "0.10"
 twox-hash = "1"
+xxhash-rust = { version = "0.8", features = ["xxh3", "xxh64"] }
 hex = "0.4"
 syntect = "5"
 tree-sitter = "0.20"
@@ -46,6 +47,12 @@ tree-sitter-php = "0.20"
 path-clean = "1"
 regex = "1"
 similar = "2"
+
+# Cognitive Security
+ed25519-dalek = { version = "2", features = ["rand_core"] }
+rand = "0.8"
+base64 = "0.22"
+chrono = { version = "0.4", features = ["serde"] }
 
 [build-dependencies]
 napi-build = "2"

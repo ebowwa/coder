@@ -1,6 +1,6 @@
 {
   "name": "@ebowwa/coder",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Claude Code CLI reimplementation in TypeScript + Rust",
   "author": "ebowwa",
   "license": "MIT",
@@ -35,7 +35,7 @@
   ],
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
-    "@ebowwa/coder-native": "^0.2.0",
+    "@ebowwa/coder-native": "^0.2.1",
     "@ebowwa/quant-rust": "^0.2.2",
     "@modelcontextprotocol/sdk": "^1.10.0",
     "chalk": "^5.4.1",

@@ -1,6 +1,6 @@
 {
   "name": "@ebowwa/coder-native",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Native Rust modules for Claude Code Remake - provides high-performance search, token counting, and diff operations",
   "author": "ebowwa",
   "license": "MIT",
