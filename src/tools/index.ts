@@ -3,9 +3,18 @@
  * Based on Claude Code binary analysis
  */
 
-import type { ToolDefinition, ToolResult, ToolContext } from "../types/index.js";
+import type { ToolDefinition, ToolResult, ToolContext, ImageBlock } from "../types/index.js";
 import { glob as globAsync } from "glob";
 import { spawn } from "child_process";
+import { apply_multi_edits, validate_multi_edits, preview_multi_edits, type MultiEditEntry } from "../native/index.js";
+import {
+  isImageExtension,
+  isBinaryExclusion,
+  readImageFile,
+  toImageBlock,
+  formatImageResult,
+} from "../core/image.js";
+import * as path from "path";
 
 // ============================================
 // READ TOOL
@@ -14,7 +23,7 @@ import { spawn } from "child_process";
 export const ReadTool: ToolDefinition = {
   name: "Read",
   description:
-    "Reads a file from the local filesystem. You can access any file directly by using this tool.",
+    "Reads a file from the local filesystem. You can access any file directly by using this tool.\n\nAssume this tool is able to read all files on the machine. If the User provides a path to a file assume that path is valid.\n\nThis tool allows Claude Code to read images (PNG, JPG, JPEG, GIF, WEBP) and PDF files.\n\nUsage:\n- The file_path parameter must be an absolute path, not a relative path\n- By default, reads up to 2000 lines starting from the beginning of the file\n- You can optionally specify line offset and limit (especially handy for long files)\n- Any lines longer than 2000 characters will be truncated\n- Results are returned using cat -n format, with line numbers starting at 1\n\nThis tool can read images (PNG, JPG, JPEG, GIF, WEBP). When reading images, the tool displays them visually.\n\nFor PDF files:\n- Get the pages parameter to read specific page ranges (e.g., pages: \"1-5\")\n- Maximum 20 pages per request\n- For large PDFs (more than 10 pages), you MUST provide the pages parameter to read specific page ranges.\n\nTry to read the whole file by default, but for particularly large files, you should consider reading the file in chunks.\n\nIf you read a file that exists but has empty contents you will receive a system reminder warning in place of file contents.",
   input_schema: {
     type: "object",
     properties: {
@@ -30,6 +39,10 @@ export const ReadTool: ToolDefinition = {
         type: "number",
         description: "The number of lines to read",
       },
+      pages: {
+        type: "string",
+        description: "Page range for PDF files (e.g., \"1-5\")",
+      },
     },
     required: ["file_path"],
   },
@@ -39,7 +52,30 @@ export const ReadTool: ToolDefinition = {
     const limit = (args.limit as number) || 2000;
 
     try {
+      // Get file extension to check for image files
+      const ext = path.extname(filePath).toLowerCase().slice(1);
+
+      // Check if this is an image file (GI8 set in binary)
+      if (isImageExtension(ext)) {
+        return await handleImageRead(filePath, context.abortSignal);
+      }
+
+      // Check for binary exclusions (CI8 set in binary)
+      if (isBinaryExclusion(ext)) {
+        return {
+          content: `Binary file detected: ${filePath}\nThis file type (${ext}) is not supported for text reading.`,
+          is_error: true,
+        };
+      }
+
+      // Default text file reading
       const file = Bun.file(filePath);
+
+      // Check if file exists
+      if (!(await file.exists())) {
+        return { content: `Error: File not found: ${filePath}`, is_error: true };
+      }
+
       const text = await file.text();
       const lines = text.split("\n");
 
@@ -48,18 +84,50 @@ export const ReadTool: ToolDefinition = {
       const endLine = Math.min(lines.length, startLine + limit);
       const selectedLines = lines.slice(startLine, endLine);
 
+      // Check for truncation
+      const wasTruncated = endLine < lines.length;
+
       // Format with line numbers
       const formatted = selectedLines
         .map((line, i) => `${startLine + i + 1}\t${line}`)
         .join("\n");
 
-      return { content: formatted };
+      // Add truncation notice if applicable
+      let result = formatted;
+      if (wasTruncated) {
+        result += `\n\n> WARNING: ${filePath} is ${lines.length} lines (limit: ${limit}). Only the first ${limit} lines were loaded.`;
+      }
+
+      return { content: result };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       return { content: `Error reading file: ${errorMessage}`, is_error: true };
     }
   },
 };
+
+/**
+ * Handle reading image files (bwA function in binary)
+ */
+async function handleImageRead(filePath: string, signal?: AbortSignal): Promise<ToolResult> {
+  try {
+    const result = await readImageFile(filePath, 25000, signal);
+    const imageBlock = toImageBlock(result);
+
+    // Return as ContentBlock array for proper image handling
+    // TODO: Return image block when using native Anthropic API (proxies like Z.AI don't support images in tool_result)
+    // For now, return text description only
+    // When proxy support is detected, return: [{ type: "text", text: formatImageResult(result) }, imageBlock]
+    return {
+      content: `${formatImageResult(result)}
+
+Note: Image content was read but cannot be displayed through this API proxy. When using native Anthropic API, the image would be included for visual analysis.`,
+    };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return { content: `Error reading image: ${errorMessage}`, is_error: true };
+  }
+}
 
 // ============================================
 // WRITE TOOL
@@ -1111,6 +1179,162 @@ Use this tool to terminate a long-running task.`,
 };
 
 // ============================================
+// MULTI-EDIT TOOL (Atomic Multi-File Editing)
+// ============================================
+
+export const MultiEditTool: ToolDefinition = {
+  name: "MultiEdit",
+  description: `Performs atomic multi-file editing with rollback on failure.
+
+This tool allows you to edit multiple files simultaneously in a single atomic operation.
+If any edit fails, all changes are automatically rolled back to maintain consistency.
+
+Key features:
+- Validates all edits before applying (files exist, strings found)
+- Creates automatic backups before editing
+- Applies all edits atomically (all-or-nothing)
+- Rolls back on any failure
+
+Use this when you need to make coordinated changes across multiple files and want
+to ensure either all changes succeed or none are applied.
+
+IMPORTANT: You MUST read the files first before using this tool. Only edit files you have already read.`,
+  input_schema: {
+    type: "object",
+    properties: {
+      edits: {
+        type: "array",
+        description: "Array of edit operations to apply atomically",
+        items: {
+          type: "object",
+          properties: {
+            file_path: {
+              type: "string",
+              description: "The absolute path to the file to edit",
+            },
+            old_string: {
+              type: "string",
+              description: "The text to find and replace",
+            },
+            new_string: {
+              type: "string",
+              description: "The text to replace it with",
+            },
+            replace_all: {
+              type: "boolean",
+              description: "Replace all occurrences (default: false)",
+            },
+          },
+          required: ["file_path", "old_string", "new_string"],
+        },
+      },
+      dry_run: {
+        type: "boolean",
+        description: "Preview changes without applying them (default: false)",
+      },
+    },
+    required: ["edits"],
+  },
+  handler: async (args, context: ToolContext): Promise<ToolResult> => {
+    const rawEdits = args.edits as Array<{
+      file_path?: string;
+      old_string?: string;
+      new_string?: string;
+      replace_all?: boolean;
+    }>;
+    const dryRun = (args.dry_run as boolean) || false;
+
+    try {
+      // Validate inputs
+      if (!Array.isArray(rawEdits) || rawEdits.length === 0) {
+        return { content: "Error: edits must be a non-empty array", is_error: true };
+      }
+
+      // Validate each edit has required fields and convert to native format
+      const edits: MultiEditEntry[] = [];
+      for (let i = 0; i < rawEdits.length; i++) {
+        const rawEdit = rawEdits[i];
+        if (!rawEdit || !rawEdit.file_path || !rawEdit.old_string || rawEdit.new_string === undefined) {
+          return {
+            content: `Error: Edit at index ${i} is missing required fields (file_path, old_string, new_string)`,
+            is_error: true,
+          };
+        }
+        edits.push({
+          filePath: rawEdit.file_path,
+          oldString: rawEdit.old_string,
+          newString: rawEdit.new_string,
+          replaceAll: rawEdit.replace_all || false,
+        });
+      }
+
+      // If dry run, just preview
+      if (dryRun) {
+        const preview = preview_multi_edits(edits);
+        const errors = validate_multi_edits(edits);
+
+        if (errors.length > 0) {
+          return {
+            content: JSON.stringify({
+              valid: false,
+              errors,
+              preview: preview,
+            }, null, 2),
+            is_error: true,
+          };
+        }
+
+        return {
+          content: JSON.stringify({
+            valid: true,
+            preview: preview,
+            total_files: preview.length,
+            total_replacements: preview.reduce((sum, p) => sum + p.replacementCount, 0),
+            message: "Dry run successful - no changes applied",
+          }, null, 2),
+        };
+      }
+
+      // Validate all edits first
+      const errors = validate_multi_edits(edits);
+      if (errors.length > 0) {
+        return {
+          content: `Validation failed:\n${errors.join("\n")}`,
+          is_error: true,
+        };
+      }
+
+      // Apply edits atomically
+      const result = apply_multi_edits(edits);
+
+      if (result.success) {
+        return {
+          content: JSON.stringify({
+            success: true,
+            files_modified: result.filesModified,
+            total_replacements: result.totalReplacements,
+            message: `Successfully applied ${result.totalReplacements} replacement(s) across ${result.filesModified.length} file(s)`,
+          }, null, 2),
+        };
+      } else {
+        return {
+          content: JSON.stringify({
+            success: false,
+            error: result.error,
+            rolled_back: result.rolledBack,
+            files_modified: result.filesModified,
+          }, null, 2),
+          is_error: true,
+        };
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return { content: `Error applying multi-edit: ${errorMessage}`, is_error: true };
+    }
+  },
+};
+
+// ============================================
 // NOTEBOOK EDIT TOOL
 // ============================================
 
@@ -1269,10 +1493,335 @@ Jupyter notebooks are interactive documents that combine code, text, and visuali
 // ALL BUILT-IN TOOLS
 // ============================================
 
+// ============================================
+// TEMPGlmVision TOOL (Simple Vision via GLM)
+// ============================================
+
+export const TempGlmVisionTool: ToolDefinition = {
+  name: "tempglmvision",
+  description: `Analyze images using GLM-4.6V vision model. Use this tool when you need to analyze, describe, or extract information from images. Supports PNG, JPG, JPEG, GIF, and WEBP formats. Accepts both local file paths and remote URLs.`,
+  input_schema: {
+    type: "object",
+    properties: {
+      imageSource: {
+        type: "string",
+        description: "Local file path or remote URL to the image (supports PNG, JPG, JPEG, GIF, WEBP)",
+      },
+      prompt: {
+        type: "string",
+        description: "Detailed text prompt describing what to analyze, extract, or understand from the image.",
+      },
+    },
+    required: ["imageSource", "prompt"],
+  },
+  handler: async (args, context: ToolContext): Promise<ToolResult> => {
+    const imageSource = args.imageSource as string;
+    const prompt = args.prompt as string;
+
+    try {
+      // Get API credentials from environment
+      const apiKey = process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN;
+      if (!apiKey) {
+        return {
+          content: "Error: No API key found. Set ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN.",
+          is_error: true,
+        };
+      }
+
+      const baseUrl = process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com";
+
+      // Read and encode the image
+      let imageData: string;
+      let mediaType: string;
+
+      if (imageSource.startsWith("http://") || imageSource.startsWith("https://")) {
+        // Fetch remote image
+        const response = await fetch(imageSource);
+        if (!response.ok) {
+          return {
+            content: `Error fetching image: ${response.status} ${response.statusText}`,
+            is_error: true,
+          };
+        }
+        const buffer = Buffer.from(await response.arrayBuffer());
+        imageData = buffer.toString("base64");
+
+        // Detect media type from content-type header or extension
+        const contentType = response.headers.get("content-type");
+        if (contentType?.includes("image/png")) {
+          mediaType = "image/png";
+        } else if (contentType?.includes("image/gif")) {
+          mediaType = "image/gif";
+        } else if (contentType?.includes("image/webp")) {
+          mediaType = "image/webp";
+        } else {
+          mediaType = "image/jpeg"; // Default to JPEG
+        }
+      } else {
+        // Local file path
+        const file = Bun.file(imageSource);
+        if (!(await file.exists())) {
+          return {
+            content: `Error: Image file not found: ${imageSource}`,
+            is_error: true,
+          };
+        }
+        const buffer = Buffer.from(await file.arrayBuffer());
+        imageData = buffer.toString("base64");
+
+        // Detect media type from extension
+        const ext = path.extname(imageSource).toLowerCase();
+        if (ext === ".png") {
+          mediaType = "image/png";
+        } else if (ext === ".gif") {
+          mediaType = "image/gif";
+        } else if (ext === ".webp") {
+          mediaType = "image/webp";
+        } else {
+          mediaType = "image/jpeg";
+        }
+      }
+
+      // Build request for vision model
+      const request = {
+        model: "glm-5", // Vision-capable model (GLM-4.6V equivalent)
+        max_tokens: 4096,
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "image",
+                source: {
+                  type: "base64",
+                  media_type: mediaType,
+                  data: imageData,
+                },
+              },
+              {
+                type: "text",
+                text: prompt,
+              },
+            ],
+          },
+        ],
+      };
+
+      // Make API request
+      const response = await fetch(`${baseUrl}/v1/messages`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify(request),
+        signal: context.abortSignal,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        return {
+          content: `Vision API error: ${response.status} - ${errorText}`,
+          is_error: true,
+        };
+      }
+
+      const result = (await response.json()) as {
+        content?: Array<{ type: string; text?: string }>;
+        error?: { message: string };
+      };
+
+      if (result.error) {
+        return {
+          content: `Vision API error: ${result.error.message}`,
+          is_error: true,
+        };
+      }
+
+      // Extract text from response
+      const textContent = result.content
+        ?.filter((block) => block.type === "text")
+        .map((block) => block.text)
+        .join("\n");
+
+      return {
+        content: textContent || "No text content in vision response",
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return { content: `Error analyzing image: ${errorMessage}`, is_error: true };
+    }
+  },
+};
+
+// ============================================
+// ANALYZE IMAGE TOOL (Vision via GLM)
+// ============================================
+
+export const AnalyzeImageTool: ToolDefinition = {
+  name: "mcp__4_5v_mcp__analyze_image",
+  description: `Analyze an image using advanced AI vision models with comprehensive understanding capabilities. Supports PNG, JPG, JPEG, GIF, and WEBP formats. Accepts both local file paths and remote URLs.`,
+  input_schema: {
+    type: "object",
+    properties: {
+      imageSource: {
+        type: "string",
+        description: "Local file path or remote URL to the image (supports PNG, JPG, JPEG, GIF, WEBP)",
+      },
+      prompt: {
+        type: "string",
+        description: "Detailed text prompt describing what to analyze, extract, or understand from the image. For front-end code replication, describe layout structure, color style, main components, and interactive elements.",
+      },
+    },
+    required: ["imageSource", "prompt"],
+  },
+  handler: async (args, context: ToolContext): Promise<ToolResult> => {
+    const imageSource = args.imageSource as string;
+    const prompt = args.prompt as string;
+
+    try {
+      // Get API credentials from environment
+      const apiKey = process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN;
+      if (!apiKey) {
+        return {
+          content: "Error: No API key found. Set ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN.",
+          is_error: true,
+        };
+      }
+
+      const baseUrl = process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com";
+
+      // Read and encode the image
+      let imageData: string;
+      let mediaType: string;
+
+      if (imageSource.startsWith("http://") || imageSource.startsWith("https://")) {
+        // Fetch remote image
+        const response = await fetch(imageSource);
+        if (!response.ok) {
+          return {
+            content: `Error fetching image: ${response.status} ${response.statusText}`,
+            is_error: true,
+          };
+        }
+        const buffer = Buffer.from(await response.arrayBuffer());
+        imageData = buffer.toString("base64");
+
+        // Detect media type from content-type header or extension
+        const contentType = response.headers.get("content-type");
+        if (contentType?.includes("image/png")) {
+          mediaType = "image/png";
+        } else if (contentType?.includes("image/gif")) {
+          mediaType = "image/gif";
+        } else if (contentType?.includes("image/webp")) {
+          mediaType = "image/webp";
+        } else {
+          mediaType = "image/jpeg"; // Default to JPEG
+        }
+      } else {
+        // Local file path
+        const file = Bun.file(imageSource);
+        if (!(await file.exists())) {
+          return {
+            content: `Error: Image file not found: ${imageSource}`,
+            is_error: true,
+          };
+        }
+        const buffer = Buffer.from(await file.arrayBuffer());
+        imageData = buffer.toString("base64");
+
+        // Detect media type from extension
+        const ext = path.extname(imageSource).toLowerCase();
+        if (ext === ".png") {
+          mediaType = "image/png";
+        } else if (ext === ".gif") {
+          mediaType = "image/gif";
+        } else if (ext === ".webp") {
+          mediaType = "image/webp";
+        } else {
+          mediaType = "image/jpeg";
+        }
+      }
+
+      // Build request for vision model
+      const request = {
+        model: "glm-5", // Vision-capable model
+        max_tokens: 4096,
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "image",
+                source: {
+                  type: "base64",
+                  media_type: mediaType,
+                  data: imageData,
+                },
+              },
+              {
+                type: "text",
+                text: prompt,
+              },
+            ],
+          },
+        ],
+      };
+
+      // Make API request
+      const response = await fetch(`${baseUrl}/v1/messages`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify(request),
+        signal: context.abortSignal,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        return {
+          content: `Vision API error: ${response.status} - ${errorText}`,
+          is_error: true,
+        };
+      }
+
+      const result = (await response.json()) as {
+        content?: Array<{ type: string; text?: string }>;
+        error?: { message: string };
+      };
+
+      if (result.error) {
+        return {
+          content: `Vision API error: ${result.error.message}`,
+          is_error: true,
+        };
+      }
+
+      // Extract text from response
+      const textContent = result.content
+        ?.filter((block) => block.type === "text")
+        .map((block) => block.text)
+        .join("\n");
+
+      return {
+        content: textContent || "No text content in vision response",
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return { content: `Error analyzing image: ${errorMessage}`, is_error: true };
+    }
+  },
+};
+
 export const builtInTools: ToolDefinition[] = [
   ReadTool,
   WriteTool,
   EditTool,
+  MultiEditTool,
   BashTool,
   GlobTool,
   GrepTool,
@@ -1284,6 +1833,8 @@ export const builtInTools: ToolDefinition[] = [
   ExitPlanModeTool,
   SkillTool,
   NotebookEditTool,
+  AnalyzeImageTool,
+  TempGlmVisionTool,
 ];
 
 export function getToolByName(name: string): ToolDefinition | undefined {
