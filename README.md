@@ -1,25 +1,17 @@
-# @ebowwa/claude-code-remake
+# @ebowwa/coder
 
 A reimplementation of Claude Code CLI using TypeScript + Bun + Rust.
 
 Based on binary analysis of Claude Code v2.1.50 (~92% feature parity).
 
-## Features
-
-- **API Client**: SSE streaming for Anthropic API with cost calculation
-- **Agent Loop**: Turn-based processing with tool execution
-- **Built-in Tools**: Read, Write, Edit, Bash, Glob, Grep
-- **MCP Client**: Model Context Protocol support (stdio, HTTP, SSE, WebSocket)
-- **Hook System**: 10 lifecycle events for customization
-- **Skill System**: YAML frontmatter skills with `/skillname` invocation
-- **Teammate System**: Multi-agent coordination with tmux backend
-- **Native Module**: Rust-based performance for search, tokens, diff, compact
-
 ## Installation
 
 ```bash
-bun install
-bun run build
+# Install globally
+npm install -g @ebowwa/coder
+
+# Or with bun
+bun add -g @ebowwa/coder
 ```
 
 ## Usage
@@ -28,22 +20,22 @@ bun run build
 
 ```bash
 # Interactive mode
-bun run cli
+coder
 
 # Single query
-bun run cli "What files are in this directory?"
+coder "What files are in this directory?"
 
 # With specific model
-bun run cli -m claude-opus-4-6 "Explain this codebase"
+coder -m claude-opus-4-6 "Explain this codebase"
 
 # With permission mode
-bun run cli --permission-mode acceptEdits "Add a test"
+coder --permission-mode acceptEdits "Add a test"
 ```
 
 ### Programmatic
 
 ```typescript
-import { createMessageStream, agentLoop, tools } from "@ebowwa/claude-code-remake";
+import { createMessageStream, agentLoop, tools } from "@ebowwa/coder";
 
 // Stream API messages
 const result = await createMessageStream(messages, {
@@ -62,13 +54,37 @@ const agentResult = await agentLoop(messages, {
 });
 ```
 
+## Features
+
+- **API Client**: SSE streaming for Anthropic API with cost calculation
+- **Agent Loop**: Turn-based processing with tool execution
+- **Built-in Tools**: Read, Write, Edit, Bash, Glob, Grep
+- **MCP Client**: Model Context Protocol support (stdio, HTTP, SSE, WebSocket)
+- **Hook System**: 10 lifecycle events for customization
+- **Skill System**: YAML frontmatter skills with `/skillname` invocation
+- **Teammate System**: Multi-agent coordination with tmux backend
+- **Native Module**: Rust-based performance for critical operations
+
+## Native Modules (Rust)
+
+The `@ebowwa/coder-native` package provides high-performance operations:
+
+| Module | Description |
+|--------|-------------|
+| **grep** | Ripgrep-based file search with regex support |
+| **hash** | xxHash3/SHA-256 content hashing |
+| **highlight** | Syntax highlighting with syntect |
+| **structure** | Tree-sitter code structure parsing |
+| **patterns** | Tool usage pattern analysis |
+| **multi_edit** | Batch file editing with validation |
+
 ## Project Structure
 
 ```
 claude-code-remake/
 ├── src/
 │   ├── types/          # TypeScript type definitions
-│   ├── core/           # API client, agent loop
+│   ├── core/           # API client, agent loop, checkpoints
 │   ├── tools/          # Built-in tools (Read, Write, Edit, Bash, etc.)
 │   ├── mcp/            # MCP client implementation
 │   ├── hooks/          # Hook system for lifecycle events
@@ -78,10 +94,13 @@ claude-code-remake/
 │   └── cli.ts          # CLI entry point
 ├── rust/
 │   └── src/
-│       ├── search.rs   # Ripgrep-based file search
-│       ├── tokens.rs   # Token counting
-│       ├── diff.rs     # Diff calculation
-│       └── compact.rs  # Content compaction
+│       ├── grep.rs     # Ripgrep-based file search
+│       ├── hash.rs     # Content hashing (xxHash3, SHA-256)
+│       ├── highlight.rs # Syntax highlighting
+│       ├── structure.rs # Tree-sitter parsing
+│       ├── patterns.rs  # Tool pattern analysis
+│       ├── multi_edit.rs # Batch file operations
+│       └── diff.rs     # Diff calculation
 ├── native/             # Compiled native modules
 └── dist/               # Build output
 ```
@@ -105,6 +124,9 @@ claude-code-remake/
 ## Development
 
 ```bash
+# Install dependencies
+bun install
+
 # Build TypeScript
 bun run build:ts
 
@@ -116,7 +138,17 @@ bun run build
 
 # Development mode with watch
 bun run dev
+
+# Run tests
+bun test
 ```
+
+## Packages
+
+| Package | Version | Description |
+|---------|---------|-------------|
+| [@ebowwa/coder](https://www.npmjs.com/package/@ebowwa/coder) | 0.2.0 | Main CLI package |
+| [@ebowwa/coder-native](https://www.npmjs.com/package/@ebowwa/coder-native) | 0.2.0 | Native Rust modules |
 
 ## License
 
