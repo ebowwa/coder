@@ -11,6 +11,7 @@ import { MCPClientImpl, createMCPClients } from "./mcp/client.js";
 import { HookManager, builtInHooks } from "./hooks/index.js";
 import { SkillManager, isSkillInvocation, parseSkillFile, buildSkillPrompt } from "./skills/index.js";
 import { TeammateManager } from "./teammates/index.js";
+import { createStreamHighlighter } from "./core/stream-highlighter.js";
 import {
   SessionStore,
   printSessionsList,
@@ -217,7 +218,7 @@ function parseArgs(): CLIArgs {
 
 function printHelp(): void {
   console.log(`
-Claude Code Remake v0.1.0
+Coder v0.1.0
 A reimplementation of Claude Code CLI
 
 USAGE:
@@ -276,9 +277,9 @@ async function main(): Promise<void> {
 
   // Check for API key (support multiple env var names including Doppler's Z_AI_API_KEY)
   const apiKey = process.env.ANTHROPIC_API_KEY ||
-                 process.env.CLAUDE_API_KEY ||
-                 process.env.ANTHROPIC_AUTH_TOKEN ||
-                 process.env.Z_AI_API_KEY;
+    process.env.CLAUDE_API_KEY ||
+    process.env.ANTHROPIC_AUTH_TOKEN ||
+    process.env.Z_AI_API_KEY;
   if (!apiKey) {
     console.error("Error: ANTHROPIC_API_KEY, CLAUDE_API_KEY, ANTHROPIC_AUTH_TOKEN, or Z_AI_API_KEY environment variable required");
     process.exit(1);
@@ -975,6 +976,9 @@ async function runInteractiveMode(
       // Run agent loop
       process.stdout.write("\n\x1b[1;35mClaude:\x1b[0m ");
 
+      // Create stream highlighter for code blocks
+      const highlighter = createStreamHighlighter();
+
       // Build extended thinking config
       const extendedThinkingConfig: ExtendedThinkingConfig | undefined = args.extendedThinking ? {
         enabled: true,
@@ -993,7 +997,10 @@ async function runInteractiveMode(
         gitStatus,
         extendedThinking: extendedThinkingConfig,
         onText: (text) => {
-          process.stdout.write(text);
+          const highlighted = highlighter.process(text);
+          if (highlighted) {
+            process.stdout.write(highlighted);
+          }
         },
         onThinking: (thinking) => {
           // Show thinking in a dimmed style
@@ -1025,6 +1032,12 @@ async function runInteractiveMode(
           return result;
         },
       });
+
+      // Flush any remaining highlighted content
+      const remaining = highlighter.flush();
+      if (remaining) {
+        process.stdout.write(remaining);
+      }
 
       // Save assistant message to session
       const lastMessage = result.messages[result.messages.length - 1];
@@ -1072,6 +1085,9 @@ async function runSingleQuery(
   // Get git status before running agent loop
   const gitStatus = await getGitStatus(process.cwd());
 
+  // Create stream highlighter for code blocks
+  const highlighter = createStreamHighlighter();
+
   // Build extended thinking config
   const extendedThinkingConfig: ExtendedThinkingConfig | undefined = args.extendedThinking ? {
     enabled: true,
@@ -1091,7 +1107,10 @@ async function runSingleQuery(
       gitStatus,
       extendedThinking: extendedThinkingConfig,
       onText: (text) => {
-        process.stdout.write(text);
+        const highlighted = highlighter.process(text);
+        if (highlighted) {
+          process.stdout.write(highlighted);
+        }
       },
       onThinking: (thinking) => {
         process.stdout.write(`\x1b[90m${thinking}\x1b[0m`);
@@ -1101,6 +1120,12 @@ async function runSingleQuery(
         await sessionStore.saveMetrics(metrics);
       },
     });
+
+    // Flush any remaining highlighted content
+    const remaining = highlighter.flush();
+    if (remaining) {
+      process.stdout.write(remaining);
+    }
 
     // Save assistant message to session
     const lastMessage = result.messages[result.messages.length - 1];

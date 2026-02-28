@@ -459,35 +459,32 @@ export async function createMessageStream(
             }
 
             case "content_block_stop": {
-              const blockIdx = (event as { content_block: Record<string, unknown> }).content_block;
-              if (blockIdx.type === "text") {
-                currentContent.push(currentTextBlock!);
+              // content_block_stop event has { index: number }, not the block itself
+              // We need to check which current block is active and push it
+              if (currentTextBlock !== null) {
+                currentContent.push(currentTextBlock);
                 currentTextBlock = null;
-              } else if (blockIdx.type === "thinking") {
-                currentContent.push(currentThinkingBlock!);
+              } else if (currentThinkingBlock !== null) {
+                currentContent.push(currentThinkingBlock);
                 currentThinkingBlock = null;
-              } else if (blockIdx.type === "redacted_thinking") {
-                // Handle redacted thinking blocks
-                const redactedBlock: RedactedThinkingBlock = {
-                  type: "redacted_thinking",
-                  data: (blockIdx as { data: string }).data,
-                };
-                currentContent.push(redactedBlock);
-                onRedactedThinking?.(redactedBlock.data);
+              } else if (currentRedactedThinkingBlock !== null) {
+                currentContent.push(currentRedactedThinkingBlock);
+                onRedactedThinking?.(currentRedactedThinkingBlock.data);
                 currentRedactedThinkingBlock = null;
-              } else if (blockIdx.type === "tool_use") {
+              } else if (currentToolUseBlock !== null) {
                 try {
-                  currentToolUseBlock!.input = JSON.parse(toolUseInput);
+                  currentToolUseBlock.input = JSON.parse(toolUseInput);
                 } catch {
-                  currentToolUseBlock!.input = {};
+                  currentToolUseBlock.input = {};
                 }
-                currentContent.push(currentToolUseBlock!);
+                currentContent.push(currentToolUseBlock);
                 onToolUse?.({
-                  id: currentToolUseBlock!.id,
-                  name: currentToolUseBlock!.name,
-                  input: currentToolUseBlock!.input,
+                  id: currentToolUseBlock.id,
+                  name: currentToolUseBlock.name,
+                  input: currentToolUseBlock.input,
                 });
                 currentToolUseBlock = null;
+                toolUseInput = "";
               }
               break;
             }
