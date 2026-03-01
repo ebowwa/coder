@@ -44,8 +44,8 @@ pub struct AgentIntent {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub signature: Option<String>,
 
-    /// Timestamp of creation
-    pub created_at: u64,
+    /// Timestamp of creation (Unix timestamp as f64 for napi compatibility)
+    pub created_at: f64,
 
     /// Public key that signed this intent (hex)
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -190,9 +190,9 @@ pub struct ActionContext {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub target: Option<String>,
 
-    /// Additional parameters
+    /// Additional parameters (JSON string for napi compatibility)
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub params: Option<serde_json::Value>,
+    pub params: Option<String>,
 
     /// Why the agent wants to do this
     #[serde(skip_serializing_if = "Option::is_none")]

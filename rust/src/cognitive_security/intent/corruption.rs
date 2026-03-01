@@ -85,9 +85,11 @@ pub struct CorruptionIndicator {
 /// Analyze behavior for signs of intent corruption
 #[napi_derive::napi]
 pub fn analyze_corruption(
-    snapshot: &BehaviorSnapshot,
-    intent: &AgentIntent,
+    snapshot: BehaviorSnapshot,
+    intent: AgentIntent,
 ) -> CorruptionAnalysis {
+    let snapshot = &snapshot;
+    let intent = &intent;
     let mut indicators = Vec::new();
     let mut risk_factors = Vec::new();
 
@@ -265,8 +267,8 @@ pub fn analyze_corruption(
 /// Compare two behavior snapshots to detect behavioral drift
 #[napi_derive::napi]
 pub fn detect_behavioral_drift(
-    baseline: &BehaviorSnapshot,
-    current: &BehaviorSnapshot,
+    baseline: BehaviorSnapshot,
+    current: BehaviorSnapshot,
 ) -> DriftResult {
     let mut drift_factors = Vec::new();
 
@@ -285,11 +287,11 @@ pub fn detect_behavioral_drift(
     let mut domain_drift = 0.0;
     let baseline_domains: std::collections::HashMap<&str, f64> = baseline.actions_by_domain
         .iter()
-        .map(|d| (d.domain.as_str(), d.count as f64 / baseline.action_count.max(1) as f64))
+        .map(|d| (d.domain.as_str(), d.count / baseline.action_count.max(1.0)))
         .collect();
     let current_domains: std::collections::HashMap<&str, f64> = current.actions_by_domain
         .iter()
-        .map(|d| (d.domain.as_str(), d.count as f64 / current.action_count.max(1) as f64))
+        .map(|d| (d.domain.as_str(), d.count / current.action_count.max(1.0)))
         .collect();
 
     for (domain, baseline_pct) in &baseline_domains {
@@ -310,8 +312,8 @@ pub fn detect_behavioral_drift(
     });
 
     // 3. Violation rate drift
-    let baseline_violation_rate = baseline.boundary_violations as f64 / baseline.action_count.max(1) as f64;
-    let current_violation_rate = current.boundary_violations as f64 / current.action_count.max(1) as f64;
+    let baseline_violation_rate = baseline.boundary_violations / baseline.action_count.max(1.0);
+    let current_violation_rate = current.boundary_violations / current.action_count.max(1.0);
     let violation_drift = (current_violation_rate - baseline_violation_rate).abs();
 
     drift_factors.push(DriftFactor {
@@ -371,19 +373,19 @@ pub fn create_empty_snapshot() -> BehaviorSnapshot {
         timestamp: std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
-            .as_secs(),
-        action_count: 0,
+            .as_secs() as f64,
+        action_count: 0.0,
         alignment_distribution: AlignmentDistribution {
             mean: 0.0,
             variance: 0.0,
             min: 0.0,
             max: 0.0,
-            below_threshold_count: 0,
+            below_threshold_count: 0.0,
         },
         actions_by_domain: Vec::new(),
         actions_by_type: Vec::new(),
-        boundary_violations: 0,
-        actions_blocked: 0,
+        boundary_violations: 0.0,
+        actions_blocked: 0.0,
     }
 }
 
@@ -394,14 +396,14 @@ pub fn update_snapshot(
     action: ActionContext,
     alignment: AlignmentResult,
 ) -> BehaviorSnapshot{
-    snapshot.action_count += 1;
+    snapshot.action_count += 1.0;
     snapshot.timestamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
-        .as_secs();
+        .as_secs() as f64;
 
     // Update alignment distribution (running calculation)
-    let n = snapshot.action_count as f64;
+    let n = snapshot.action_count;
     let old_mean = snapshot.alignment_distribution.mean;
     let new_score = alignment.score;
 
@@ -418,19 +420,19 @@ pub fn update_snapshot(
     snapshot.alignment_distribution.max = snapshot.alignment_distribution.max.max(new_score);
 
     // Track below threshold
-    if new_score < 0.5{
-        snapshot.alignment_distribution.below_threshold_count += 1;
+    if new_score < 0.5 {
+        snapshot.alignment_distribution.below_threshold_count += 1.0;
     }
 
     // Update domain counts
     if let Some(domain_count) = snapshot.actions_by_domain.iter_mut()
         .find(|d| d.domain == action.domain)
     {
-        domain_count.count += 1;
+        domain_count.count += 1.0;
     } else {
         snapshot.actions_by_domain.push(DomainCount {
             domain: action.domain.clone(),
-            count: 1,
+            count: 1.0,
         });
     }
 
@@ -438,20 +440,20 @@ pub fn update_snapshot(
     if let Some(type_count) = snapshot.actions_by_type.iter_mut()
         .find(|t| t.action_type == action.action_type)
     {
-        type_count.count += 1;
+        type_count.count += 1.0;
     } else {
         snapshot.actions_by_type.push(TypeCount {
             action_type: action.action_type.clone(),
-            count: 1,
+            count: 1.0,
         });
     }
 
     // Track violations and blocks
     if !alignment.boundary_concerns.is_empty() {
-        snapshot.boundary_violations += 1;
+        snapshot.boundary_violations += 1.0;
     }
     if alignment.should_block {
-        snapshot.actions_blocked += 1;
+        snapshot.actions_blocked += 1.0;
     }
 
     snapshot

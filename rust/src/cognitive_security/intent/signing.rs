@@ -5,7 +5,7 @@
 //! without detection.
 
 use super::{AgentIntent, IntegrityResult};
-use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey, KEYPAIR_LENGTH};
+use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
 use rand::rngs::OsRng;
 use serde::Serialize;
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
@@ -39,12 +39,12 @@ pub fn sign_intent(mut intent: AgentIntent, private_key_hex: String) -> napi::Re
     let private_key_bytes = hex::decode(&private_key_hex)
         .map_err(|e| napi::Error::from_reason(format!("Invalid private key hex: {}", e)))?;
 
-    let signing_key = SigningKey::from_bytes(
-        private_key_bytes
-            .as_slice()
-            .try_into()
-            .map_err(|_| napi::Error::from_reason("Invalid private key length"))?,
-    );
+    let key_array: [u8; 32] = private_key_bytes
+        .as_slice()
+        .try_into()
+        .map_err(|_| napi::Error::from_reason("Invalid private key length (expected 32 bytes)"))?;
+
+    let signing_key = SigningKey::from_bytes(&key_array);
 
     // Create canonical representation for signing
     // We sign everything EXCEPT the signature field itself
@@ -64,7 +64,7 @@ pub fn sign_intent(mut intent: AgentIntent, private_key_hex: String) -> napi::Re
 
 /// Verify an intent's signature
 #[napi_derive::napi]
-pub fn verify_intent_signature(intent: &AgentIntent) -> IntegrityResult {
+pub fn verify_intent_signature(intent: AgentIntent) -> IntegrityResult {
     // Check if signature exists
     let signature_b64 = match &intent.signature {
         Some(s) => s.clone(),
@@ -107,12 +107,20 @@ pub fn verify_intent_signature(intent: &AgentIntent) -> IntegrityResult {
         }
     };
 
-    let verifying_key = match VerifyingKey::from_bytes(
-        public_key_bytes
-            .as_slice()
-            .try_into()
-            .map_err(|_| "Invalid public key length"),
-    ) {
+    let key_array: [u8; 32] = match public_key_bytes.as_slice().try_into() {
+        Ok(arr) => arr,
+        Err(_) => {
+            return IntegrityResult {
+                valid: false,
+                error: Some("Invalid public key length (expected 32 bytes)".to_string()),
+                signature_valid: false,
+                content_intact: false,
+                expired: false,
+            };
+        }
+    };
+
+    let verifying_key = match VerifyingKey::from_bytes(&key_array) {
         Ok(key) => key,
         Err(e) => {
             return IntegrityResult {
@@ -153,7 +161,7 @@ pub fn verify_intent_signature(intent: &AgentIntent) -> IntegrityResult {
     };
 
     // Get canonical representation
-    let canonical = match canonicalize_for_signing(intent) {
+    let canonical = match canonicalize_for_signing(&intent) {
         Ok(c) => c,
         Err(e) => {
             return IntegrityResult {
@@ -210,7 +218,7 @@ fn generate_intent_id(intent: &AgentIntent) -> String {
     let mut hasher = DefaultHasher::new();
     intent.version.hash(&mut hasher);
     intent.identity.name.hash(&mut hasher);
-    intent.created_at.hash(&mut hasher);
+    intent.created_at.to_bits().hash(&mut hasher);
 
     format!("intent-{:016x}", hasher.finish())
 }
@@ -223,15 +231,15 @@ struct SignedIntentForSigning<'a> {
     identity: &'a super::AgentIdentity,
     purpose: &'a super::AgentPurpose,
     principles: &'a super::AgentPrinciples,
-    created_at: u64,
+    created_at: f64,
 }
 
 /// Extract the canonical hash of an intent (for comparison/verification)
 #[napi_derive::napi]
-pub fn hash_intent(intent: &AgentIntent) -> String {
+pub fn hash_intent(intent: AgentIntent) -> String {
     use sha2::{Sha256, Digest};
 
-    let canonical = canonicalize_for_signing(intent).unwrap_or_default();
+    let canonical = canonicalize_for_signing(&intent).unwrap_or_default();
     let mut hasher = Sha256::new();
     hasher.update(canonical.as_bytes());
     hex::encode(hasher.finalize())
@@ -240,7 +248,7 @@ pub fn hash_intent(intent: &AgentIntent) -> String {
 /// Compare two intents to see if they represent the same core intent
 /// (ignoring signature differences)
 #[napi_derive::napi]
-pub fn intents_equivalent(intent1: &AgentIntent, intent2: &AgentIntent) -> bool {
+pub fn intents_equivalent(intent1: AgentIntent, intent2: AgentIntent) -> bool {
     // Compare canonical representations
     let hash1 = hash_intent(intent1);
     let hash2 = hash_intent(intent2);

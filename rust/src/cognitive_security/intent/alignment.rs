@@ -40,12 +40,12 @@ pub fn score_alignment(action: ActionContext, intent: AgentIntent) -> AlignmentR
                     ));
                 }
                 "log_only" | _ => {
+                    // log_only or unknown enforcement - just log the boundary proximity
                     boundary_concerns.push(format!(
                         "Near boundary '{}': {}",
                         boundary.id, boundary.description
                     ));
                 }
-                _ => {} // Unknown enforcement - treat as require_approval
             }
         }
     }

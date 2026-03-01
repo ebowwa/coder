@@ -34,7 +34,7 @@ pub fn create_intent_builder() -> IntentBuilder {
             created_at: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap_or_default()
-                .as_secs(),
+                .as_secs() as f64,
             signed_by: None,
         },
     }
@@ -51,44 +51,38 @@ pub struct IntentBuilder {
 impl IntentBuilder {
     /// Set agent name
     #[napi]
-    pub fn name(&mut self, name: String) -> &Self {
+    pub fn set_name(&mut self, name: String) {
         self.intent.identity.name = name;
-        self
     }
 
     /// Set agent description
     #[napi]
-    pub fn description(&mut self, description: String) -> &Self {
+    pub fn set_description(&mut self, description: String) {
         self.intent.identity.description = description;
-        self
     }
 
     /// Add a capability
     #[napi]
-    pub fn add_capability(&mut self, capability: String) -> &Self {
+    pub fn add_capability(&mut self, capability: String) {
         self.intent.identity.capabilities.push(capability);
-        self
     }
 
     /// Add multiple capabilities
     #[napi]
-    pub fn add_capabilities(&mut self, capabilities: Vec<String>) -> &Self {
+    pub fn add_capabilities(&mut self, capabilities: Vec<String>) {
         self.intent.identity.capabilities.extend(capabilities);
-        self
     }
 
     /// Add a constraint
     #[napi]
-    pub fn add_constraint(&mut self, constraint: String) -> &Self {
+    pub fn add_constraint(&mut self, constraint: String) {
         self.intent.identity.constraints.push(constraint);
-        self
     }
 
     /// Add multiple constraints
     #[napi]
-    pub fn add_constraints(&mut self, constraints: Vec<String>) -> &Self {
+    pub fn add_constraints(&mut self, constraints: Vec<String>) {
         self.intent.identity.constraints.extend(constraints);
-        self
     }
 
     /// Add a goal
@@ -99,7 +93,7 @@ impl IntentBuilder {
         description: String,
         priority: Option<String>,
         success_criteria: Option<String>,
-    ) -> &Self {
+    ) {
         self.intent.purpose.goals.push(Goal {
             id,
             description,
@@ -107,14 +101,12 @@ impl IntentBuilder {
             measurable: success_criteria.is_some(),
             success_criteria,
         });
-        self
     }
 
     /// Add a non-goal
     #[napi]
-    pub fn add_non_goal(&mut self, non_goal: String) -> &Self {
+    pub fn add_non_goal(&mut self, non_goal: String) {
         self.intent.purpose.non_goals.push(non_goal);
-        self
     }
 
     /// Add a boundary
@@ -126,7 +118,7 @@ impl IntentBuilder {
         domain: String,
         enforcement: Option<String>,
         pattern: Option<String>,
-    ) -> &Self {
+    ) {
         self.intent.purpose.boundaries.push(Boundary {
             id,
             description,
@@ -134,28 +126,24 @@ impl IntentBuilder {
             domain,
             pattern,
         });
-        self
     }
 
     /// Add a value
     #[napi]
-    pub fn add_value(&mut self, value: String) -> &Self {
+    pub fn add_value(&mut self, value: String) {
         self.intent.principles.values.push(value);
-        self
     }
 
     /// Add a priority
     #[napi]
-    pub fn add_priority(&mut self, priority: String) -> &Self {
+    pub fn add_priority(&mut self, priority: String) {
         self.intent.principles.priorities.push(priority);
-        self
     }
 
     /// Add a forbidden action/pattern
     #[napi]
-    pub fn add_forbidden(&mut self, forbidden: String) -> &Self {
+    pub fn add_forbidden(&mut self, forbidden: String) {
         self.intent.principles.forbidden.push(forbidden);
-        self
     }
 
     /// Build the intent (without signing)
@@ -273,77 +261,78 @@ pub fn create_data_collector_intent(
 ) -> AgentIntent {
     let mut builder = create_intent_builder();
 
-    builder
-        .name(name)
-        .description(description.clone())
-        .add_capabilities(vec![
-            "read_webpages".to_string(),
-            "call_apis".to_string(),
-            "store_data".to_string(),
-            "process_text".to_string(),
-        ])
-        .add_constraints(vec![
-            "no_code_modification".to_string(),
-            "no_shell_execution".to_string(),
-            "no_value_transfer".to_string(),
-        ])
+    builder.set_name(name);
+    builder.set_description(description.clone());
 
-        // Goals
-        .add_goal(
-            "collect_data".to_string(),
-            "Collect relevant data from configured sources".to_string(),
-            Some("high".to_string()),
-            None,
-        )
-        .add_goal(
-            "process_data".to_string(),
-            "Process and structure collected data".to_string(),
-            Some("medium".to_string()),
-            None,
-        )
-        .add_goal(
-            "store_findings".to_string(),
-            "Store processed data in designated storage".to_string(),
-            Some("medium".to_string()),
-            None,
-        )
+    builder.add_capabilities(vec![
+        "read_webpages".to_string(),
+        "call_apis".to_string(),
+        "store_data".to_string(),
+        "process_text".to_string(),
+    ]);
 
-        // Non-goals
-        .add_non_goal("interacting with users directly".to_string())
-        .add_non_goal("making financial decisions".to_string())
-        .add_non_goal("modifying source code".to_string())
+    builder.add_constraints(vec![
+        "no_code_modification".to_string(),
+        "no_shell_execution".to_string(),
+        "no_value_transfer".to_string(),
+    ]);
 
-        // Boundaries
-        .add_boundary(
-            "no_self_modification".to_string(),
-            "Cannot modify own source code or configuration".to_string(),
-            "code".to_string(),
-            Some("never".to_string()),
-            Some("self".to_string()),
-        )
-        .add_boundary(
-            "no_unapproved_storage".to_string(),
-            "Can only write to approved storage locations".to_string(),
-            "file".to_string(),
-            Some("require_approval".to_string()),
-            None,
-        )
+    // Goals
+    builder.add_goal(
+        "collect_data".to_string(),
+        "Collect relevant data from configured sources".to_string(),
+        Some("high".to_string()),
+        None,
+    );
+    builder.add_goal(
+        "process_data".to_string(),
+        "Process and structure collected data".to_string(),
+        Some("medium".to_string()),
+        None,
+    );
+    builder.add_goal(
+        "store_findings".to_string(),
+        "Store processed data in designated storage".to_string(),
+        Some("medium".to_string()),
+        None,
+    );
 
-        // Values
-        .add_value("Data accuracy over speed".to_string())
-        .add_value("Privacy and consent respect".to_string())
-        .add_value("Transparency in operations".to_string())
+    // Non-goals
+    builder.add_non_goal("interacting with users directly".to_string());
+    builder.add_non_goal("making financial decisions".to_string());
+    builder.add_non_goal("modifying source code".to_string());
 
-        // Priorities
-        .add_priority("Stay within boundaries".to_string())
-        .add_priority("Collect quality data".to_string())
-        .add_priority("Process efficiently".to_string())
+    // Boundaries
+    builder.add_boundary(
+        "no_self_modification".to_string(),
+        "Cannot modify own source code or configuration".to_string(),
+        "code".to_string(),
+        Some("never".to_string()),
+        Some("self".to_string()),
+    );
+    builder.add_boundary(
+        "no_unapproved_storage".to_string(),
+        "Can only write to approved storage locations".to_string(),
+        "file".to_string(),
+        Some("require_approval".to_string()),
+        None,
+    );
 
-        // Forbidden
-        .add_forbidden("execute_shell".to_string())
-        .add_forbidden("transfer_value".to_string())
-        .add_forbidden("modify_code".to_string())
-        .add_forbidden("expose_credentials".to_string());
+    // Values
+    builder.add_value("Data accuracy over speed".to_string());
+    builder.add_value("Privacy and consent respect".to_string());
+    builder.add_value("Transparency in operations".to_string());
+
+    // Priorities
+    builder.add_priority("Stay within boundaries".to_string());
+    builder.add_priority("Collect quality data".to_string());
+    builder.add_priority("Process efficiently".to_string());
+
+    // Forbidden
+    builder.add_forbidden("execute_shell".to_string());
+    builder.add_forbidden("transfer_value".to_string());
+    builder.add_forbidden("modify_code".to_string());
+    builder.add_forbidden("expose_credentials".to_string());
 
     builder.build()
 }
@@ -393,7 +382,7 @@ pub fn merge_intents(base: AgentIntent, override_intent: AgentIntent) -> AgentIn
     merged.created_at = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
-        .as_secs();
+        .as_secs() as f64;
 
     // Clear signature (needs re-signing)
     merged.signature = None;
