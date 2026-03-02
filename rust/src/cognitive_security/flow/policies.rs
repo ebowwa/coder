@@ -100,7 +100,9 @@ impl FlowPolicyEngine {
     pub fn new() -> Self {
         let mut engine = FlowPolicyEngine {
             policies: Vec::new(),
-            default_action: DefaultFlowAction::Deny,
+            // Use AuditOnly for development - allows operations but logs them
+            // Change to Deny for production deployment
+            default_action: DefaultFlowAction::AuditOnly,
             blp_mode: BlpEnforcementMode::Full,
         };
 
