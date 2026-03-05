@@ -147,8 +147,8 @@ export function MessageStoreProvider({
   const [apiMessages, setApiMessages] = useState<ApiMessage[]>(initialMessages);
   const [tokenCount, setTokenCount] = useState(0);
 
-  // Track how many API messages we've converted to avoid duplicates
-  const convertedCountRef = useRef(initialMessages.length);
+  // Track pending user messages that were added manually (to skip in addApiMessages)
+  const pendingUserMessagesRef = useRef<Set<string>>(new Set());
 
   const addMessage = useCallback((msg: Omit<UIMessage, "id" | "timestamp">): string => {
     const id = generateId();
@@ -158,6 +158,12 @@ export function MessageStoreProvider({
       timestamp: Date.now(),
     };
     setMessages((prev) => [...prev, fullMsg]);
+
+    // Track user messages that were added manually
+    if (msg.role === "user") {
+      pendingUserMessagesRef.current.add(msg.content);
+    }
+
     return id;
   }, []);
 
@@ -167,27 +173,22 @@ export function MessageStoreProvider({
     // Update API messages
     setApiMessages((prev) => [...prev, ...newApiMsgs]);
 
-    // Convert ALL new API messages to UI messages
-    // We need to do this because the API messages include the full conversation context
+    // Convert API messages to UI messages, skipping user messages that were already added manually
     const newUiMsgs = newApiMsgs
       .map(apiToUi)
-      .filter((m): m is UIMessage => m !== null);
+      .filter((m): m is UIMessage => m !== null)
+      .filter((m) => {
+        // Skip user messages that were already added manually
+        if (m.role === "user" && pendingUserMessagesRef.current.has(m.content)) {
+          pendingUserMessagesRef.current.delete(m.content); // Clean up
+          return false;
+        }
+        return true;
+      });
 
     if (newUiMsgs.length > 0) {
-      setMessages((prev) => {
-        // Deduplicate: only add messages we don't already have
-        // Compare by role and content to detect duplicates
-        const existingKeys = new Set(
-          prev.map((m) => `${m.role}:${m.content.slice(0, 100)}`)
-        );
-        const uniqueNewMsgs = newUiMsgs.filter(
-          (m) => !existingKeys.has(`${m.role}:${m.content.slice(0, 100)}`)
-        );
-        return [...prev, ...uniqueNewMsgs];
-      });
+      setMessages((prev) => [...prev, ...newUiMsgs]);
     }
-
-    convertedCountRef.current += newApiMsgs.length;
   }, []);
 
   const addSystem = useCallback((
@@ -208,13 +209,13 @@ export function MessageStoreProvider({
   const clear = useCallback(() => {
     setMessages([]);
     setApiMessages([]);
-    convertedCountRef.current = 0;
+    pendingUserMessagesRef.current.clear();
   }, []);
 
   const replace = useCallback((ui: UIMessage[], api: ApiMessage[]) => {
     setMessages(ui);
     setApiMessages(api);
-    convertedCountRef.current = api.length;
+    pendingUserMessagesRef.current.clear();
   }, []);
 
   const value: MessageStoreValue = {
