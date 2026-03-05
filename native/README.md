@@ -1,6 +1,6 @@
-# @ebowwa/claude-code-native
+# @ebowwa/coder-native
 
-Native Rust modules for [Claude Code Remake](https://github.com/ebowwa/codespaces).
+Native Rust modules for [@ebowwa/coder](https://github.com/ebowwa/coder).
 
 ## Features
 
@@ -12,9 +12,9 @@ Native Rust modules for [Claude Code Remake](https://github.com/ebowwa/codespace
 ## Installation
 
 ```bash
-bun add @ebowwa/claude-code-native
+bun add @ebowwa/coder-native
 # or
-npm install @ebowwa/claude-code-native
+npm install @ebowwa/coder-native
 ```
 
 ## Supported Platforms
@@ -27,7 +27,7 @@ npm install @ebowwa/claude-code-native
 ## Usage
 
 ```javascript
-const native = require('@ebowwa/claude-code-native');
+const native = require('@ebowwa/coder-native');
 
 // Search files
 const results = native.searchFiles('pattern', '/path/to/search');

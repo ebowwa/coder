@@ -1,0 +1,61 @@
+{
+  "name": "cheapspaces",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "workspaces": {
+    "packages": ["../packages/src/*"],
+    "catalog": {
+      "zod": "^3.22.0"
+    },
+    "catalogs": {
+      "dev": {
+        "@types/bun": "latest"
+      }
+    }
+  },
+  "scripts": {
+    "dev": "lsof -ti:3000 | xargs kill -9 2>/dev/null; bun --hot index.ts",
+    "start": "bun index.ts",
+    "build": "tsc",
+    "test": "bun test",
+    "test:sdk": "doppler run --project seed --config prd -- bun test tests/claudecodesdk.test.ts",
+    "demo:sdk": "doppler run --project seed --config prd -- bun run tests/claudecodesdk-demo.ts",
+    "demo:sdk:code": "doppler run --project seed --config prd -- bun run tests/claudecodesdk-code-demo.ts",
+    "verify:sdk": "doppler run --project seed --config prd -- bun run tests/claudecodesdk-verify.ts",
+    "doctor": "bun run workspace/src/doctor/audit.cli.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.57.0",
+    "@shadcn/ui": "^0.0.4",
+    "@tailwindcss/postcss": "^4.1.18",
+    "@types/bun": "latest",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "autoprefixer": "^10.4.23",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.18",
+    "tailwindcss-animate": "^1.0.7",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.7",
+    "@modelcontextprotocol/sdk": "^1.25.3",
+    "@types/node-ssh": "^11.0.0",
+    "@ebowwa/ai": "^0.1.0",
+    "@ebowwa/claudecodesdk": "^0.1.0",
+    "@ebowwa/codespaces-types": "^1.1.0",
+    "@ebowwa/terminal": "^0.2.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "hono": "^4.11.3",
+    "lucide-react": "^0.562.0",
+    "node-ssh": "^13.2.1",
+    "react": "18",
+    "react-dom": "18",
+    "tailwind-merge": "^3.4.0",
+    "xterm": "^5.3.0",
+    "xterm-addon-fit": "^0.8.0",
+    "zod": "^4.3.5"
+  }
+}

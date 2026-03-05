@@ -1,0 +1,1458 @@
+# Type Audit Index
+# Complete documentation of all TypeScript types and Zod schemas in the codebase
+
+metadata:
+  generated: "2025-01-18"
+  total_files: 13
+  total_lines: ~3200
+  total_types: ~150
+
+# ============================================================================
+# SHARED TYPES (app/shared/)
+# ============================================================================
+shared:
+  types_ts:
+    path: app/shared/types.ts
+    lines: 412
+    description: Central shared types between frontend and backend
+
+    hetzner_api_types:
+      - name: HetznerServerType
+        lines: 12-33
+        properties:
+          - id: number
+          - name: string
+          - description: string
+          - cores: number
+          - memory: number
+          - disk: number
+          - deprecated: boolean
+          - prices: Array<{location, price_hourly, price_monthly}>
+          - storage_type: "local" | "network"
+          - cpu_type: "shared" | "dedicated"
+
+      - name: HetznerLocation
+        lines: 38-47
+        properties:
+          - id: number
+          - name: string
+          - description: string
+          - country: string
+          - city: string
+          - latitude: number
+          - longitude: number
+          - network_zone: string
+
+    application_core_types:
+      - name: ActivePort
+        lines: 56-61
+        properties:
+          - port: number
+          - protocol: "tcp" | "udp"
+          - service?: string
+          - state: "open" | "closed" | "filtered"
+
+      - name: Environment
+        lines: 204-303
+        description: Main environment entity (comprehensive)
+        properties:
+          # Core identification
+          - id: string
+          - name: string
+          - description?: string
+          - status: "running" | "stopped" | "creating" | "deleting"
+          - progress?: number
+          # Server configuration
+          - serverId: number
+          - serverType: string
+          - image: ServerImage
+          - region: string
+          # Network addresses
+          - ipv4: string | null
+          - ipv6: string | null
+          # Activity tracking
+          - hoursActive?: number
+          - lastActive?: string
+          - activePorts?: ActivePort[]
+          # Metadata
+          - createdAt: string
+          - lastUsed: string | null
+          - tags: string[]
+          # Informational context
+          - project?: string
+          - owner?: string
+          - purpose?: string
+          - environmentType?: "development" | "staging" | "production" | "testing"
+          # Resource usage metrics
+          - resources?: {cpuPercent, memoryPercent, memoryUsed, memoryTotal, diskPercent, diskUsed, diskTotal, gpuPercent?, gpuMemoryUsed?, gpuMemoryTotal?, lastUpdated?}
+          # Permissions and integrations
+          - nodeAgent?: NodeAgentInfo
+          - permissions?: {seedConfig?, logins?, vpns?, plugins?, skills?}
+
+      - name: EnvironmentMetadata
+        lines: 308-350
+        description: Storage format for metadata
+        properties:
+          - id: string
+          - description?: string
+          - project?: string
+          - owner?: string
+          - purpose?: string
+          - environmentType?: "development" | "staging" | "production" | "testing"
+          - hoursActive?: number
+          - lastActive?: string
+          - activePorts?: ActivePort[]
+          - permissions?: {seedConfig?, logins?, vpns?, plugins?}
+          - updatedAt?: string
+
+      - name: ServerImage
+        lines: 197-202
+        properties:
+          - id: number
+          - name: string
+          - description: string
+          - type: "snapshot" | "backup" | "system"
+
+    claude_code_integration_types:
+      - name: HookEventType
+        lines: 68-77
+        type: Union
+        values:
+          - SessionStart
+          - UserPromptSubmit
+          - PreToolUse
+          - PostToolUse
+          - PreCommand
+          - PostCommand
+          - Stop
+          - Error
+          - FileChange
+
+      - name: ClaudeCodeHook
+        lines: 82-91
+        properties:
+          - event: HookEventType
+          - description?: string
+          - command?: string
+          - output?: {allow?, context?, modifyInput?}
+
+      - name: ClaudeCodeAgent
+        lines: 96-103
+        properties:
+          - name: string
+          - description?: string
+          - instructions?: string
+          - model?: string
+          - temperature?: number
+          - maxTokens?: number
+
+      - name: ClaudeCodeCommand
+        lines: 108-123
+        properties:
+          - name: string
+          - description?: string
+          - instructions?: string
+          - agent?: string
+          - shouldConfirm?: boolean
+          - parameters?: Record<string, {type, description?, required?, default?}>
+
+      - name: ClaudeCodeSkill
+        lines: 128-137
+        properties:
+          - name: string
+          - description?: string
+          - instructions?: string
+          - trigger?: {patterns?, fileTypes?, always?}
+
+      - name: MCPServerConfig
+        lines: 166-172
+        description: MCP server config (defined but NOT implemented)
+        properties:
+          - name: string
+          - command: string
+          - args?: string[]
+          - env?: Record<string, string>
+          - cwd?: string
+
+      - name: ClaudeCodePlugin
+        lines: 177-189
+        properties:
+          - enabled: boolean
+          - name?: string
+          - description?: string
+          - version?: string
+          - author?: string
+          - commands?: ClaudeCodeCommand[]
+          - agents?: ClaudeCodeAgent[]
+          - skills?: ClaudeCodeSkill[]
+          - hooks?: ClaudeCodeHook[]
+          - mcpServers?: MCPServerConfig[]
+          - config?: Record<string, unknown>
+
+    node_agent_types:
+      - name: Worktree
+        lines: 359-365
+        properties:
+          - id: string
+          - branch: string
+          - commit: string
+          - path: string
+          - created?: string
+
+      - name: RalphLoop
+        lines: 370-379
+        properties:
+          - id: string
+          - worktree_id: string
+          - iteration: number
+          - max_iterations: number
+          - status: "running" | "stopped" | "error" | "completed"
+          - started_at: string
+          - last_activity?: string
+          - recent_commits?: Array<{hash, message}>
+
+      - name: NodeCapacity
+        lines: 384-388
+        properties:
+          - cpu_percent: number
+          - memory_percent: number
+          - disk_percent: number
+
+      - name: NodeAgentStatus
+        lines: 393-400
+        properties:
+          - node_id: string
+          - hostname: string
+          - tailscale_ip: string
+          - capacity: NodeCapacity
+          - worktrees: Worktree[]
+          - ralph_loops: RalphLoop[]
+
+      - name: NodeAgentInfo
+        lines: 405-411
+        properties:
+          - running: boolean
+          - port?: number
+          - status?: NodeAgentStatus
+          - lastChecked?: string
+          - error?: string
+
+  constants_ts:
+    path: app/shared/constants.ts
+    lines: 94
+    description: Constants with type definitions
+
+    interfaces:
+      - name: ServerType
+        lines: 8-15
+        properties:
+          - name: string
+          - vcpus: number
+          - ram: string
+          - disk: string
+          - price: number
+          - description: string
+
+      - name: Region
+        lines: 61-66
+        properties:
+          - name: string
+          - location: string
+          - flag: string
+          - description: string
+
+    constants:
+      - name: SERVER_TYPES
+        lines: 23-56
+        type: ServerType[]
+        values:
+          - cpx11: {vcpus: 2, ram: "2 GB", disk: "40 GB NVMe", price: 3.32}
+          - cpx21: {vcpus: 3, ram: "4 GB", disk: "80 GB NVMe", price: 5.76}
+          - cpx31: {vcpus: 4, ram: "8 GB", disk: "160 GB NVMe", price: 10.12}
+          - cpx41: {vcpus: 8, ram: "16 GB", disk: "240 GB NVMe", price: 18.62}
+
+      - name: REGIONS
+        lines: 74-93
+        type: Region[]
+        values:
+          - fsn1: {location: "Falkenstein, Germany", flag: "🇩🇪"}
+          - nbg1: {location: "Nuremberg, Germany", flag: "🇩🇪"}
+          - hel1: {location: "Helsinki, Finland", flag: "🇫🇮"}
+
+  validation_ts:
+    path: app/shared/validation.ts
+    lines: 99
+    description: Zod validation schemas
+
+    schemas:
+      - name: EnvironmentNameSchema
+        lines: 20-28
+        type_export: EnvironmentName
+        validation:
+          - min: 1
+          - max: 64
+          - regex: ^[a-zA-Z0-9][a-zA-Z0-9_-]*$
+          - reserved_words: [ssh, ssh-keys, docker, registry, volume, network]
+
+      - name: SSHKeyNameSchema
+        lines: 35-39
+        type_export: SSHKeyName
+        validation:
+          - min: 1
+          - max: 64
+
+      - name: APITokenSchema
+        lines: 46-51
+        type_export: APIToken
+        validation:
+          - min: 1
+          - min_length: 32
+          - starts_with: "hetzner_"
+
+    interfaces:
+      - name: ValidationResult
+        lines: 8-11
+        properties:
+          - isValid: boolean
+          - error?: string
+
+    deprecated_functions:
+      - name: validateEnvironmentName
+        note: Use EnvironmentNameSchema.safeParse() instead
+      - name: validateSSHKeyName
+        note: Use SSHKeyNameSchema.safeParse() instead
+      - name: validateAPIToken
+        note: Use APITokenSchema.safeParse() instead
+
+# ============================================================================
+# BACKEND SHARED TYPES (app/backend/shared/lib/)
+# ============================================================================
+backend_shared:
+
+  hetzner_types:
+    path: app/backend/shared/lib/hetzner/types.ts
+    lines: 395
+    description: Hetzner Cloud API types
+
+    server_types:
+      - name: HetznerServer
+        lines: 9-76
+        properties:
+          - id: number
+          - name: string
+          - status: "running" | "stopped" | "starting" | "stopping" | "initializing"
+          - image: {id, name, description, type}
+          - public_net: {ipv4, ipv6?, floating_ips[], firewalls[]}
+          - server_type: {id, name, description, cores, memory, disk}
+          - datacenter: {id, name, description, location, supported_server_types[]}
+          - labels: Record<string, string>
+          - created: string
+          - protection: {delete, rebuild}
+          - volumes: Array<{id, name, size, linux_device}>
+
+      - name: CreateServerOptions
+        lines: 78-88
+        properties:
+          - name: string
+          - server_type?: string
+          - image?: string
+          - location?: string
+          - datacenter?: string
+          - ssh_keys?: Array<string | number>
+          - volumes?: number[]
+          - labels?: Record<string, string>
+          - start_after_create?: boolean
+
+      - name: UpdateServerOptions
+        lines: 90-93
+        properties:
+          - name?: string
+          - labels?: Record<string, string>
+
+    action_types:
+      - name: ActionCommand
+        lines: 102-173
+        type: Enum
+        values:
+          # Server actions
+          - create_server
+          - delete_server
+          - start_server
+          - stop_server
+          - reboot_server
+          - reset_server
+          - shutdown_server
+          - poweroff
+          - change_server_type
+          - rebuild_server
+          - enable_backup
+          - disable_backup
+          - create_image
+          - change_dns_ptr
+          - attach_to_network
+          - detach_from_network
+          - change_alias_ips
+          - enable_rescue
+          - disable_rescue
+          - change_protection
+          # Volume actions
+          - create_volume
+          - delete_volume
+          - attach_volume
+          - detach_volume
+          - resize_volume
+          - volume_change_protection
+          # Network actions
+          - add_subnet
+          - delete_subnet
+          - add_route
+          - delete_route
+          - change_ip_range
+          - network_change_protection
+          # Floating IP actions
+          - assign_floating_ip
+          - unassign_floating_ip
+          - floating_ip_change_dns_ptr
+          - floating_ip_change_protection
+          # Load Balancer actions
+          - create_load_balancer
+          - delete_load_balancer
+          - add_target
+          - remove_target
+          - add_service
+          - update_service
+          - delete_service
+          - load_balancer_attach_to_network
+          - load_balancer_detach_from_network
+          - change_algorithm
+          - change_type
+          - load_balancer_change_protection
+          # Certificate actions
+          - issue_certificate
+          - retry_certificate
+          # Firewall actions
+          - set_firewall_rules
+          - apply_firewall
+          - remove_firewall
+          - firewall_change_protection
+          # Image actions
+          - image_change_protection
+
+      - name: ActionStatus
+        lines: 178-182
+        type: Enum
+        values: [running, success, error]
+
+      - name: ResourceType
+        lines: 187-196
+        type: Enum
+        values: [server, volume, network, floating_ip, load_balancer, certificate, firewall, image]
+
+      - name: ActionResource
+        lines: 201-204
+        properties:
+          - id: number
+          - type: ResourceType
+
+      - name: ActionError
+        lines: 209-212
+        properties:
+          - code: string
+          - message: string
+
+      - name: HetznerAction
+        lines: 225-234
+        properties:
+          - id: number
+          - command: ActionCommand | string
+          - status: "running" | "success" | "error"
+          - started: string
+          - finished?: string | null
+          - progress: number
+          - resources: ActionResource[]
+          - error?: ActionError | null
+
+      - name: ServerActionResponse
+        lines: 239-242
+        properties:
+          - action: HetznerAction
+          - server?: HetznerServer
+
+      - name: CreateServerResponse
+        lines: 247-252
+        properties:
+          - server: HetznerServer
+          - action: HetznerAction
+          - next_actions: HetznerAction[]
+          - root_password: string | null
+
+    volume_types:
+      - name: HetznerVolume
+        lines: 258-280
+        properties:
+          - id: number
+          - name: string
+          - status: "creating" | "available" | "deleting"
+          - server: number | null
+          - size: number
+          - linux_device: string | null
+          - format: string | null
+          - location: {id, name, description, country, city, latitude, longitude} | null
+          - labels: Record<string, string>
+          - created: string
+          - protection: {delete}
+
+      - name: CreateVolumeOptions
+        lines: 282-290
+        properties:
+          - name: string
+          - size: number
+          - server?: number
+          - location?: string
+          - format?: string
+          - automount?: boolean
+          - labels?: Record<string, string>
+
+    network_types:
+      - name: HetznerNetwork
+        lines: 296-316
+        properties:
+          - id: number
+          - name: string
+          - ip_range: string
+          - subnets: Array<{type, ip_range, network_zone, gateway}>
+          - routes: Array<{destination, gateway}>
+          - servers: number[]
+          - protection: {delete}
+          - labels: Record<string, string>
+          - created: string
+
+    ssh_key_types:
+      - name: HetznerSSHKey
+        lines: 322-329
+        properties:
+          - id: number
+          - name: string
+          - fingerprint: string
+          - public_key: string
+          - labels: Record<string, string>
+          - created: string
+
+      - name: CreateSSHKeyOptions
+        lines: 331-335
+        properties:
+          - name: string
+          - public_key: string
+          - labels?: Record<string, string>
+
+    rate_limiting_types:
+      - name: RateLimitInfo
+        lines: 341-345
+        properties:
+          - limit: number
+          - remaining: number
+          - reset: number
+
+      - name: RateLimitHeaders
+        lines: 347-351
+        properties:
+          - "RateLimit-Limit": string
+          - "RateLimit-Remaining": string
+          - "RateLimit-Reset": string
+
+    polling_types:
+      - name: ActionPollingOptions
+        lines: 357-366
+        properties:
+          - pollInterval?: number
+          - maxRetries?: number
+          - onProgress?: (action: HetznerAction) => void
+          - timeout?: number
+
+    datacenter_types:
+      - name: HetznerDatacenter
+        lines: 381-394
+        properties:
+          - id: number
+          - name: string
+          - description: string
+          - location: HetznerLocation
+          - supported_server_types: Array<{id, name}>
+          - available_server_types: Array<{id, name}>
+
+    reexports:
+      - HetznerServerType
+      - HetznerLocation
+      from: "../../../../shared/types"
+
+  api_schemas:
+    path: app/backend/shared/lib/schemas/api.ts
+    lines: 345
+    description: API request/response validation schemas
+
+    environment_operations:
+      - name: CreateEnvironmentRequestSchema
+        type_export: CreateEnvironmentRequest
+        properties:
+          - name: string (min 1, max 64, regex)
+          - serverType: string
+          - location: string
+          - sshKeys?: string[]
+          - metadata?: {description?, project?, owner?, purpose?, environmentType?}
+
+      - name: UpdateMetadataRequestSchema
+        type_export: UpdateMetadataRequest
+        properties:
+          - description?: string
+          - project?: string
+          - owner?: string
+          - purpose?: string
+          - environmentType?: "development" | "staging" | "production" | "testing"
+
+      - name: UpdateActivityRequestSchema
+        type_export: UpdateActivityRequest
+        properties:
+          - hoursActive?: number (min 0)
+          - lastActive?: string (datetime)
+          - activePorts?: Array<{port, protocol, service?, state}>
+
+      - name: UpdatePluginsRequestSchema
+        type_export: UpdatePluginsRequest
+        properties:
+          - plugins?: Record<string, any>
+
+    ssh_operations:
+      - name: SSHConnectionRequestSchema
+        type_export: SSHConnectionRequest
+        properties:
+          - host: string
+          - user?: string (default: "root")
+
+      - name: SSHTestRequestSchema
+        type_export: SSHTestRequest
+        properties:
+          - host: string
+          - user?: string
+          - port?: number (default: 22)
+
+      - name: SSHFingerprintRequestSchema
+        type_export: SSHFingerprintRequest
+        properties:
+          - host: string
+          - user?: string
+          - port?: number
+
+      - name: TerminalCreateSessionSchema
+        type_export: TerminalCreateSession
+        properties:
+          - host: string
+          - user?: string
+          - port?: number
+          - rows?: number (default: 24, max 200)
+          - cols?: number (default: 80, max 500)
+
+      - name: TerminalResizeSchema
+        type_export: TerminalResize
+        properties:
+          - sessionId: string
+          - rows: number (max 200)
+          - cols: number (max 500)
+
+      - name: SCPUploadRequestSchema
+        type_export: SCPUploadRequest
+        properties:
+          - host: string
+          - user?: string
+          - source: string
+          - destination: string
+          - recursive?: boolean
+          - preserve?: boolean
+
+      - name: SCPDownloadRequestSchema
+        type_export: SCPDownloadRequest
+        properties:
+          - host: string
+          - user?: string
+          - source: string
+          - destination: string
+          - recursive?: boolean
+          - preserve?: boolean
+
+      - name: FilesListRequestSchema
+        type_export: FilesListRequest
+        properties:
+          - host: string
+          - user?: string
+          - path?: string
+
+      - name: FilesPreviewRequestSchema
+        type_export: FilesPreviewRequest
+        properties:
+          - host: string
+          - user?: string
+          - path: string
+
+    ssh_keys:
+      - name: SSHKeyIdSchema
+        type_export: SSHKeyId
+        description: string -> number transform
+
+      - name: CreateSSHKeyRequestSchema
+        type_export: CreateSSHKeyRequest
+        properties:
+          - name: string (min 1, max 64, regex)
+          - public_key: string
+          - labels?: Record<string, string>
+
+    ai_operations:
+      - name: AIGenerateRequestSchema
+        type_export: AIGenerateRequest
+        properties:
+          - prompt: string
+          - model?: string
+          - temperature?: number (0-2)
+          - maxTokens?: number
+
+      - name: AIChatRequestSchema
+        type_export: AIChatRequest
+        properties:
+          - messages: any[] (min 1)
+          - model?: string
+          - temperature?: number
+          - maxTokens?: number
+
+      - name: AISuggestNameRequestSchema
+        type_export: AISuggestNameRequest
+        properties:
+          - project?: string
+          - description?: string
+
+      - name: AISuggestServerTypeRequestSchema
+        type_export: AISuggestServerTypeRequest
+        properties:
+          - workload: string
+
+      - name: AIAnalyzeResourcesRequestSchema
+        type_export: AIAnalyzeResourcesRequest
+        properties:
+          - cpu: number (0-100)
+          - memory: number (0-100)
+          - disk: number (0-100)
+
+      - name: AITroubleshootSSHRequestSchema
+        type_export: AITroubleshootSSHRequest
+        properties:
+          - error: string
+
+      - name: AISuggestActionsRequestSchema
+        type_export: AISuggestActionsRequest
+        properties:
+          - status: string
+          - age?: string
+
+      - name: AIStatusMessageRequestSchema
+        type_export: AIStatusMessageRequest
+        properties:
+          - status: string
+          - name: string
+
+    metrics:
+      - name: MetricsQuerySchema
+        properties:
+          - hours: string -> number (default: 24, max 8760)
+          - limit: string -> number (default: 100, max 1000)
+
+      - name: InsertMetricRequestSchema
+        type_export: InsertMetricRequest
+        properties:
+          - environmentId: number
+          - cpuPercent: number (0-100)
+          - memoryPercent: number (0-100)
+          - memoryUsed: number
+          - memoryTotal: number
+          - diskPercent: number (0-100)
+          - diskUsed: number
+          - diskTotal: number
+          - gpuPercent?: number
+          - gpuMemoryUsed?: number
+          - gpuMemoryTotal?: number
+
+      - name: AIAnalyzeHistoricalRequestSchema
+        type_export: AIAnalyzeHistoricalRequest
+        properties:
+          - environmentId: number
+          - hours: number (default: 24, max 8760)
+
+  ai_schemas:
+    path: app/backend/shared/lib/schemas/ai.ts
+    lines: 502
+    description: OpenAI-compatible AI schemas
+
+    base_schemas:
+      - name: ChatMessageRoleSchema
+        type_export: ChatMessageRole
+        enum: [system, user, assistant]
+
+      - name: ChatMessageSchema
+        type_export: ChatMessage
+        properties:
+          - role: ChatMessageRole
+          - content: string
+
+      - name: TokenUsageSchema
+        type_export: TokenUsage
+        properties:
+          - promptTokens: number
+          - completionTokens: number
+          - totalTokens: number
+
+      - name: RawUsageSchema
+        properties:
+          - prompt_tokens: number
+          - completion_tokens: number
+          - total_tokens: number
+
+    request_schemas:
+      - name: BaseAIRequestOptionsSchema
+        type_export: BaseAIRequestOptions
+        properties:
+          - model?: string
+          - temperature?: number (0-2)
+          - maxTokens?: number
+
+      - name: ChatCompletionOptionsSchema
+        type_export: ChatCompletionOptions
+        properties:
+          - model?: string
+          - temperature?: number
+          - maxTokens?: number
+          - stream?: boolean
+          - timeout?: number (default: 30000)
+          - maxRetries?: number (default: 3)
+
+      - name: AIRequestSchema
+        type_export: AIRequest
+        properties:
+          - prompt: string
+          - systemPrompt?: string
+          - model?: string
+          - temperature?: number
+          - maxTokens?: number
+
+      - name: AIChatRequestSchema
+        type_export: AIChatRequest
+        properties:
+          - messages: ChatMessage[] (min 1)
+          - model?: string
+          - temperature?: number
+          - maxTokens?: number
+
+    response_schemas:
+      - name: LatencyInfoSchema
+        type_export: LatencyInfo
+        properties:
+          - totalMs: number
+          - formatted: string
+
+      - name: RawChatCompletionResponseSchema
+        type_export: RawChatCompletionResponse
+        properties:
+          - id: string
+          - object: string
+          - created: number
+          - model: string
+          - choices: RawChoice[] (min 1)
+          - usage?: RawUsage
+
+      - name: ChatCompletionResponseSchema
+        type_export: ChatCompletionResponse
+        properties:
+          - id: string
+          - object: string
+          - created: number
+          - model: string
+          - choices: Array<{index, message, finish_reason}> (min 1)
+          - usage?: TokenUsage
+          - latency?: LatencyInfo
+
+      - name: AIResponseSchema
+        type_export: AIResponse
+        properties:
+          - success: boolean
+          - content?: string
+          - error?: string
+          - usage?: TokenUsage
+
+      - name: AIChatResponseSchema
+        type_export: AIChatResponse
+        properties:
+          - success: boolean
+          - message?: string
+          - usage?: TokenUsage
+          - error?: string
+
+    streaming_schemas:
+      - name: StreamDeltaSchema
+        type_export: StreamDelta
+        properties:
+          - role?: string
+          - content?: string
+
+      - name: StreamChunkTypeSchema
+        type_export: StreamChunkType
+        enum: [text, done, error]
+
+      - name: RawStreamChunkSchema
+        type_export: RawStreamChunk
+        properties:
+          - id: string
+          - choices: Array<{index, delta, finish_reason?}> (min 1)
+          - usage?: RawUsage
+
+      - name: StreamChunkSchema
+        type_export: StreamChunk
+        properties:
+          - type: StreamChunkType
+          - id?: string
+          - content?: string
+          - finishReason?: string
+          - usage?: TokenUsage
+          - error?: string
+
+    error_schemas:
+      - name: APIErrorResponseSchema
+        type_export: APIErrorResponse
+        properties:
+          - error?: {message, type?, code?}
+
+      - name: ErrorTypeSchema
+        type_export: ErrorType
+        enum: [timeout, auth, rate_limit, network, validation, unknown]
+
+    validation_helpers:
+      - name: validateChatMessage
+        params: data: unknown
+        returns: SafeParseResult<ChatMessage>
+
+      - name: validateChatMessages
+        params: data: unknown
+        returns: SafeParseResult<ChatMessage[]>
+
+      - name: validateChatCompletionOptions
+        params: data: unknown
+        returns: SafeParseResult<ChatCompletionOptions>
+
+      - name: validateRawResponse
+        params: data: unknown
+        returns: SafeParseResult<RawChatCompletionResponse>
+
+      - name: convertUsage
+        params: raw: unknown
+        returns: TokenUsage | null
+
+      - name: categorizeError
+        params: data: unknown
+        returns: ErrorType
+
+    streaming_helpers:
+      - name: parseSSERow
+        params: line: string
+        returns: string | null
+
+      - name: parseSSEStream
+        params: response: Response
+        returns: AsyncGenerator<StreamChunk>
+
+  database_schemas:
+    path: app/backend/shared/lib/schemas/database.ts
+    lines: 103
+    description: Database validation schemas
+
+    schemas:
+      - name: ActivePortSchema
+        properties:
+          - port: number (1-65535)
+          - protocol: "tcp" | "udp"
+          - service?: string
+          - state: "open" | "closed" | "filtered"
+
+      - name: EnvironmentMetadataSchema
+        type_export: EnvironmentMetadataInput
+        properties:
+          - id: string
+          - description?: string
+          - project?: string
+          - owner?: string
+          - purpose?: string
+          - environmentType?: "development" | "staging" | "production" | "testing"
+          - hoursActive?: number
+          - lastActive?: string (datetime)
+          - activePorts?: ActivePort[]
+          - sshKeyPath?: string
+          - permissions?: {seedConfig?, logins?, vpns?, plugins?}
+          - updatedAt?: string (datetime)
+
+      - name: ActivityUpdateSchema
+        type_export: ActivityUpdateInput
+        properties:
+          - hoursActive?: number
+          - lastActive?: string
+          - activePorts?: ActivePort[]
+
+      - name: PluginsUpdateSchema
+        type_export: PluginsUpdateInput
+        properties:
+          - plugins?: Record<string, any>
+
+  ssh_schemas:
+    path: app/backend/shared/lib/schemas/ssh.ts
+    lines: 58
+    description: SSH operation schemas
+
+    schemas:
+      - name: SSHOptionsSchema
+        type_export: SSHOptions
+        properties:
+          - host: string
+          - user?: string (default: "root")
+          - timeout?: number (default: 5)
+          - port?: number (default: 22)
+          - keyPath?: string
+
+      - name: SSHCommandSchema
+        type: string (min 1)
+
+      - name: SCPOptionsSchema
+        type_export: SCPOptions
+        extends: SSHOptions
+        properties:
+          - source: string
+          - destination: string
+          - recursive?: boolean
+          - preserve?: boolean
+
+      - name: FilesListOptionsSchema
+        type_export: FilesListOptions
+        properties:
+          - host: string
+          - user?: string
+          - path?: string
+
+      - name: FilePreviewOptionsSchema
+        type_export: FilePreviewOptions
+        properties:
+          - host: string
+          - user?: string
+          - path: string
+
+  glm_schemas:
+    path: app/backend/shared/lib/schemas/glm.ts
+    lines: 37
+    description: GLM provider-specific schemas
+
+    schemas:
+      - name: GLMModelSchema
+        type_export: GLMModel
+        enum: [GLM-4.7, GLM-4.6, GLM-4.5, GLM-4.5-air]
+
+  ssh_types:
+    path: app/backend/shared/lib/ssh/types.ts
+    lines: 19
+    description: SSH client types
+
+    interfaces:
+      - name: SSHOptions
+        properties:
+          - host: string
+          - user?: string
+          - timeout?: number
+          - port?: number
+          - keyPath?: string
+
+      - name: SCPOptions
+        extends: SSHOptions
+        properties:
+          - source: string
+          - destination: string
+          - recursive?: boolean
+          - preserve?: boolean
+
+  terminal_sessions:
+    path: app/backend/shared/lib/terminal/sessions.ts
+    lines: 431
+    description: Terminal session management
+
+    interfaces:
+      - name: TerminalSession
+        lines: 10-24
+        properties:
+          - sessionId: string
+          - proc: any
+          - stdin: any
+          - stdout: ReadableStream<Uint8Array>
+          - stderr: ReadableStream<Uint8Array>
+          - host: string
+          - user: string
+          - ws: WebSocket | null
+          - createdAt: number
+          - lastUsed: number
+          - reader: ReadableStreamDefaultReader<Uint8Array> | null
+          - writer: any | null
+          - closed: boolean
+
+      - name: SessionInfo
+        lines: 29-37
+        properties:
+          - sessionId: string
+          - host: string
+          - user: string
+          - createdAt: number
+          - lastUsed: number
+          - hasActiveWebSocket: boolean
+          - closed: boolean
+
+    functions:
+      - name: cleanupStaleSessions
+        params: maxAge?: number
+        returns: string[]
+
+      - name: closeSession
+        params: sessionId: string
+        returns: boolean
+
+      - name: getOrCreateSession
+        params: host, user?, sessionId?, keyPath?
+        returns: Promise<TerminalSession>
+
+      - name: getSession
+        params: sessionId: string
+        returns: TerminalSession | undefined
+
+      - name: getAllSessions
+        returns: TerminalSession[]
+
+      - name: getAllSessionInfo
+        returns: SessionInfo[]
+
+      - name: getSessionInfo
+        params: sessionId: string
+        returns: SessionInfo | undefined
+
+      - name: getSessionCount
+        returns: number
+
+      - name: getSessionsByHost
+        params: host: string
+        returns: TerminalSession[]
+
+      - name: attachWebSocket
+        params: session, ws, wasReused?
+        returns: void
+
+      - name: writeToSession
+        params: sessionId, data
+        returns: Promise<boolean>
+
+      - name: resizeSession
+        params: sessionId, rows, cols
+        returns: Promise<boolean>
+
+      - name: detachWebSocket
+        params: sessionId, ws
+        returns: boolean
+
+  ai_types:
+    path: app/backend/shared/lib/ai/types.ts
+    lines: 25
+    description: AI client types (re-exports)
+
+    reexports:
+      from: ../schemas/ai.ts
+      types:
+        - ChatMessageRole
+        - ChatMessage
+        - TokenUsage
+        - BaseAIRequestOptions
+        - ChatCompletionOptions
+        - AIRequest
+        - AIChatRequest
+        - LatencyInfo
+        - RawChatCompletionResponse
+        - ChatCompletionResponse
+        - AIResponse
+        - AIChatResponse
+        - APIErrorResponse
+        - ErrorType
+        - StreamDelta
+        - StreamChunkType
+        - RawStreamChunk
+        - StreamChunk
+
+    functions:
+      from: ../schemas/ai.ts
+      - validateChatMessage
+      - validateChatMessages
+      - validateChatCompletionOptions
+      - validateRawResponse
+      - convertUsage
+      - categorizeError
+
+  claude_codesdk_types:
+    path: app/backend/shared/lib/claudecodesdk/types.ts
+    lines: 170
+    description: Multi-agent orchestration types
+
+    sdk_reexports:
+      from: "@anthropic-ai/claude-agent-sdk"
+      types:
+        - SDKMessage
+        - SDKAssistantMessage
+        - SDKUserMessage
+        - SDKResultMessage
+        - SDKSystemMessage
+        - Options
+        - PermissionMode
+        - AgentDefinition
+
+    project_types:
+      - name: AgentTask
+        lines: 23-38
+        properties:
+          - id: string
+          - description: string
+          - prompt: string
+          - subagentType?: string
+          - dependsOn?: string[]
+          - maxBudgetUsd?: number
+          - maxTurns?: number
+
+      - name: AgentContext
+        lines: 43-54
+        properties:
+          - cwd: string
+          - sessionId: string
+          - turn: number
+          - totalCostUsd: number
+          - remainingBudgetUsd?: number
+
+      - name: ToolExecution
+        lines: 59-72
+        properties:
+          - tool: string
+          - input: unknown
+          - result?: unknown
+          - error?: string
+          - durationMs: number
+          - timestamp: Date
+
+      - name: AgentExecutionLog
+        lines: 77-94
+        properties:
+          - sessionId: string
+          - startTime: Date
+          - endTime?: Date
+          - prompt: string
+          - messages: SDKMessage[]
+          - toolExecutions: ToolExecution[]
+          - result?: AgentResult
+          - config: ClaudeAgentConfig
+
+      - name: AgentResult
+        reexport: from ./client.js
+
+      - name: ClaudeAgentConfig
+        reexport: from ./client.js
+
+      - name: MessageHandler
+        reexport: from ./client.js
+
+      - name: FileOperation
+        lines: 104-117
+        properties:
+          - operation: "read" | "write" | "edit"
+          - path: string
+          - success: boolean
+          - error?: string
+          - bytes?: number
+          - timestamp: Date
+
+      - name: CodeAnalysisResult
+        lines: 122-133
+        properties:
+          - issues: CodeIssue[]
+          - metrics: CodeMetrics
+          - suggestions: string[]
+          - filesAnalyzed: string[]
+          - durationMs: number
+
+      - name: CodeIssue
+        lines: 138-151
+        properties:
+          - severity: "low" | "medium" | "high" | "critical"
+          - type: string
+          - file: string
+          - line?: number
+          - description: string
+          - suggestion?: string
+
+      - name: CodeMetrics
+        lines: 156-169
+        properties:
+          - totalLines: number
+          - fileCount: number
+          - linesOfCode: number
+          - commentPercentage: number
+          - avgFunctionLength: number
+          - complexity: number
+
+# ============================================================================
+# FRONTEND TYPE PATTERNS (app/browser-client/)
+# ============================================================================
+frontend:
+  description: Frontend components import types from app/shared/types.ts
+  patterns:
+    - Use Environment from shared for core domain types
+    - Define local interfaces for component state
+    - Define response interfaces for API calls
+    - Use React prop interfaces for component props
+
+  hooks:
+    useAppState_ts:
+      path: app/browser-client/hooks/useAppState.ts
+      types:
+        - name: FileListItem
+          properties:
+            - name: string
+            - path: string
+            - size: number
+            - modified: string
+            - type: string
+        - name: Notification
+          properties:
+            - id: string
+            - message: string
+            - type: "info" | "success" | "error" | "warning"
+            - duration: number
+
+    useHetznerData_ts:
+      path: app/browser-client/hooks/useHetznerData.ts
+      types:
+        - name: ServerTypesResponse
+          properties:
+            - success: boolean
+            - serverTypes: HetznerServerType[]
+            - error?: string
+        - name: LocationsResponse
+          properties:
+            - success: boolean
+            - locations: HetznerLocation[]
+            - error?: string
+      shared_types_used:
+        - HetznerServerType
+        - HetznerLocation
+
+    useEnvironmentsApi_ts:
+      path: app/browser-client/hooks/useEnvironmentsApi.ts
+      types:
+        - name: EnvironmentsResponse
+          properties:
+            - success: boolean
+            - environments: Environment[]
+            - error?: string
+        - name: ScreenshotResponse
+          properties:
+            - success: boolean
+            - path?: string
+            - error?: string
+      shared_types_used:
+        - Environment
+
+  lib:
+    hetznerActionPolling_ts:
+      path: app/browser-client/lib/hetznerActionPolling.ts
+      types:
+        - name: HetznerAction
+          mirrors: backend type
+        - name: ActionPollingOptions
+          properties:
+            - interval: number
+            - timeout: number
+            - callbacks: {onProgress?, onComplete?, onError?}
+
+# ============================================================================
+# TYPE ORGANIZATION ARCHITECTURE
+# ============================================================================
+architecture:
+  tiers:
+    tier1_truly_shared:
+      path: app/shared/
+      files:
+        - types.ts (412 lines)
+        - constants.ts (94 lines)
+        - validation.ts (99 lines)
+      description: Domain types shared by frontend and backend
+
+    tier2_backend_schemas:
+      path: app/backend/shared/lib/schemas/
+      files:
+        - api.ts (345 lines)
+        - ai.ts (502 lines)
+        - database.ts (103 lines)
+        - ssh.ts (58 lines)
+        - glm.ts (37 lines)
+      description: API request/response schemas with Zod validation
+
+    tier3_backend_modules:
+      path: app/backend/shared/lib/
+      modules:
+        - hetzner/types.ts (395 lines)
+        - ssh/types.ts (19 lines)
+        - terminal/sessions.ts (431 lines)
+        - ai/types.ts (25 lines, re-exports)
+        - claudecodesdk/types.ts (170 lines)
+
+  patterns:
+    zod_integration:
+      description: Define Zod schema, export inferred type
+      example: |
+        export const SchemaName = z.object({...})
+        export type SchemaName = z.infer<typeof SchemaName>
+
+    reexports:
+      description: Backend modules re-export from schemas
+      example: ai/types.ts re-exports all from schemas/ai.ts
+
+    provider_separation:
+      description: Generic schemas separate from provider-specific
+      example: ai.ts (generic) vs glm.ts (provider-specific)
+
+    central_hub:
+      description: Frontend imports from app/shared/types.ts
+      avoids: Circular dependencies
+
+# ============================================================================
+# TYPE COVERAGE SUMMARY
+# ============================================================================
+coverage:
+  full_coverage_areas:
+    - Hetzner Cloud API integration
+    - SSH operations (connection, SCP, terminal)
+    - AI/LLM integration (multiple providers)
+    - Database operations
+    - API requests/responses
+    - Environment lifecycle
+    - Metrics and monitoring
+
+  type_safety_features:
+    - Zod runtime validation
+    - Strict null checks
+    - Enum usage for fixed values
+    - Optional properties clearly marked
+    - Union types for status/state
+
+  statistics:
+    total_interfaces: ~80
+    total_type_aliases: ~30
+    total_enums: ~10
+    total_zod_schemas: ~40
+    total_helper_functions: ~15
