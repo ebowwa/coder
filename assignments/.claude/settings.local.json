@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__claude-code-config__mcp_list",
+      "mcp__claude-code-config__mcp_add",
+      "mcp__claude-code-config__mcp_get"
+    ]
+  }
+}

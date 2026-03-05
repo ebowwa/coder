@@ -1,0 +1,56 @@
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+
+.loading {
+  text-align: center;
+  padding: var(--spacing-3xl);
+  color: var(--color-text-light);
+  font-style: italic;
+}
+
+.empty-state {
+  padding: var(--spacing-3xl);
+  text-align: center;
+  color: var(--color-text-lightest);
+  font-style: italic;
+}
+
+.keyboard-hints {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-lightest);
+  margin-top: var(--spacing-xs);
+}
+
+.keyboard-hints kbd,
+.keyboard-hint kbd {
+  background: var(--color-bg-alt-2);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-sm);
+  padding: 0.125rem 0.25rem;
+  font-family: monospace;
+  font-size: var(--font-size-xs);
+}
+
+.keyboard-hint {
+  font-size: var(--font-size-sm);
+  font-weight: normal;
+  color: var(--color-text-lightest);
+  margin-left: 0.5rem;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.file-transfer-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.file-transfer-buttons button {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  font-size: var(--font-size-base);
+}

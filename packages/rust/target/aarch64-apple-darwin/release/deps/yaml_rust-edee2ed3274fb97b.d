@@ -1,0 +1,11 @@
+/Users/ebowwa/Desktop/codespaces/claude-code-remake/packages/rust/target/aarch64-apple-darwin/release/deps/yaml_rust-edee2ed3274fb97b.d: /Users/ebowwa/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yaml-rust-0.4.5/src/lib.rs /Users/ebowwa/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yaml-rust-0.4.5/src/emitter.rs /Users/ebowwa/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yaml-rust-0.4.5/src/parser.rs /Users/ebowwa/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yaml-rust-0.4.5/src/scanner.rs /Users/ebowwa/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yaml-rust-0.4.5/src/yaml.rs
+
+/Users/ebowwa/Desktop/codespaces/claude-code-remake/packages/rust/target/aarch64-apple-darwin/release/deps/libyaml_rust-edee2ed3274fb97b.rlib: /Users/ebowwa/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yaml-rust-0.4.5/src/lib.rs /Users/ebowwa/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yaml-rust-0.4.5/src/emitter.rs /Users/ebowwa/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yaml-rust-0.4.5/src/parser.rs /Users/ebowwa/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yaml-rust-0.4.5/src/scanner.rs /Users/ebowwa/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yaml-rust-0.4.5/src/yaml.rs
+
+/Users/ebowwa/Desktop/codespaces/claude-code-remake/packages/rust/target/aarch64-apple-darwin/release/deps/libyaml_rust-edee2ed3274fb97b.rmeta: /Users/ebowwa/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yaml-rust-0.4.5/src/lib.rs /Users/ebowwa/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yaml-rust-0.4.5/src/emitter.rs /Users/ebowwa/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yaml-rust-0.4.5/src/parser.rs /Users/ebowwa/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yaml-rust-0.4.5/src/scanner.rs /Users/ebowwa/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yaml-rust-0.4.5/src/yaml.rs
+
+/Users/ebowwa/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yaml-rust-0.4.5/src/lib.rs:
+/Users/ebowwa/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yaml-rust-0.4.5/src/emitter.rs:
+/Users/ebowwa/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yaml-rust-0.4.5/src/parser.rs:
+/Users/ebowwa/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yaml-rust-0.4.5/src/scanner.rs:
+/Users/ebowwa/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yaml-rust-0.4.5/src/yaml.rs:

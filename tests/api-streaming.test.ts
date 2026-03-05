@@ -4,10 +4,10 @@
  */
 
 import { describe, it, expect } from "bun:test";
-import { createMessageStream, calculateCost } from "../src/core/api-client-impl.js";
+import { createMessageStream, calculateCost } from "../packages/src/core/api-client-impl.js";
 
-import type { Message, ContentBlock, UsageMetrics } from "../src/types/index.js";
-import type { StreamOptions } from "../src/core/api-client-impl.js";
+import type { Message, ContentBlock, UsageMetrics } from "../packages/src/types/index.js";
+import type { StreamOptions } from "../packages/src/core/api-client-impl.js";
 
 // Check for API key
 const hasApiKey = !!(

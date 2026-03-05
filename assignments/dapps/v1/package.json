@@ -1,0 +1,38 @@
+{
+  "name": "@ebowwa/crypto-dapp",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "description": "Crypto DApp with Web3 integration",
+  "scripts": {
+    "dev": "PORT=3003 bun --hot ./src/server.ts",
+    "build": "bun build ./src/main.tsx --outdir ./dist --target browser",
+    "start": "bun run ./src/server.ts",
+    "test": "bun test",
+    "test:e2e": "bunx playwright test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.90.0",
+    "ethers": "^6.13.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.42.0",
+    "@types/bun": "latest",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "typescript": "^5.0.0"
+  },
+  "exports": {
+    ".": "./src/web3/index.ts",
+    "./web3": "./src/web3/index.ts",
+    "./hooks": "./src/hooks/index.ts",
+    "./providers": "./src/providers/index.ts",
+    "./components": "./src/components/index.ts",
+    "./config": "./src/config/index.ts",
+    "./utils": "./src/utils/index.ts",
+    "./types": "./src/types/index.ts"
+  }
+}
