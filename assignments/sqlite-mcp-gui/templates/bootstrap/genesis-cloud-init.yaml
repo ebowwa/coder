@@ -1,0 +1,221 @@
+#cloud-config
+# Genesis Server Bootstrap Configuration
+# Version: 1.0.0
+#
+# This cloud-init config bootstraps a Genesis server that:
+# - Runs com.hetzner.codespaces web application
+# - Uses the existing Hetzner API to create any server
+# - Can be ephemeral and recreated at any time
+#
+# IMPORTANT: Never store secrets in cloud-init! Use Vault/SOPS/external sources.
+
+# =====================================================
+# STAGE 1: Network & Early Setup (Network stage)
+# =====================================================
+
+hostname: genesis
+manage_etc_hosts: true
+timezone: UTC
+
+# =====================================================
+# STAGE 2: SSH & Security (Network stage)
+# =====================================================
+
+ssh_pwauth: false
+
+# Create genesis service user
+users:
+  - name: genesis
+    gecos: Genesis Service Account
+    primary_group: genesis
+    groups: docker,wheel
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    lock_passwd: true
+    ssh_authorized_keys:
+      - ${admin_ssh_key}
+
+# =====================================================
+# STAGE 3: Package Management (Config stage)
+# =====================================================
+
+package_update: true
+package_upgrade: false
+package_reboot_if_required: true
+
+packages:
+  - curl
+  - wget
+  - git
+  - unzip
+  - jq
+  - build-essential
+
+# =====================================================
+# STAGE 4: Application Setup (Config stage)
+# =====================================================
+
+write_files:
+  # Genesis application directories
+  - path: /opt/genesis
+    owner: genesis:genesis
+    permissions: '0755'
+
+  - path: /opt/genesis/data
+    owner: genesis:genesis
+    permissions: '0755'
+
+  - path: /var/log/genesis
+    owner: genesis:genesis
+    permissions: '0755'
+
+  # Environment file template (do NOT include actual secrets)
+  - path: /etc/default/ genesis.template
+    owner: genesis:genesis
+    permissions: '0640'
+    content: |
+      # Genesis Server Environment Configuration
+      # Copy this to /etc/default/genesis and fill in required values
+      #
+      # DO NOT commit actual secrets to version control!
+
+      # Application Settings
+      NODE_ENV=production
+      PORT=3000
+      HOST=0.0.0.0
+
+      # Hetzner API (REQUIRED - use Vault or Secrets Manager in production)
+      # HETZNER_API_TOKEN should be set securely after bootstrap
+      # Example: Retrieve from Vault at runtime
+      # HETZNER_API_TOKEN=your_token_here
+
+      # Default server type for worker creation
+      HETZNER_DEFAULT_TYPE=cpx11
+
+      # Default location (fsn1, nbg1, hel1)
+      HETZNER_DEFAULT_LOCATION=fsn1
+
+      # Max concurrent worker nodes
+      MAX_WORKER_NODES=10
+
+      # Optional: Dashboard password for basic auth
+      # DASHBOARD_PASSWORD=
+
+      # Optional: Tailscale auth key for automatic VPN setup
+      # TAILSCALE_AUTH_KEY=
+
+  # Genesis systemd service unit
+  - path: /etc/systemd/system/genesis.service
+    owner: root:root
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=Genesis Application Server (com.hetzner.codespaces)
+      Documentation=https://github.com/ebowwa/com.hetzner.codespaces
+      After=network-online.target
+      Wants=network-online.target
+
+      [Service]
+      Type=simple
+      User=genesis
+      Group=genesis
+      WorkingDirectory=/opt/genesis
+
+      # Execution
+      ExecStart=/usr/bin/bun start
+      ExecReload=/bin/kill -HUP $MAINPID
+
+      # Restart Policy (with rate limiting)
+      Restart=on-failure
+      RestartSec=5s
+      StartLimitIntervalSec=300   # 5-minute window
+      StartLimitBurst=5           # Max 5 restarts
+
+      # Logging
+      StandardOutput=journal
+      StandardError=journal
+      SyslogIdentifier=genesis
+
+      # Environment
+      Environment="NODE_ENV=production"
+      EnvironmentFile=/etc/default/genesis
+      EnvironmentFile=-/etc/default/genesis.local  # Optional override (- = not required)
+
+      # Resource Limits
+      LimitNOFILE=65536
+
+      # Security Hardening
+      NoNewPrivileges=true
+      PrivateTmp=true
+      ProtectSystem=strict
+      ProtectHome=true
+      ReadWritePaths=/opt/genesis/data /var/log/genesis
+
+      [Install]
+      WantedBy=multi-user.target
+
+  # Bootstrap status tracking
+  - path: /root/.genesis-bootstrap-status
+    owner: root:root
+    permissions: '0644'
+    content: |
+      status=started
+      started_at=$(date -Iseconds)
+      source=cloud-init
+      version=1.0.0
+
+  # Add bun to /etc/environment for all users/shells
+  # Format: Simple KEY="value" pairs, no variable expansion
+  - path: /etc/environment
+    owner: root:root
+    permissions: '0644'
+    content: |
+      PATH="/root/.bun/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+# =====================================================
+# STAGE 5: Run Commands (Config stage)
+# =====================================================
+
+runcmd:
+  # Install Bun runtime
+  - curl -fsSL https://bun.sh/install | bash
+
+  # Clone/pull genesis application
+  - |
+    if [ ! -d /opt/genesis/.git ]; then
+      git clone --depth 1 ${genesis_repo:-https://github.com/ebowwa/com.hetzner.codespaces} /opt/genesis
+    else
+      cd /opt/genesis && git pull
+    fi
+
+  # Install dependencies
+  - cd /opt/genesis && bun install
+
+  # Build application (if needed)
+  - cd /opt/genesis && bun run build
+
+  # Configure environment (prompt for secrets or use external source)
+  - |
+    # Example: Retrieve HETZNER_API_TOKEN from Vault
+    # if command -v vault &> /dev/null; then
+    #   HETZNER_API_TOKEN=$(vault kv get -field=token hetzner/genesis)
+    #   echo "HETZNER_API_TOKEN=$HETZNER_API_TOKEN" >> /etc/default/genesis
+    # fi
+    #
+    # For V1: Manual setup required after bootstrap
+    echo "WARNING: HETZNER_API_TOKEN must be configured in /etc/default/genesis"
+
+  # Enable and start genesis service
+  - systemctl daemon-reload
+  - systemctl enable genesis.service
+  - systemctl start genesis.service
+
+  # Mark bootstrap complete
+  - echo "status=complete" >> /root/.genesis-bootstrap-status
+  - echo "completed_at=$(date -Iseconds)" >> /root/.genesis-bootstrap-status
+
+# =====================================================
+# STAGE 6: Final (Final stage)
+# =====================================================
+
+final_message: "Genesis server bootstrap completed after $UPTIME seconds"

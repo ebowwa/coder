@@ -1,0 +1,4 @@
+- developer/res
+- tester
+- market intelligence agent (prediction, stocks, etc. )
+- content(video/social media) editing/generating

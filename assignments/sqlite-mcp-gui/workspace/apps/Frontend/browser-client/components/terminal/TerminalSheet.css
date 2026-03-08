@@ -1,0 +1,357 @@
+/* ============================================
+   TERMINAL SHEET
+   Slide-out terminal panel with xterm.js
+   ============================================ */
+
+.terminal-sheet {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: min(700px, 80vw);
+    height: 100vh;
+    background: var(--bg-primary);
+    box-shadow:
+        -4px 0 24px rgba(0, 0, 0, 0.15),
+        -2px 0 8px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+    animation: slideIn 0.25s ease;
+    border-left: 2px solid var(--border-muted);
+    transition: all 0.25s ease;
+    z-index: 100;
+}
+
+.terminal-sheet.minimized {
+    height: auto;
+    max-height: 72px;
+}
+
+/* ============================================
+   TERMINAL HEADER
+   ============================================ */
+
+.terminal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 16px 20px;
+    gap: 16px;
+    border-bottom: 1px solid var(--border-muted);
+    background: var(--bg-secondary);
+    min-height: 72px;
+}
+
+.terminal-header-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.terminal-sheet.minimized .terminal-header-main {
+    flex-direction: row;
+    align-items: center;
+}
+
+.terminal-sheet.minimized .terminal-info,
+.terminal-sheet.minimized .terminal-resources {
+    display: none;
+}
+
+/* ============================================
+   TERMINAL TITLE
+   ============================================ */
+
+.terminal-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    min-width: 0;
+}
+
+.terminal-icon {
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+.terminal-name {
+    flex-shrink: 0;
+}
+
+.terminal-status-indicator {
+    font-size: 0.8rem;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+.terminal-status {
+    font-size: 0.75rem;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-weight: 600;
+    background: var(--bg-tertiary);
+    color: var(--text-tertiary);
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+.terminal-status.connected {
+    background: var(--success-bg);
+    color: var(--success);
+}
+
+.terminal-status.connecting {
+    background: var(--warning-bg);
+    color: var(--warning);
+}
+
+.terminal-status.error {
+    background: var(--error-bg);
+    color: var(--error);
+}
+
+.terminal-minimized-hint {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+    font-style: italic;
+    margin-left: auto;
+}
+
+/* ============================================
+   TERMINAL INFO
+   ============================================ */
+
+.terminal-info {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 8px 16px;
+}
+
+.terminal-info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.terminal-info-label {
+    font-size: 0.7rem;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+}
+
+.terminal-info-value {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    font-family: "SF Mono", Monaco, "Cascadia Code", "Menlo", monospace;
+    word-break: break-all;
+}
+
+.terminal-ip {
+    color: var(--accent-primary);
+    font-weight: 500;
+}
+
+/* ============================================
+   TERMINAL RESOURCES
+   ============================================ */
+
+.terminal-resources {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    padding-top: 12px;
+    margin-top: 8px;
+    border-top: 1px solid var(--border-muted);
+}
+
+.terminal-resource-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.terminal-resource-label {
+    font-size: 0.7rem;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+}
+
+.terminal-resource-value {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+/* ============================================
+   TERMINAL HEADER ACTIONS
+   ============================================ */
+
+.terminal-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    padding-left: 12px;
+    border-left: 1px solid var(--border-muted);
+}
+
+.terminal-minimize,
+.terminal-close {
+    background: transparent;
+    border: 1px solid transparent;
+    font-size: 1.1rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 8px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    transition: all 0.15s ease;
+}
+
+.terminal-minimize:hover,
+.terminal-close:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border-color: var(--border-subtle);
+}
+
+.terminal-minimize.restore {
+    color: var(--success);
+}
+
+/* ============================================
+   TERMINAL CONTENT
+   ============================================ */
+
+.terminal-content {
+    flex: 1;
+    background: #0d1117;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: opacity 0.2s ease;
+}
+
+.terminal-sheet.minimized .terminal-content {
+    display: none;
+}
+
+.terminal-container {
+    flex: 1;
+    padding: 16px;
+    height: 100%;
+}
+
+/* ============================================
+   XTERM.JS OVERRIDES
+   ============================================ */
+
+.terminal-container .xterm {
+    height: 100%;
+}
+
+.terminal-container .xterm .xterm-viewport {
+    overflow-y: auto;
+}
+
+.terminal-container .xterm .xterm-viewport::-webkit-scrollbar {
+    width: 10px;
+}
+
+.terminal-container .xterm .xterm-viewport::-webkit-scrollbar-track {
+    background: #0d1117;
+}
+
+.terminal-container .xterm .xterm-viewport::-webkit-scrollbar-thumb {
+    background: #30363d;
+    border-radius: 5px;
+    border: 2px solid #0d1117;
+}
+
+.terminal-container .xterm .xterm-viewport::-webkit-scrollbar-thumb:hover {
+    background: #484f58;
+}
+
+/* Hide xterm.js cursor padding */
+.terminal-container .xterm .xterm-screen {
+    padding: 0;
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+
+@media (max-width: 1024px) {
+    .terminal-sheet {
+        width: min(600px, 90vw);
+    }
+
+    .terminal-info {
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    .terminal-sheet {
+        width: 100vw;
+        max-width: none;
+    }
+
+    .terminal-header {
+        padding: 12px 16px;
+    }
+
+    .terminal-container {
+        padding: 12px;
+    }
+
+    .terminal-info {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .terminal-resources {
+        grid-template-columns: 1fr;
+        gap: 6px;
+    }
+}
+
+@media (max-width: 480px) {
+    .terminal-header {
+        padding: 10px 12px;
+        min-height: 60px;
+    }
+
+    .terminal-title {
+        font-size: 0.9rem;
+        gap: 8px;
+    }
+
+    .terminal-status {
+        font-size: 0.7rem;
+        padding: 2px 8px;
+    }
+
+    .terminal-minimize,
+    terminal-close {
+        width: 28px;
+        height: 28px;
+        font-size: 1rem;
+    }
+
+    .terminal-info {
+        grid-template-columns: 1fr;
+    }
+}

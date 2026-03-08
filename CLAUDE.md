@@ -1,106 +1,72 @@
+# Coder
 
-Default to using Bun instead of Node.js.
+An AI-powered terminal coding assistant built with TypeScript + Rust.
 
-- Use `bun <file>` instead of `node <file>` or `ts-node <file>`
-- Use `bun test` instead of `jest` or `vitest`
-- Use `bun build <file.html|file.ts|file.css>` instead of `webpack` or `esbuild`
-- Use `bun install` instead of `npm install` or `yarn install` or `pnpm install`
-- Use `bun run <script>` instead of `npm run <script>` or `yarn run <script>` or `pnpm run <script>`
-- Use `bunx <package> <command>` instead of `npx <package> <command>`
-- Bun automatically loads .env, so don't use dotenv.
+## Project Structure
 
-## APIs
+```
+packages/
+├── src/                    # TypeScript source (main codebase)
+└── rust/                   # Rust native module source
 
-- `Bun.serve()` supports WebSockets, HTTPS, and routes. Don't use `express`.
-- `bun:sqlite` for SQLite. Don't use `better-sqlite3`.
-- `Bun.redis` for Redis. Don't use `ioredis`.
-- `Bun.sql` for Postgres. Don't use `pg` or `postgres.js`.
-- `WebSocket` is built-in. Don't use `ws`.
-- Prefer `Bun.file` over `node:fs`'s readFile/writeFile
-- Bun.$`ls` instead of execa.
-
-## Testing
-
-Use `bun test` to run tests.
-
-```ts#index.test.ts
-import { test, expect } from "bun:test";
-
-test("hello world", () => {
-  expect(1).toBe(1);
-});
+native/                     # Compiled .node binaries
+dist/                       # Bundled JS output (published to npm)
+tests/                      # Test files
+assignments/                # Side projects (not main product)
 ```
 
-## Frontend
+## Development
 
-Use HTML imports with `Bun.serve()`. Don't use `vite`. HTML imports fully support React, CSS, Tailwind.
+```bash
+bun run dev              # Watch mode (packages/src/interfaces/ui/terminal/cli/index.ts)
+bun run build            # Build TS + Rust
+bun test                 # Run tests
 
-Server:
-
-```ts#index.ts
-import index from "./index.html"
-
-Bun.serve({
-  routes: {
-    "/": index,
-    "/api/users/:id": {
-      GET: (req) => {
-        return new Response(JSON.stringify({ id: req.params.id }));
-      },
-    },
-  },
-  // optional websocket support
-  websocket: {
-    open: (ws) => {
-      ws.send("Hello, world!");
-    },
-    message: (ws, message) => {
-      ws.send(message);
-    },
-    close: (ws) => {
-      // handle close
-    }
-  },
-  development: {
-    hmr: true,
-    console: true,
-  }
-})
+# Using Coder (after build/install)
+doppler run -- coder -q "read package.json"
+doppler run -- coder --model glm-5 -q "list files"
 ```
 
-HTML files can import .tsx, .jsx or .js files directly and Bun's bundler will transpile & bundle automatically. `<link>` tags can point to stylesheets and Bun's CSS bundler will bundle.
+## Build Pipeline
 
-```html#index.html
-<html>
-  <body>
-    <h1>Hello, world!</h1>
-    <script type="module" src="./frontend.tsx"></script>
-  </body>
-</html>
+```bash
+bun run build:native     # Rust → native/*.node (via napi-rs)
+bun run build:ts         # packages/src → dist/ (bundled)
 ```
 
-With the following `frontend.tsx`:
+## Runtime Stack
 
-```tsx#frontend.tsx
-import React from "react";
-import { createRoot } from "react-dom/client";
+- **Runtime**: Bun (not Node.js)
+- **Package manager**: bun install
+- **Test runner**: bun test
+- **Bundler**: bun build
+- **Secrets**: Doppler
 
-// import .css files directly and it works
-import './index.css';
+## Native Modules (Rust)
 
-const root = createRoot(document.body);
+Performance-critical operations in `packages/rust/src/`:
+- **grep.rs** - ripgrep-based file search
+- **hash.rs** - xxHash3/SHA-256 for caching
+- **highlight.rs** - Syntax highlighting (syntect)
+- **tokens.rs** - Token counting/estimation
+- **diff.rs** - Diff calculation
+- **compact.rs** - Context compaction
+- **structure.rs** - Tree-sitter code parsing
+- **multi_edit.rs** - Atomic multi-file editing
+- **patterns.rs** - Tool pattern analysis
+- **tool_pairs.rs** - Tool use/result extraction
+- **input.rs** - Terminal input handling
+- **tui.rs** - Native TUI rendering
+- **cognitive_security/** - Security modules (action, intent, flow)
 
-export default function Frontend() {
-  return <h1>Hello, world!</h1>;
-}
+## Focus
 
-root.render(<Frontend />);
-```
+**ONLY WORK ON CODER** - the product.
+- This session should ONLY edit files in `packages/`, `native/`, `tests/`, and root config files
+- **DO NOT edit `assignments/`** in this session - use Coder CLI to develop those:
+  ```bash
+  doppler run -- coder -q "work on assignments/dapp" --model glm-5
+  ```
+- We use Coder to develop assignments so we can oversee and enhance Coder itself
 
-Then, run index.ts
-
-```sh
-bun --hot ./index.ts
-```
-
-For more information, read the Bun API docs in `node_modules/bun-types/docs/**.mdx`.
+For detailed architecture, see `.claude/CLAUDE.md`.

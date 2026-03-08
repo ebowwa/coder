@@ -1,10 +1,10 @@
-# Claude Code Remake
+# Coder
 
-A reimplementation of Claude Code CLI in TypeScript + Rust.
+An AI-powered terminal coding assistant built with TypeScript + Rust.
 
 ## Project Overview
 
-This is a from-scratch rebuild of the Claude Code CLI tool, designed to be:
+Coder is designed to be:
 - **Transparent**: All code is readable TypeScript/Rust
 - **Modular**: Clean separation between components
 - **Extensible**: MCP-first architecture for tool integration
@@ -12,42 +12,87 @@ This is a from-scratch rebuild of the Claude Code CLI tool, designed to be:
 ## Architecture
 
 ```
-src/
-├── cli.ts              # Main entry point, REPL loop
-├── index.ts            # Library exports
-├── core/
-│   ├── api-client.ts       # Anthropic API interface
-│   ├── api-client-impl.ts  # Streaming implementation
-│   ├── agent-loop.ts       # Agentic loop (think → act → observe)
-│   ├── checkpoints.ts      # Save/restore conversation + files
-│   ├── claude-md.ts        # Project instructions loader
-│   ├── context-compaction.ts # Context window management
-│   ├── git-status.ts       # Git state detection
-│   ├── permissions.ts      # Permission modes (default, acceptEdits, bypass)
-│   ├── retry.ts            # Exponential backoff for API
-│   ├── session-store.ts    # Session persistence (JSONL)
-│   └── system-reminders.ts # Dynamic context injection
-├── mcp/
-│   └── client.ts           # MCP client (stdio, HTTP, SSE, WS)
-├── tools/
-│   └── index.ts            # Built-in tools (Read, Edit, Write, Bash, etc.)
-├── hooks/
-│   └── index.ts            # Hook system (PreToolUse, PostToolUse, etc.)
-├── skills/
-│   └── index.ts            # Skills system
-├── teammates/
-│   └── index.ts            # Multi-agent coordination
-├── types/
-│   └── index.ts            # All TypeScript interfaces
-└── native/
-    └── index.ts            # Rust FFI bindings
+packages/
+├── src/                            # TypeScript source code
+│   ├── index.ts                    # Library exports
+│   │
+│   ├── core/                       # Core systems
+│   │   ├── api-client.ts           # LLM API interface
+│   │   ├── api-client-impl.ts      # Streaming implementation
+│   │   ├── agent-loop/             # Agentic loop (modular)
+│   │   │   ├── index.ts            # Main entry
+│   │   │   ├── types.ts            # Loop types
+│   │   │   ├── loop-state.ts       # State management
+│   │   │   ├── turn-executor.ts    # Single turn execution
+│   │   │   ├── tool-executor.ts    # Tool execution with hooks
+│   │   │   ├── compaction.ts       # Context compaction
+│   │   │   ├── message-builder.ts  # API message construction
+│   │   │   └── formatters.ts       # Display utilities
+│   │   ├── checkpoints.ts          # Save/restore conversation + files
+│   │   ├── claude-md.ts            # Project instructions loader
+│   │   ├── config-loader.ts        # Config file loading
+│   │   ├── context-compaction.ts   # Context window management
+│   │   ├── git-status.ts           # Git state detection
+│   │   ├── models.ts               # Model aliases/pricing
+│   │   ├── permissions.ts          # Permission modes
+│   │   ├── retry.ts                # Exponential backoff for API
+│   │   ├── session-store.ts        # Session persistence (JSONL)
+│   │   ├── sessions/               # Session management (modular)
+│   │   ├── stream-highlighter.ts   # Output highlighting
+│   │   ├── system-reminders.ts     # Dynamic context injection
+│   │   └── cognitive-security/     # Security middleware
+│   │
+│   ├── ecosystem/                  # Extension systems
+│   │   ├── tools/index.ts          # Built-in tools
+│   │   ├── hooks/index.ts          # Hook system
+│   │   └── skills/index.ts         # Skills system
+│   │
+│   ├── interfaces/                 # Interface layers
+│   │   ├── mcp/client.ts           # MCP client (stdio, HTTP, SSE, WS)
+│   │   └── ui/                     # UI components
+│   │       ├── index.ts            # UI exports
+│   │       ├── spinner.ts          # Loading indicators
+│   │       └── terminal/           # Terminal interfaces
+│   │           ├── cli/            # CLI entry point
+│   │           ├── shared/         # Shared terminal utils
+│   │           └── tui/            # TUI components
+│   │
+│   ├── native/index.ts             # Native module loader + fallbacks
+│   ├── teammates/index.ts          # Multi-agent coordination
+│   └── types/index.ts              # All TypeScript interfaces
+│
+└── rust/                           # Rust native module source
+    └── src/
+        ├── lib.rs                  # NAPI exports
+        ├── grep.rs                 # Native ripgrep
+        ├── hash.rs                 # xxHash3/SHA-256
+        ├── highlight.rs            # Syntax highlighting
+        ├── diff.rs                 # Diff calculation
+        ├── multi_edit.rs           # Atomic multi-file editing
+        ├── patterns.rs             # Tool pattern analysis
+        ├── structure.rs            # Tree-sitter parsing
+        ├── tool_pairs.rs           # Tool pair analysis
+        ├── tool_use.rs             # Tool use counting
+        ├── input.rs                # Terminal input handling
+        ├── tui.rs                  # Native TUI rendering
+        └── cognitive_security/     # Security modules
+            ├── mod.rs
+            ├── action/             # Action classification
+            ├── intent/             # Intent signing/verification
+            └── flow/               # Data flow tracking
 
-rust/src/
-├── lib.rs              # NAPI exports
-├── search.rs           # Ripgrep-based file search
-├── tokens.rs           # Token counting
-├── diff.rs             # Diff calculation
-└── compact.rs          # Content compaction
+native/                             # Compiled Rust binaries (committed)
+├── index.d.ts                      # TypeScript declarations
+├── index.js                        # JS loader wrapper
+└── index.{platform}.{arch}.node    # Platform-specific binaries
+
+dist/                       # Bundled JS output (published to npm)
+├── cli.js                  # Entry point for `coder` bin
+└── index.js                # Library exports
+
+tests/                      # Test files
+assignments/                # Side projects (not main product)
+directives/                 # Intent directive examples
 ```
 
 ## Key Systems
@@ -79,7 +124,7 @@ Config merging:
 - MCP servers: global + project-specific
 - Hooks: loaded from settings, registered with HookManager
 
-### 4. Permission Modes
+### 5. Permission Modes
 - `default` - Prompts for dangerous operations
 - `acceptEdits` - Auto-accept file edits
 - `bypassPermissions` - No prompts (dangerous!)
@@ -105,23 +150,15 @@ bun test
 ## CLI Usage
 
 ```bash
-# Start interactive
-bun run src/cli.ts
+# Development (watch mode)
+bun run dev
 
-# Single query
-bun run src/cli.ts -q "read package.json"
-
-# With options
-bun run src/cli.ts \
-  --model claude-sonnet-4-6 \
-  --permission-mode acceptEdits \
-  --max-tokens 8192
-
-# Resume session
-bun run src/cli.ts --resume <session-id>
-
-# List sessions
-bun run src/cli.ts --sessions
+# Using Coder (after build/install)
+doppler run -- coder                    # Interactive mode
+doppler run -- coder -q "read package.json"
+doppler run -- coder --model glm-5 -q "list files"
+doppler run -- coder --resume <session-id>
+doppler run -- coder --sessions
 ```
 
 ## REPL Commands
@@ -163,36 +200,19 @@ bun run src/cli.ts --sessions
 
 Set via environment:
 ```bash
-export ANTHROPIC_API_KEY="sk-..."
+export API_KEY="your-key-here"
 ```
 
-Or use Doppler:
+Or use Doppler (recommended):
 ```bash
-doppler run -- bun run src/cli.ts
+doppler run -- coder
 ```
 
-## Models
+## Focus
 
-| Model | Use Case |
-|-------|----------|
-| claude-opus-4-6 | Complex reasoning |
-| claude-sonnet-4-6 | Default, balanced |
-| claude-haiku-4-5 | Fast, simple tasks |
-
-## Cost Tracking
-
-Pricing per million tokens:
-- Opus: $15 input / $75 output
-- Sonnet: $3 input / $15 output
-- Haiku: $0.80 input / $4 output
-
-Cache pricing:
-- Write: 1.25x input
-- Read: 0.10x input
-
-## Important Notes
-
-- This is a **reimplementation** - not affiliated with Anthropic
-- Types based on binary analysis of Claude Code v2.1.50
-- MCP tools are prefixed with `mcp__` to avoid collisions
-- Checkpoints include file snapshots for full restore capability
+**ONLY WORK ON CODER** - the product.
+- This session should ONLY edit files in `packages/`, `native/`, `tests/`, and root config files
+- **DO NOT edit `assignments/`** in this session - use Coder CLI to develop those:
+  ```bash
+  doppler run -- coder -q "work on assignments/dapp" --model glm-5
+  ```

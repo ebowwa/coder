@@ -1,0 +1,8 @@
+mv:
+- /Users/ebowwa/Desktop/codespaces/claude-code-remake/packages/src/core/config-loader.ts
+- /Users/ebowwa/Desktop/codespaces/claude-code-remake/packages/src/core/claude-md.ts
+- /Users/ebowwa/Desktop/codespaces/claude-code-remake/packages/src/core/permissions.ts
+- /Users/ebowwa/Desktop/codespaces/claude-code-remake/packages/src/core/models.ts
+
+
+to `/Users/ebowwa/Desktop/codespaces/claude-code-remake/packages/src/ecosystem`

@@ -1,0 +1,320 @@
+/* ============================================
+   CHEAPSPACES - MAIN CSS
+   Imports all organized CSS modules
+   ============================================ */
+
+/* Base: Tailwind, shadcn theme, variables, reset, animations */
+@import "./styles/base.css";
+
+/* Layout: app container, header, main content */
+@import "./styles/layout.css";
+
+/* Buttons: base button styles */
+@import "./styles/buttons.css";
+
+/* Forms: inputs, form elements, selectors, validation */
+@import "./styles/forms.css";
+
+/* Overlays: modals, dialogs, sheets, panels */
+@import "./styles/overlays.css";
+
+/* Utilities: helper classes */
+@import "./styles/utilities.css";
+
+/* Component styles - co-located with components */
+@import "./components/activitylog/ActivityLog.css";
+@import "./components/ai/AIAssistant.css";
+@import "./components/chart/ResourceChart.css";
+@import "./components/shared/ConfirmDialog.css";
+@import "./components/shared/dropdown.css";
+@import "./components/shared/Sheet.css";
+@import "./components/environments/EnvironmentDetails.css";
+@import "./components/environments/EnvironmentFilter.css";
+@import "./components/environments/EnvironmentList.css";
+@import "./components/filebrowser/FileBrowser.css";
+@import "./components/shared/Loading.css";
+@import "./components/shared/NotificationToast.css";
+@import "./components/shared/PreviewLayer.css";
+@import "./components/shared/ProgressBar.css";
+@import "./components/shared/RefreshButton.css";
+@import "./components/environments/RegionSelector.css";
+@import "./components/chart/ResourceMonitor.css";
+@import "./components/environments/ServerTypeSelector.css";
+@import "./components/shared/SettingsPanel.css";
+@import "./components/shared/TagBadge.css";
+@import "./components/shared/TagInput.css";
+@import "./components/terminal/TerminalSheet.css";
+@import "./components/shared/ToolsSection.css";
+
+/* Shared component utilities */
+@import "./components/shared/CostEstimate.css";
+@import "./components/shared/QuickStats.css";
+
+/* ============================================
+   RALPH LOOP & NODE SERVICES STYLES
+   ============================================ */
+
+/* Ralph Loop Items */
+.ralph-loops-list {
+  margin-top: 1rem;
+}
+
+.ralph-loop-item {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  background: var(--card);
+}
+
+.ralph-loop-item.running {
+  border-color: #22c55e;
+}
+
+.ralph-loop-item.complete {
+  border-color: #3b82f6;
+}
+
+.ralph-loop-item.error {
+  border-color: #ef4444;
+}
+
+.loop-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.loop-id {
+  font-weight: 600;
+  font-family: monospace;
+}
+
+.loop-status {
+  padding: 0.125rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.loop-status.running {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.loop-status.complete {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.loop-status.error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.loop-status.starting {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.loop-phase {
+  padding: 0.125rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+
+/* Project Path */
+.loop-path {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.5rem;
+  background: var(--secondary);
+  border-radius: 4px;
+  margin-bottom: 0.75rem;
+  font-size: 0.875rem;
+}
+
+.path-icon {
+  font-size: 0.875rem;
+}
+
+.path-text {
+  font-family: monospace;
+  font-size: 0.8125rem;
+  color: var(--foreground);
+  background: var(--background);
+  padding: 0.125rem 0.375rem;
+  border-radius: 3px;
+}
+
+/* Git Info */
+.git-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.git-remote,
+.git-branch {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  background: var(--muted);
+  padding: 0.125rem 0.375rem;
+  border-radius: 4px;
+}
+
+.git-icon {
+  font-size: 0.75rem;
+}
+
+/* Loop Prompt */
+.loop-prompt {
+  padding: 0.5rem;
+  background: var(--accent);
+  border-radius: 4px;
+  margin-bottom: 0.75rem;
+  font-size: 0.875rem;
+}
+
+.prompt-label {
+  font-weight: 600;
+  color: var(--foreground);
+  margin-right: 0.25rem;
+}
+
+.prompt-text {
+  color: var(--foreground);
+}
+
+/* Loop Progress */
+.loop-progress,
+.subtask-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.loop-iteration,
+.subtask-summary {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+
+.progress-track {
+  flex: 1;
+  height: 6px;
+  background: var(--secondary);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #22c55e, #3b82f6);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+/* Current Task */
+.current-task {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: var(--muted);
+  border-radius: 4px;
+  margin-bottom: 0.75rem;
+  font-size: 0.875rem;
+}
+
+.current-task-label {
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
+.current-task-text {
+  color: var(--foreground);
+  flex: 1;
+}
+
+/* Subtasks List */
+.subtasks-list {
+  margin-top: 0.75rem;
+  padding: 0.5rem;
+  background: var(--secondary);
+  border-radius: 4px;
+}
+
+.subtask-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0;
+  font-size: 0.875rem;
+}
+
+.subtask-status {
+  font-family: monospace;
+  font-weight: 600;
+  min-width: 1.25rem;
+}
+
+.subtask-status.completed {
+  color: #22c55e;
+}
+
+.subtask-status.in_progress {
+  color: #3b82f6;
+}
+
+.subtask-status.pending {
+  color: var(--muted-foreground);
+}
+
+.subtask-title {
+  color: var(--foreground);
+}
+
+.subtask-item.completed .subtask-title {
+  text-decoration: line-through;
+  color: var(--muted-foreground);
+}
+
+/* Recent Commits */
+.loop-commits {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.commit-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+  font-size: 0.75rem;
+}
+
+.commit-hash {
+  font-family: monospace;
+  color: var(--muted-foreground);
+  background: var(--muted);
+  padding: 0.125rem 0.25rem;
+  border-radius: 3px;
+}
+
+.commit-message {
+  color: var(--foreground);
+  flex: 1;
+}
