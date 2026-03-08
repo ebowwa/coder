@@ -19,7 +19,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cd /Users/ebowwa/Desktop/codespaces/coder && bun run build:ts 2>&1 | tail -5",
+            "command": "cd /Users/ebowwa/Desktop/codespaces/packages/src/ai/coder && bun run build:ts 2>&1 | tail -5",
             "timeout": 120,
             "statusMessage": "Rebuilding coder..."
           }

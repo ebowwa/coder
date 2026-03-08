@@ -65,7 +65,7 @@ console.log('3️⃣  Verifying Immutable Directives...');
 
 // The immutable directives are actually in src/cli.ts buildSystemPrompt() function
 // around line 1211, not in system-reminders.ts
-const cliPath = '/Users/ebowwa/Desktop/codespaces/coder/packages/src/interfaces/ui/terminal/cli/index.ts';
+const cliPath = '/Users/ebowwa/Desktop/codespaces/packages/src/ai/coder/packages/src/interfaces/ui/terminal/cli/index.ts';
 const cliContent = await Bun.file(cliPath).text();
 
 // Find the buildSystemPrompt function

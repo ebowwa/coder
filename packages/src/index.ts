@@ -15,7 +15,13 @@ export {
   calculateCacheMetrics,
 } from "./core/api-client.js";
 export type { StreamOptionsType as StreamOptions, StreamResultType as StreamResult } from "./core/api-client.js";
-export { agentLoop, formatCost, formatMetrics, formatCostBrief, formatCacheMetrics } from "./core/agent-loop.js";
+export {
+  agentLoop,
+  formatCost,
+  formatMetrics,
+  formatCostBrief,
+  formatCacheMetrics,
+} from "./core/agent-loop.js";
 export type { AgentLoopOptions, AgentLoopResult } from "./core/agent-loop.js";
 
 // Permissions (types are re-exported via ./types/index.js)
@@ -96,3 +102,19 @@ export {
 
 // Native module (Rust)
 export * from "./native/index.js";
+
+// Context Compaction
+export {
+  estimateTokens,
+  estimateMessagesTokens,
+  compactMessages,
+  needsCompaction,
+  summarizeMessages,
+  summarizeWithLLM,
+  getCompactionStats,
+} from "./core/context-compaction.js";
+export type {
+  CompactionOptions,
+  CompactionResult,
+  LLMSummarizationOptions,
+} from "./core/context-compaction.js";
