@@ -40,3 +40,6 @@ rust/target/
 *.db
 *.db-lock
 lmdb/
+
+# Rust build artifacts
+packages/rust/target/
