@@ -445,7 +445,7 @@ export function safeParseTeammateMessage(data: unknown): {
   error?: string;
 } {
   const result = TeammateMessageSchema.safeParse(data);
-  
+
   if (!result.success) {
     return {
       success: false,
@@ -455,7 +455,33 @@ export function safeParseTeammateMessage(data: unknown): {
       ).formatIssues(),
     };
   }
-  
+
+  return {
+    success: true,
+    data: result.data,
+  };
+}
+
+/**
+ * Safely parse stored message with validation error return (no throw)
+ */
+export function safeParseStoredMessage(data: unknown): {
+  success: boolean;
+  data?: StoredMessage;
+  error?: string;
+} {
+  const result = StoredMessageSchema.safeParse(data);
+
+  if (!result.success) {
+    return {
+      success: false,
+      error: new ValidationError(
+        "Invalid StoredMessage data",
+        result.error.issues
+      ).formatIssues(),
+    };
+  }
+
   return {
     success: true,
     data: result.data,
@@ -512,20 +538,20 @@ export function createValidatedTeammate(
  */
 export function createValidatedTeam(config: TeamConfig): Team {
   const parsed = parseTeamConfig(config);
-  
+
   return {
     ...parsed,
-    status: "active",
+    status: "active" as const,
     teammates: parsed.teammates.map((t) => ({
       ...t,
       teammateId: t.teammateId || generateTeammateId(),
-      status: t.status || "pending",
+      status: "pending" as const,
     })),
     taskListId: parsed.taskListId || "",
     coordination: parsed.coordination || {
       dependencyOrder: [],
-      communicationProtocol: "broadcast",
-      taskAssignmentStrategy: "manual",
+      communicationProtocol: "broadcast" as const,
+      taskAssignmentStrategy: "manual" as const,
     },
   };
 }
@@ -602,41 +628,6 @@ export function validateMessagesBatch(
       });
     }
   });
-  
+
   return { valid, invalid };
 }
-
-// ============================================
-// EXPORTS
-// ============================================
-
-export {
-  TeammateSchema,
-  TeamSchema,
-  TeammateMessageSchema,
-  StoredMessageSchema,
-  TeamConfigSchema,
-  TeammateConfigSchema,
-  CoordinationSettingsSchema,
-  InboxStatsSchema,
-  WaitResultSchema,
-  TeammateStatusSchema,
-  TeamStatusSchema,
-  TemplateTypeSchema,
-  TeammateColorSchema,
-};
-
-// Re-export types for convenience
-export type {
-  Teammate,
-  Team,
-  TeammateMessage,
-  StoredMessage,
-  TeamConfig,
-  TeammateConfig,
-  CoordinationSettings,
-  InboxStats,
-  WaitResult,
-  TemplateType,
-  TeammateColor,
-};

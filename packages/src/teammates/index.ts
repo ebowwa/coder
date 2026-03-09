@@ -394,12 +394,12 @@ export class TeammateManager {
           const msgPath = join(pendingPath, file);
           const content = readFileSync(msgPath, 'utf-8');
           const result = safeParseStoredMessage(content);
-          
-          if (result.success) {
+
+          if (result.success && result.data) {
             messages.push(result.data);
           } else {
             // Log validation error but skip this message
-            console.error(`Failed to parse message from ${msgPath}:`, result.error.message);
+            console.error(`Failed to parse message from ${msgPath}:`, result.error);
           }
         } catch (err) {
           // Skip malformed messages
@@ -859,9 +859,9 @@ export class TeammateManager {
           // Parse and validate using Zod schema
           const result = safeParseTeam(text);
 
-          if (!result.success) {
+          if (!result.success || !result.data) {
             // Log validation error but skip this config
-            console.error(`Failed to load team config from ${filePath}:`, result.error.message);
+            console.error(`Failed to load team config from ${filePath}:`, result.error);
             continue;
           }
 
