@@ -203,6 +203,7 @@ export function renderStatusLine(options: StatusLineOptions): string {
     model,
     permissionMode,
     isLoading = false,
+    verbose = false,
   } = options;
 
   const contextInfo = calculateContextInfo(tokensUsed, model);
@@ -223,6 +224,11 @@ export function renderStatusLine(options: StatusLineOptions): string {
   // 2. Add permission mode
   parts.push(formatPermissionMode(permissionMode));
 
+  // 3. Add version in verbose mode
+  if (verbose) {
+    parts.push(`currentVersion: ${VERSION}`);
+  }
+
   // Join with comma-space
   let statusLine = parts.join(", ");
 
@@ -238,13 +244,15 @@ export function renderStatusLine(options: StatusLineOptions): string {
  * Render a compact status line for narrow displays
  */
 export function renderCompactStatusLine(options: StatusLineOptions): string {
-  const { tokensUsed, model, isLoading = false } = options;
+  const { tokensUsed, model, permissionMode, isLoading = false } = options;
   const contextInfo = calculateContextInfo(tokensUsed, model);
+  const permDisplay = getPermissionModeDisplay(permissionMode);
 
-  // Compact: "8% | 0 tokens"
+  // Compact: "8% | 5.0k | bypass"
   const parts = [
     formatContextPercent(contextInfo.percentRemaining),
     contextInfo.tokenDisplay.split(" ")[0] ?? "0", // Just the number
+    permDisplay.label.split(" ")[0] ?? permDisplay.label, // First word of label (e.g., "bypass" from "bypass permissions")
   ];
 
   let line = parts.join(chalk.dim(" | "));

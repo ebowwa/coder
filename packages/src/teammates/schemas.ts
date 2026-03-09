@@ -31,9 +31,9 @@ export const TeammateSchema = z.object({
   teammateId: z.string().min(1, "teammateId cannot be empty"),
   name: z.string().min(1, "name cannot be empty"),
   teamName: z.string().min(1, "teamName cannot be empty"),
-  color: z.string().min(1, "color cannot be empty"),
-  prompt: z.string().min(1, "prompt cannot be empty"),
-  planModeRequired: z.boolean(),
+  color: z.string().default("blue"),
+  prompt: z.string().default(""), // Allow empty prompts for backward compatibility
+  planModeRequired: z.boolean().default(false),
   paneId: z.string().optional(),
   insideTmux: z.boolean().optional(),
   status: TeammateStatusSchema,
@@ -69,8 +69,8 @@ export type CoordinationSettings = z.infer<typeof CoordinationSettingsSchema>;
  */
 export const TeamSchema = z.object({
   name: z.string().min(1, "name cannot be empty"),
-  description: z.string().min(1, "description cannot be empty"),
-  teammates: z.array(TeammateSchema).min(1, "team must have at least one teammate"),
+  description: z.string().default(""), // Allow empty description for backward compatibility
+  teammates: z.array(TeammateSchema).default([]), // Allow empty teammates array
   taskListId: z.string().default(""),
   status: TeamStatusSchema.default("active"),
   coordination: CoordinationSettingsSchema.default({
