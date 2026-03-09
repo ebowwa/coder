@@ -11,6 +11,17 @@ import type { Teammate, Team, TeammateMessage, TeammateStatus } from "../types/i
 import { spawn } from "child_process";
 import { mkdirSync, rmSync, existsSync, readFileSync, readdirSync, renameSync, writeFileSync, statSync } from "fs";
 import { join, basename } from "path";
+import {
+  parseTeam,
+  parseTeammate,
+  parseTeammateMessage,
+  parseStoredMessage,
+  safeParseTeam,
+  safeParseTeammate,
+  safeParseTeammateMessage,
+  safeParseStoredMessage,
+  ValidationError,
+} from "./schemas.js";
 
 // ============================================
 // FILE-BASED INBOX TYPES
@@ -363,6 +374,7 @@ export class TeammateManager {
 
   /**
    * Read all pending messages from a teammate's inbox
+   * Validates messages using Zod schema, skipping malformed ones
    */
   private readPendingMessages(teamName: string, teammateId: string): StoredMessage[] {
     const pendingPath = this.getPendingPath(teamName, teammateId);
@@ -381,14 +393,22 @@ export class TeammateManager {
         try {
           const msgPath = join(pendingPath, file);
           const content = readFileSync(msgPath, 'utf-8');
-          const msg = JSON.parse(content) as StoredMessage;
-          messages.push(msg);
-        } catch {
+          const result = safeParseStoredMessage(content);
+          
+          if (result.success) {
+            messages.push(result.data);
+          } else {
+            // Log validation error but skip this message
+            console.error(`Failed to parse message from ${msgPath}:`, result.error.message);
+          }
+        } catch (err) {
           // Skip malformed messages
+          console.error(`Error reading message file:`, err);
         }
       }
-    } catch {
+    } catch (err) {
       // Directory read error
+      console.error(`Error reading pending messages:`, err);
     }
 
     return messages;
@@ -813,6 +833,7 @@ export class TeammateManager {
   /**
    * Load all teams from disk at startup
    * Uses synchronous operations for constructor compatibility
+   * Validates all data using Zod schemas
    */
   loadTeams(): void {
     // Use Bun's glob to find team configs
@@ -834,27 +855,17 @@ export class TeammateManager {
           // Read file synchronously using readFileSync
           // Bun.file().text() is async, so we use fs.readFileSync for sync operation
           const text = readFileSync(filePath, "utf-8");
-          const config = JSON.parse(text);
 
-          // Validate required fields - skip if missing teammates or name
-          if (!config.name || !config.teammates || !Array.isArray(config.teammates)) {
-            // Skip configs that don't match our expected structure
+          // Parse and validate using Zod schema
+          const result = safeParseTeam(text);
+
+          if (!result.success) {
+            // Log validation error but skip this config
+            console.error(`Failed to load team config from ${filePath}:`, result.error.message);
             continue;
           }
 
-          const team: Team = {
-            name: config.name,
-            description: config.description || "",
-            teammates: config.teammates,
-            taskListId: config.taskListId || "",
-            status: config.status || "active",
-            coordination: config.coordination || {
-              dependencyOrder: [],
-              communicationProtocol: "broadcast",
-              taskAssignmentStrategy: "manual",
-            },
-          };
-
+          const team = result.data;
           this.teams.set(team.name, team);
 
           // Index teammates
@@ -863,12 +874,13 @@ export class TeammateManager {
           }
         } catch (error) {
           // Silently skip malformed configs
+          console.error(`Error reading team config:`, error);
         }
       }
     } catch (error) {
       // Storage path may not exist yet - that's okay
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
-        // Ignore permission errors too
+        console.error("Error loading teams:", error);
       }
     }
   }
