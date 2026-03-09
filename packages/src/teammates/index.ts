@@ -393,7 +393,16 @@ export class TeammateManager {
         try {
           const msgPath = join(pendingPath, file);
           const content = readFileSync(msgPath, 'utf-8');
-          const result = safeParseStoredMessage(content);
+
+          // Parse JSON first, then validate
+          let parsed: unknown;
+          try {
+            parsed = JSON.parse(content);
+          } catch {
+            continue; // Skip non-JSON files
+          }
+
+          const result = safeParseStoredMessage(parsed);
 
           if (result.success && result.data) {
             messages.push(result.data);
@@ -856,8 +865,17 @@ export class TeammateManager {
           // Bun.file().text() is async, so we use fs.readFileSync for sync operation
           const text = readFileSync(filePath, "utf-8");
 
-          // Parse and validate using Zod schema
-          const result = safeParseTeam(text);
+          // Parse JSON first, then validate with Zod schema
+          let parsed: unknown;
+          try {
+            parsed = JSON.parse(text);
+          } catch (parseError) {
+            console.error(`Failed to parse JSON from ${filePath}:`, parseError);
+            continue;
+          }
+
+          // Validate using Zod schema
+          const result = safeParseTeam(parsed);
 
           if (!result.success || !result.data) {
             // Log validation error but skip this config
