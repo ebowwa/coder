@@ -420,24 +420,29 @@ export class TeammateModeRunner {
    * Report task completion
    */
   reportTaskComplete(taskId: string, taskSubject: string): void {
-    this.updateStatus("completed");
+    // Broadcast first, then update status (broadcast calls reportActivity which resets to in_progress)
     this.broadcast(`Task completed: ${taskSubject} (${taskId})`);
+    this.updateStatus("completed");
   }
 
   /**
    * Report task failure
    */
   reportTaskFailed(taskId: string, taskSubject: string, error: string): void {
-    this.updateStatus("failed");
+    // Broadcast first, then update status
     this.broadcast(`Task failed: ${taskSubject} (${taskId}) - ${error}`);
+    this.updateStatus("failed");
   }
 
   /**
    * Request task assignment
    */
   requestTask(): void {
-    this.broadcast("Ready for task assignment");
+    // Update status first, then broadcast (broadcast would reset to in_progress)
     this.updateStatus("idle");
+    this.broadcast("Ready for task assignment");
+    // Ensure status stays idle after broadcast
+    this.state.status = "idle";
   }
 }
 
