@@ -70,18 +70,20 @@ describe("needsCompaction", () => {
   });
 
   it("should respect custom threshold", () => {
-    // Create messages that are exactly at a specific token count
-    // 10 messages * 200 tokens = 2000 tokens total
+    // Create messages with known token count
+    // Note: createMessages adds " Message ${i}" suffix and role overhead
+    // So actual tokens per message = tokensPerMessage + ~2 (suffix) + 4 (role)
+    // For 10 messages at 200 target tokens: ~2060 actual tokens
     const messages = createMessages(10, 200);
-    // Total ~2000 tokens, at 90% of 2000 = 1800 threshold
-    // 2000 >= 1800, so needs compaction at 0.9 threshold
+
+    // At 2000 max with 1.05 threshold (2100), 2060 < 2100, so no compaction needed
+    expect(needsCompaction(messages, 2000, 1.05)).toBe(false);
+
+    // At 2000 max with 1.00 threshold (2000), 2060 >= 2000, so needs compaction
+    expect(needsCompaction(messages, 2000, 1.0)).toBe(true);
+
+    // At 2000 max with 0.9 threshold (1800), 2060 >= 1800, so needs compaction
     expect(needsCompaction(messages, 2000, 0.9)).toBe(true);
-
-    // At 99% threshold (1980), 2000 >= 1980, so still needs compaction
-    expect(needsCompaction(messages, 2000, 0.99)).toBe(true);
-
-    // At 101% threshold (2020), 2000 < 2020, so no compaction needed
-    expect(needsCompaction(messages, 2000, 1.01)).toBe(false);
   });
 });
 
@@ -104,7 +106,7 @@ describe("handleProactiveCompaction", () => {
   });
 
   it("should apply compaction when needed", async () => {
-    const result = await handleProactiveCompaction(state, 4096);
+    const result = await handleProactiveCompaction(state, 4096, { useLLMSummarization: false });
 
     // May or may not compact depending on actual token counts
     // Just verify it doesn't throw
@@ -116,6 +118,7 @@ describe("handleProactiveCompaction", () => {
       keepFirst: 2,
       keepLast: 5,
       preserveToolPairs: false,
+      useLLMSummarization: false,
     };
 
     const result = await handleProactiveCompaction(state, 4096, customOptions);
@@ -133,7 +136,7 @@ describe("handleReactiveCompaction", () => {
   });
 
   it("should attempt compaction on any message set", async () => {
-    const result = await handleReactiveCompaction(state, 4096);
+    const result = await handleReactiveCompaction(state, 4096, { useLLMSummarization: false });
 
     expect(typeof result).toBe("boolean");
   });
@@ -150,7 +153,7 @@ describe("handleReactiveCompaction", () => {
   it("should increment compaction count on success", async () => {
     const initialCount = state.compactionCount;
 
-    await handleReactiveCompaction(state, 1000); // Force compaction with low limit
+    await handleReactiveCompaction(state, 1000, { useLLMSummarization: false }); // Force compaction with low limit
 
     // If compaction succeeded, count should increase
     // (depends on actual token counts)
@@ -190,7 +193,7 @@ describe("compaction state updates", () => {
     const state = new LoopState(messages);
     const originalLength = state.messages.length;
 
-    await handleProactiveCompaction(state, 2000); // Force compaction
+    await handleProactiveCompaction(state, 2000, { useLLMSummarization: false }); // Force compaction
 
     // If compaction occurred, message count should decrease
     // (depends on actual implementation)
@@ -202,7 +205,7 @@ describe("compaction state updates", () => {
 
     const initialCompacted = state.totalTokensCompacted;
 
-    await handleProactiveCompaction(state, 2000);
+    await handleProactiveCompaction(state, 2000, { useLLMSummarization: false });
 
     // If compaction succeeded, this should increase
     // (depends on actual implementation)

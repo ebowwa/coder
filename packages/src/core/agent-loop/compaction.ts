@@ -21,6 +21,8 @@ export interface CompactionOptions {
   keepLast?: number;
   /** Preserve tool use/result pairs */
   preserveToolPairs?: boolean;
+  /** Use LLM for summarization (default: true) */
+  useLLMSummarization?: boolean;
 }
 
 /** Default compaction options for proactive compaction */
@@ -54,6 +56,7 @@ export async function handleProactiveCompaction(
     keepFirst: options.keepFirst ?? 0,
     keepLast: options.keepLast ?? 3,
     preserveToolPairs: options.preserveToolPairs ?? true,
+    useLLMSummarization: options.useLLMSummarization ?? true,
   });
 
   return state.applyCompaction(compactionResult, getCompactionStats);
@@ -72,6 +75,7 @@ export async function handleReactiveCompaction(
     keepFirst: options.keepFirst ?? 0,
     keepLast: options.keepLast ?? 3,
     preserveToolPairs: options.preserveToolPairs ?? true,
+    useLLMSummarization: options.useLLMSummarization ?? true,
   });
 
   return state.applyCompaction(compactionResult, getCompactionStats);
