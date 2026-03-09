@@ -362,6 +362,7 @@ export interface Teammate {
   prompt: string;
   planModeRequired: boolean;
   paneId?: string;
+  insideTmux?: boolean;
   status: TeammateStatus;
 }
 

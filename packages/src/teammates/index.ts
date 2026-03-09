@@ -980,3 +980,13 @@ export function createTeammate(
 
 // Export types
 export type { StoredMessage };
+
+// Re-export runner module
+export {
+  TeammateModeRunner,
+  getTeammateRunner,
+  setTeammateRunner,
+  isTeammateModeActive,
+  type TeammateModeConfig,
+  type TeammateModeState,
+} from "./runner.js";

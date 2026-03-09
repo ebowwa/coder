@@ -72,6 +72,7 @@ function InteractiveTUIInner({
   sessionId,
   setSessionId,
   workingDirectory,
+  teammateRunner,
   onExit,
 }: InteractiveTUIProps) {
   // Message store
@@ -157,6 +158,37 @@ function InteractiveTUIInner({
 
     return () => clearInterval(interval);
   }, [isLoading]);
+
+  // Teammate mode polling - check for incoming messages
+  useEffect(() => {
+    if (!teammateRunner || !teammateRunner.isActive()) return;
+
+    const pollInterval = setInterval(() => {
+      if (teammateRunner.hasPendingMessages()) {
+        const messages = teammateRunner.getPendingMessages();
+        for (const msg of messages) {
+          // Inject teammate message as user message
+          addMessage({
+            role: "user",
+            content: `[From ${msg.from}] ${msg.content}`,
+          });
+          teammateRunner.reportActivity();
+        }
+      }
+    }, 2000);
+
+    return () => clearInterval(pollInterval);
+  }, [teammateRunner, addMessage]);
+
+  // Report activity when user sends message
+  useEffect(() => {
+    if (teammateRunner && messages.length > 0) {
+      const lastMessage = messages[messages.length - 1];
+      if (lastMessage?.role === "user") {
+        teammateRunner.reportActivity();
+      }
+    }
+  }, [messages, teammateRunner]);
 
   // Process a message
   const processMessage = useCallback(async (input: string, messageAlreadyAdded = false) => {

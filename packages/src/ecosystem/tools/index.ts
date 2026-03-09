@@ -1852,6 +1852,175 @@ export const AnalyzeImageTool: ToolDefinition = {
   },
 };
 
+// ============================================
+// TEAMMATE COORDINATION TOOLS
+// ============================================
+
+/**
+ * Check for new messages from teammates
+ */
+const TeammateCheckMessagesTool: ToolDefinition = {
+  name: "teammate_check_messages",
+  description:
+    "Check for new messages from other teammates in your team. Returns pending messages and clears the inbox. Use this periodically when in teammate mode to receive tasks and coordination messages.",
+  input_schema: {
+    type: "object",
+    properties: {},
+  },
+  handler: async (_args, _context: ToolContext): Promise<ToolResult> => {
+    const { getTeammateRunner } = await import("../../teammates/runner.js");
+    const runner = getTeammateRunner();
+    if (!runner) {
+      return {
+        content: "Teammate mode is not active. Start with --teammate-mode flag.",
+        is_error: true,
+      };
+    }
+
+    const messages = runner.getPendingMessages();
+    if (messages.length === 0) {
+      return { content: "No pending messages." };
+    }
+
+    const formatted = messages
+      .map((m) => `[${m.type}] From: ${m.from}\n${m.content}`)
+      .join("\n\n---\n\n");
+
+    return { content: `Received ${messages.length} message(s):\n\n${formatted}` };
+  },
+};
+
+/**
+ * Send a direct message to another teammate
+ */
+const TeammateSendMessageTool: ToolDefinition = {
+  name: "teammate_send_message",
+  description:
+    "Send a direct message to a specific teammate or broadcast to all teammates. Use this for coordination, sharing results, or requesting help.",
+  input_schema: {
+    type: "object",
+    properties: {
+      to: {
+        type: "string",
+        description:
+          "Teammate ID to send to, or 'broadcast' to send to all teammates",
+      },
+      message: {
+        type: "string",
+        description: "The message content to send",
+      },
+    },
+    required: ["to", "message"],
+  },
+  handler: async (args, _context: ToolContext): Promise<ToolResult> => {
+    const { getTeammateRunner } = await import("../../teammates/runner.js");
+    const runner = getTeammateRunner();
+    if (!runner) {
+      return {
+        content: "Teammate mode is not active. Start with --teammate-mode flag.",
+        is_error: true,
+      };
+    }
+
+    const to = args.to as string;
+    const message = args.message as string;
+
+    if (to === "broadcast") {
+      runner.broadcast(message);
+      return { content: `Broadcast message sent to team.` };
+    } else {
+      runner.sendDirectMessage(to, message);
+      return { content: `Direct message sent to ${to}.` };
+    }
+  },
+};
+
+/**
+ * Report idle status to team
+ */
+const TeammateReportIdleTool: ToolDefinition = {
+  name: "teammate_report_idle",
+  description:
+    "Report that you are now idle and ready for new tasks. Use this when you complete your current work and are available for assignment.",
+  input_schema: {
+    type: "object",
+    properties: {
+      message: {
+        type: "string",
+        description: "Optional status message",
+      },
+    },
+  },
+  handler: async (args, _context: ToolContext): Promise<ToolResult> => {
+    const { getTeammateRunner } = await import("../../teammates/runner.js");
+    const runner = getTeammateRunner();
+    if (!runner) {
+      return {
+        content: "Teammate mode is not active. Start with --teammate-mode flag.",
+        is_error: true,
+      };
+    }
+
+    const message = args.message as string | undefined;
+    runner.updateStatus("idle");
+    runner.broadcast(message || "Now idle and ready for tasks.");
+    return { content: "Status updated to idle. Team notified." };
+  },
+};
+
+/**
+ * Get teammate status information
+ */
+const TeammateGetStatusTool: ToolDefinition = {
+  name: "teammate_get_status",
+  description:
+    "Get current teammate mode status including your info, team members, and inbox stats. Use this to check your state and team coordination.",
+  input_schema: {
+    type: "object",
+    properties: {},
+  },
+  handler: async (_args, _context: ToolContext): Promise<ToolResult> => {
+    const { getTeammateRunner } = await import("../../teammates/runner.js");
+    const runner = getTeammateRunner();
+    if (!runner) {
+      return {
+        content: "Teammate mode is not active. Start with --teammate-mode flag.",
+        is_error: true,
+      };
+    }
+
+    const teammate = runner.getTeammate();
+    const team = runner.getTeam();
+    const status = runner.getStatus();
+    const inbox = runner.getInboxStats();
+
+    const info = {
+      teammate: teammate
+        ? {
+            id: teammate.teammateId,
+            name: teammate.name,
+            color: teammate.color,
+          }
+        : null,
+      team: team
+        ? {
+            name: team.name,
+            memberCount: team.teammates.length,
+            members: team.teammates.map((t) => ({
+              id: t.teammateId,
+              name: t.name,
+              status: t.status,
+            })),
+          }
+        : null,
+      status,
+      inbox,
+    };
+
+    return { content: JSON.stringify(info, null, 2) };
+  },
+};
+
 export const builtInTools: ToolDefinition[] = [
   ReadTool,
   WriteTool,
@@ -1870,6 +2039,11 @@ export const builtInTools: ToolDefinition[] = [
   NotebookEditTool,
   AnalyzeImageTool,
   TempGlmVisionTool,
+  // Teammate coordination tools
+  TeammateCheckMessagesTool,
+  TeammateSendMessageTool,
+  TeammateReportIdleTool,
+  TeammateGetStatusTool,
 ];
 
 export function getToolByName(name: string): ToolDefinition | undefined {

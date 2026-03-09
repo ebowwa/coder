@@ -6,7 +6,8 @@
  * This is a thin orchestrator that:
  * 1. Parses arguments
  * 2. Sets up session (config, MCP, hooks)
- * 3. Dispatches to TUI or single-query mode
+ * 3. Initializes teammate mode if enabled
+ * 4. Dispatches to TUI or single-query mode
  */
 
 import type { Message } from "../../../../types/index.js";
@@ -15,10 +16,16 @@ import type { builtInTools } from "../../../../ecosystem/tools/index.js";
 import type { HookManager } from "../../../../ecosystem/hooks/index.js";
 import type { SkillManager } from "../../../../ecosystem/skills/index.js";
 import type { MCPClientImpl } from "../../../mcp/client.js";
+import type { TeammateMessage } from "../../../../types/index.js";
 import { SessionStore, printSessionsList } from "../../../../core/session-store.js";
 import { getGitStatus } from "../../../../core/git-status.js";
 import { renderStatusLine, getContextWindow, VERSION, type StatusLineOptions } from "../shared/status-line.js";
 import { runInteractiveTUI } from "../tui/index.js";
+import {
+  TeammateModeRunner,
+  setTeammateRunner,
+  isTeammateModeActive,
+} from "../../../../teammates/runner.js";
 
 // Shared modules
 import {
@@ -119,6 +126,64 @@ async function main(): Promise<void> {
     query = process.argv.slice(2).join(" ");
   }
 
+  // ============================================
+  // TEAMMATE MODE INITIALIZATION
+  // ============================================
+
+  let teammateRunner: TeammateModeRunner | null = null;
+  let pendingTeammateMessages: TeammateMessage[] = [];
+
+  if (args.teammateMode && args.teamName) {
+    try {
+      teammateRunner = new TeammateModeRunner({
+        teamName: args.teamName,
+        agentId: args.agentId,
+        agentName: args.agentName,
+        agentColor: args.agentColor,
+        prompt: args.systemPrompt,
+        workingDirectory: process.cwd(),
+        onMessage: (message: TeammateMessage) => {
+          // Queue message for injection into conversation
+          pendingTeammateMessages.push(message);
+          console.log(`\x1b[90m[Teammate] Message from ${message.from}: ${message.content.slice(0, 50)}...\x1b[0m`);
+        },
+        onIdle: () => {
+          console.log(`\x1b[90m[Teammate] Now idle, waiting for tasks...\x1b[0m`);
+        },
+        pollInterval: 2000,
+      });
+
+      const teammate = await teammateRunner.start();
+
+      // Set global reference for tools to access
+      setTeammateRunner(teammateRunner);
+
+      console.log(`\x1b[90m[Teammate] Joined team "${args.teamName}" as ${teammate.name} (${teammate.teammateId})\x1b[0m`);
+    } catch (error) {
+      console.error(`\x1b[31mError starting teammate mode: ${error}\x1b[0m`);
+      teammateRunner = null;
+    }
+  }
+
+  // Cleanup handler
+  const cleanup = async () => {
+    if (teammateRunner) {
+      console.log(`\x1b[90m[Teammate] Stopping teammate mode...\x1b[0m`);
+      await teammateRunner.stop();
+      setTeammateRunner(null);
+    }
+  };
+
+  process.on("SIGINT", async () => {
+    await cleanup();
+    process.exit(0);
+  });
+
+  process.on("SIGTERM", async () => {
+    await cleanup();
+    process.exit(0);
+  });
+
   if (!query) {
     // Show initial status line
     const initialStatusOptions: StatusLineOptions = {
@@ -130,6 +195,9 @@ async function main(): Promise<void> {
     };
     console.log(`\x1b[90m${renderStatusLine(initialStatusOptions)}\x1b[0m`);
     console.log(`\x1b[90mSession: ${sessionId}\x1b[0m`);
+    if (teammateRunner) {
+      console.log(`\x1b[90mTeammate Mode: Active | Team: ${args.teamName}\x1b[0m`);
+    }
     console.log("\x1b[90mType your message, ? for help, or /help for commands.\x1b[0m\n");
 
     // Interactive mode
@@ -144,7 +212,8 @@ async function main(): Promise<void> {
       messages,
       sessionId,
       setup.mcpClients,
-      setup.permissionMode
+      setup.permissionMode,
+      teammateRunner
     );
   } else {
     // Single query mode
@@ -178,7 +247,8 @@ async function runInteractiveMode(
   messages: Message[],
   sessionId: string,
   mcpClients: Map<string, MCPClientImpl>,
-  permissionMode: PermissionMode
+  permissionMode: PermissionMode,
+  teammateRunner: TeammateModeRunner | null = null
 ): Promise<void> {
   // Check if stdin is a TTY (interactive terminal)
   const isInteractive = process.stdin.isTTY;
@@ -212,7 +282,13 @@ async function runInteractiveMode(
     setSessionId,
     initialMessages: messages,
     workingDirectory: process.cwd(),
-    onExit: () => {
+    teammateRunner,
+    onExit: async () => {
+      // Cleanup teammate mode
+      if (teammateRunner) {
+        await teammateRunner.stop();
+        setTeammateRunner(null);
+      }
       console.log("\n\x1b[90mGoodbye!\x1b[0m");
     },
   });

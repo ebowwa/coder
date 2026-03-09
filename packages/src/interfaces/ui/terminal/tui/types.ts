@@ -7,6 +7,7 @@ import type { PermissionMode, ClaudeModel, Message as ApiMessage, ToolDefinition
 import type { HookManager } from "../../../../ecosystem/hooks/index.js";
 import type { TerminalHandle } from "../../../../native/index.js";
 import type { LoadedSession, SessionSummary } from "../../../../core/sessions/types.js";
+import type { TeammateModeRunner } from "../../../../teammates/runner.js";
 
 /**
  * Message sub-type for granular categorization
@@ -60,6 +61,8 @@ export interface InteractiveTUIProps {
   setSessionId: (id: string) => void;
   initialMessages: ApiMessage[];
   workingDirectory: string;
+  /** Optional teammate mode runner for multi-agent coordination */
+  teammateRunner?: TeammateModeRunner | null;
   onExit: () => void;
 }
 
