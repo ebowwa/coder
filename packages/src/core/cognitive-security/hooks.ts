@@ -493,7 +493,8 @@ export class CognitiveSecurityHooks {
     if (this.config.logEvents) {
       const prefix = action === "deny" ? "\x1b[31m[Security]\x1b[0m" : "\x1b[90m[Security]\x1b[0m";
       const toolStr = tool ? ` ${tool}:` : "";
-      console.log(`${prefix}${toolStr} ${reason}`);
+      // Use console.error to avoid interfering with TUI (stdout is used by renderer)
+      console.error(`${prefix}${toolStr} ${reason}`);
     }
   }
 

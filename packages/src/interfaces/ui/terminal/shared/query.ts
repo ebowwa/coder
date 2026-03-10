@@ -30,6 +30,8 @@ export interface QueryOptions {
   hookManager: HookManager;
   workingDirectory: string;
   gitStatus?: GitStatus | null;
+  /** Resolved permission mode (from config, may differ from args.permissionMode) */
+  permissionMode?: import("../../../../types/index.js").PermissionMode;
 }
 
 // ============================================
@@ -48,11 +50,15 @@ export async function runSingleQuery(options: QueryOptions): Promise<void> {
     hookManager,
     workingDirectory,
     gitStatus,
+    permissionMode: resolvedPermissionMode,
   } = options;
+
+  // Use resolved permission mode from config if provided, otherwise fall back to args
+  const permissionMode = resolvedPermissionMode ?? args.permissionMode;
 
   // Show initial status line
   const initialStatusOptions: StatusLineOptions = {
-    permissionMode: args.permissionMode,
+    permissionMode,
     tokensUsed: 0,
     maxTokens: getContextWindow(args.model),
     model: args.model,
@@ -92,7 +98,7 @@ export async function runSingleQuery(options: QueryOptions): Promise<void> {
       maxTokens: args.maxTokens,
       systemPrompt,
       tools,
-      permissionMode: args.permissionMode,
+      permissionMode,  // Use resolved permission mode
       workingDirectory,
       gitStatus: gitStatus ?? undefined,
       extendedThinking: extendedThinkingConfig,
@@ -129,7 +135,7 @@ export async function runSingleQuery(options: QueryOptions): Promise<void> {
 
     // Show final status line
     const finalStatusOptions: StatusLineOptions = {
-      permissionMode: args.permissionMode,
+      permissionMode,
       tokensUsed: totalTokens,
       maxTokens: getContextWindow(args.model),
       model: args.model,

@@ -28,7 +28,7 @@ export interface ModelDefinition {
   /** Whether model supports extended thinking */
   supportsThinking: boolean;
   /** Model provider */
-  provider: "anthropic" | "zhipu" | "openai" | "other";
+  provider: "anthropic" | "zhipu" | "minimax" | "openai" | "other";
   /** Whether model supports vision/images */
   supportsVision: boolean;
 }
@@ -164,17 +164,62 @@ export const MODELS: Record<string, ModelDefinition> = {
     supportsVision: true,
   },
 
-  // GLM Series (Zhipu AI)
+  // GLM Series (Zhipu AI - Coding Plan with Shared Quota)
+  // Note: GLM-5 consumes quota at 3x (peak) and 2x (off-peak)
   "glm-5": {
     id: "glm-5",
     name: "GLM-5",
     fullName: "GLM-5",
     contextWindow: 200_000,
     maxOutput: 128_000,
-    pricing: { input: 0.5, output: 0.5, cacheWrite: 0, cacheRead: 0 }, // GLM pricing TBD
+    pricing: { input: 0.5, output: 0.5, cacheWrite: 0, cacheRead: 0 },
     supportsThinking: true,
     provider: "zhipu",
     supportsVision: true,
+  },
+  "glm-4.7": {
+    id: "glm-4.7",
+    name: "GLM-4.7",
+    fullName: "GLM-4.7",
+    contextWindow: 128_000,
+    maxOutput: 8_192,
+    pricing: { input: 0.5, output: 0.5, cacheWrite: 0, cacheRead: 0 },
+    supportsThinking: true,
+    provider: "zhipu",
+    supportsVision: true,
+  },
+  "glm-4.6": {
+    id: "glm-4.6",
+    name: "GLM-4.6",
+    fullName: "GLM-4.6",
+    contextWindow: 128_000,
+    maxOutput: 8_192,
+    pricing: { input: 0.5, output: 0.5, cacheWrite: 0, cacheRead: 0 },
+    supportsThinking: true,
+    provider: "zhipu",
+    supportsVision: true,
+  },
+  "glm-4.5v": {
+    id: "glm-4.5v",
+    name: "GLM-4.5V",
+    fullName: "GLM-4.5 Vision",
+    contextWindow: 128_000,
+    maxOutput: 4_096,
+    pricing: { input: 0.5, output: 0.5, cacheWrite: 0, cacheRead: 0 },
+    supportsThinking: false,
+    provider: "zhipu",
+    supportsVision: true,
+  },
+  "glm-4.5": {
+    id: "glm-4.5",
+    name: "GLM-4.5",
+    fullName: "GLM-4.5",
+    contextWindow: 128_000,
+    maxOutput: 4_096,
+    pricing: { input: 0.5, output: 0.5, cacheWrite: 0, cacheRead: 0 },
+    supportsThinking: false,
+    provider: "zhipu",
+    supportsVision: false,
   },
   "glm-4.5-air": {
     id: "glm-4.5-air",
@@ -187,6 +232,19 @@ export const MODELS: Record<string, ModelDefinition> = {
     provider: "zhipu",
     supportsVision: false,
   },
+
+  // MiniMax Series
+  "minimax-m2.5": {
+    id: "MiniMax-M2.5",
+    name: "M2.5",
+    fullName: "MiniMax M2.5",
+    contextWindow: 200_000,
+    maxOutput: 32_000,
+    pricing: { input: 0.3, output: 0.9, cacheWrite: 0, cacheRead: 0 },
+    supportsThinking: false,
+    provider: "minimax",
+    supportsVision: true,
+  },
 };
 
 // ============================================
@@ -195,19 +253,38 @@ export const MODELS: Record<string, ModelDefinition> = {
 
 /** Models available for interactive use (shown in /models command) */
 export const AVAILABLE_MODELS = [
+  // Claude 4.x (Anthropic - stub)
   MODELS["claude-opus-4-6"]!,
   MODELS["claude-sonnet-4-6"]!,
   MODELS["claude-haiku-4-5"]!,
+  // GLM Series (Zhipu / Z.AI - coding plan)
   MODELS["glm-5"]!,
+  MODELS["glm-4.7"]!,
+  MODELS["glm-4.5v"]!,
+  // MiniMax Series
+  MODELS["minimax-m2.5"]!,
 ] as const;
 
 /** Model aliases for subagent tasks */
 export const MODEL_ALIASES = {
+  // Claude aliases
   haiku: "claude-haiku-4-5",
   sonnet: "claude-sonnet-4-6",
   opus: "claude-opus-4-6",
-  fast: "glm-4.5-air",
   default: "claude-sonnet-4-6",
+  // GLM aliases (Zhipu / Z.AI)
+  glm: "glm-5",
+  glm5: "glm-5",
+  glm4: "glm-4.7",
+  glm47: "glm-4.7",
+  glm46: "glm-4.6",
+  glm45v: "glm-4.5v",
+  glm45: "glm-4.5",
+  glm45air: "glm-4.5-air",
+  fast: "glm-4.5-air",
+  // MiniMax aliases
+  minimax: "minimax-m2.5",
+  m25: "minimax-m2.5",
 } as const;
 
 // ============================================

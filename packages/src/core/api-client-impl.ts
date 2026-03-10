@@ -1,5 +1,10 @@
 /**
  * API Client - SSE streaming for LLM APIs
+ *
+ * Supports multiple providers:
+ * - Zhipu (Z.AI / GLM models) - OpenAI format
+ * - MiniMax (M2.5) - Anthropic format
+ * - OpenAI (future)
  */
 
 import type {
@@ -33,6 +38,30 @@ import {
   DEFAULT_MODEL,
   supportsExtendedThinking,
 } from "./models.js";
+import {
+  resolveProvider,
+  getProviderForModel,
+  recordProviderSuccess,
+  recordProviderFailure,
+  type ProviderName,
+  type ProviderConfig,
+} from "./providers/index.js";
+
+/**
+ * Convert Anthropic-style tools to OpenAI-style tools
+ * Anthropic: { name, description, input_schema }
+ * OpenAI: { type: "function", function: { name, description, parameters } }
+ */
+function convertToolsToOpenAIFormat(tools: APITool[]): unknown[] {
+  return tools.map((tool) => ({
+    type: "function",
+    function: {
+      name: tool.name,
+      description: tool.description,
+      parameters: tool.input_schema,
+    },
+  }));
+}
 
 export interface StreamOptions {
   apiKey: string;
@@ -50,6 +79,8 @@ export interface StreamOptions {
   /** Called when redacted thinking is received (data is base64) */
   onRedactedThinking?: (data: string) => void;
   onToolUse?: (toolUse: { id: string; name: string; input: unknown }) => void;
+  /** Called when a retry is about to start - UI should reset streaming state */
+  onRetryStart?: () => void;
   signal?: AbortSignal;
 }
 
@@ -197,153 +228,55 @@ export function calculateCacheMetrics(usage: UsageMetrics): CacheMetrics {
 }
 
 /**
- * Create a streaming message request to Anthropic API
+ * Callbacks to emit during streaming (passed in, not buffered)
  */
-export async function createMessageStream(
-  messages: Message[],
-  options: StreamOptions
-): Promise<StreamResult> {
-  const {
-    apiKey,
-    model = "claude-sonnet-4-6",
-    maxTokens = 4096,
-    tools,
-    systemPrompt,
-    cacheConfig = DEFAULT_CACHE_CONFIG,
-    thinking,
-    extendedThinking,
-    onToken,
-    onThinking,
-    onRedactedThinking,
-    onToolUse,
+interface StreamCallbacks {
+  onToken?: (text: string) => void;
+  onThinking?: (thinking: string) => void;
+  onRedactedThinking?: (data: string) => void;
+  onToolUse?: (toolUse: { id: string; name: string; input: unknown }) => void;
+  onRetryStart?: () => void;
+}
+
+/**
+ * Internal result from a single stream attempt
+ */
+interface StreamAttemptResult {
+  message: APIResponse | null;
+  content: ContentBlock[];
+  usage: UsageMetrics;
+  thinkingTokens: number;
+  ttftMs: number;
+}
+
+/**
+ * Execute a single streaming API attempt
+ * Emits callbacks in real-time for streaming display
+ */
+async function executeStreamAttempt(
+  request: APIRequest,
+  headers: Record<string, string>,
+  apiEndpoint: string,
+  signal: AbortSignal | undefined,
+  model: string,
+  retryableStatusCodes: number[],
+  startTime: number,
+  callbacks: StreamCallbacks
+): Promise<StreamAttemptResult> {
+  const response = await fetch(apiEndpoint, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(request),
     signal,
-  } = options;
+  });
 
-  const startTime = Date.now();
-  let ttft = 0;
-  let firstToken = true;
-  let totalThinkingTokens = 0;
-
-  // Build cached messages
-  const cachedMessages = buildCachedMessages(messages, cacheConfig);
-
-  // Build system prompt with cache control
-  const cachedSystemPrompt = buildSystemPrompt(systemPrompt, cacheConfig);
-
-  // Build request
-  const request: APIRequest = {
-    model,
-    max_tokens: maxTokens,
-    messages: cachedMessages.map((m) => ({
-      role: m.role,
-      content: m.content,
-    })),
-    stream: true,
-  };
-
-  // Add system prompt if provided
-  if (cachedSystemPrompt) {
-    request.system = cachedSystemPrompt;
-  }
-
-  // Add tools if provided (with optional caching)
-  if (tools && tools.length > 0) {
-    request.tools = tools;
-  }
-
-  // Determine API endpoint (support custom base URL for GLM, etc.)
-  const baseUrl = process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com";
-  const apiEndpoint = `${baseUrl}/v1/messages`;
-
-  // Build headers
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    "x-api-key": apiKey,
-    "anthropic-version": "2023-06-01",
-  };
-
-  // Determine thinking configuration
-  const shouldUseExtendedThinking =
-    (extendedThinking?.enabled ?? false) ||
-    (thinking && thinking.type !== "disabled");
-
-  if (shouldUseExtendedThinking && supportsExtendedThinking(model)) {
-    // Calculate budget tokens
-    let budgetTokens: number;
-
-    if (extendedThinking?.budgetTokens) {
-      budgetTokens = extendedThinking.budgetTokens;
-    } else if (thinking?.type === "enabled") {
-      budgetTokens = thinking.budget_tokens;
-    } else {
-      // Use effort level to determine budget
-      const effort = extendedThinking?.effort || "medium";
-      budgetTokens = calculateBudgetTokens(
-        {
-          enabled: true,
-          effort,
-          modelMultiplier: model.includes("opus") ? 2 : 1,
-        },
-        model
-      );
-    }
-
-    // Clamp budget to valid range
-    budgetTokens = Math.max(1024, Math.min(budgetTokens, 100000));
-
-    request.thinking = {
-      type: "enabled",
-      budget_tokens: budgetTokens,
-    };
-
-    // Add beta headers for extended thinking features
-    const betaFeatures: string[] = ["extended-thinking-2025-01-24"];
-
-    // Add interleaved thinking support if enabled
-    if (extendedThinking?.interleaved !== false) {
-      betaFeatures.push("interleaved-thinking-2025-01-24");
-    }
-
-    headers["anthropic-beta"] = betaFeatures.join(",");
-  } else {
-    // Default beta header
-    headers["anthropic-beta"] = "max-tokens-3-5-sonnet-2024-07-15";
-  }
-
-  // Make API request with retry logic
-  const retryOptions: RetryOptions = {
-    maxRetries: 3,
-    baseDelayMs: 1000,
-    maxDelayMs: 30000,
-    retryableStatusCodes: [429, 500, 502, 503, 504, 529],
-    onRetry: (attempt, error, delayMs) => {
-      console.log(`\x1b[33mAPI retry ${attempt}/3 after ${delayMs}ms: ${error.message}\x1b[0m`);
-    },
-  };
-
-  const response = await withRetry(
-    async () => {
-      const res = await fetch(apiEndpoint, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(request),
-        signal,
-      });
-
-      // Throw for retryable status codes so withRetry can handle them
-      if (!res.ok && retryOptions.retryableStatusCodes?.includes(res.status)) {
-        const errorText = await res.text();
-        throw new Error(`API error: ${res.status} - ${errorText}`);
-      }
-
-      return res;
-    },
-    retryOptions
-  );
-
+  // Throw for retryable status codes so withRetry can handle them
   if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`API error: ${response.status} - ${error}`);
+    const errorText = await response.text();
+    if (retryableStatusCodes.includes(response.status)) {
+      throw new Error(`API error: ${response.status} - ${errorText}`);
+    }
+    throw new Error(`API error: ${response.status} - ${errorText}`);
   }
 
   if (!response.body) {
@@ -363,7 +296,9 @@ export async function createMessageStream(
   let currentToolUseBlock: ToolUseBlock | null = null;
   let toolUseInput = "";
 
-  const buffer = "";
+  let ttft = 0;
+  let firstToken = true;
+  let totalThinkingTokens = 0;
 
   try {
     let buffer = "";
@@ -440,7 +375,7 @@ export async function createMessageStream(
               if (delta.type === "text_delta" && currentTextBlock) {
                 const text = delta.text as string;
                 currentTextBlock.text += text;
-                onToken?.(text);
+                callbacks.onToken?.(text); // Emit in real-time
 
                 if (firstToken) {
                   ttft = Date.now() - startTime;
@@ -449,14 +384,13 @@ export async function createMessageStream(
               } else if (delta.type === "thinking_delta" && currentThinkingBlock) {
                 const thinking = delta.thinking as string;
                 currentThinkingBlock.thinking += thinking;
-                onThinking?.(thinking);
-                totalThinkingTokens += Math.ceil(thinking.length / 4); // Rough estimate
+                callbacks.onThinking?.(thinking); // Emit in real-time
+                totalThinkingTokens += Math.ceil(thinking.length / 4);
               } else if (delta.type === "redacted_thinking_delta" && currentRedactedThinkingBlock) {
-                // Handle redacted thinking deltas
                 const redactedData = delta.data as string;
                 currentRedactedThinkingBlock.data += redactedData;
-                onRedactedThinking?.(redactedData);
-                totalThinkingTokens += Math.ceil(redactedData.length / 4); // Rough estimate
+                callbacks.onRedactedThinking?.(redactedData); // Emit in real-time
+                totalThinkingTokens += Math.ceil(redactedData.length / 4);
               } else if (delta.type === "input_json_delta" && currentToolUseBlock) {
                 toolUseInput += delta.partial_json as string;
               }
@@ -464,8 +398,6 @@ export async function createMessageStream(
             }
 
             case "content_block_stop": {
-              // content_block_stop event has { index: number }, not the block itself
-              // We need to check which current block is active and push it
               if (currentTextBlock !== null) {
                 currentContent.push(currentTextBlock);
                 currentTextBlock = null;
@@ -474,7 +406,6 @@ export async function createMessageStream(
                 currentThinkingBlock = null;
               } else if (currentRedactedThinkingBlock !== null) {
                 currentContent.push(currentRedactedThinkingBlock);
-                onRedactedThinking?.(currentRedactedThinkingBlock.data);
                 currentRedactedThinkingBlock = null;
               } else if (currentToolUseBlock !== null) {
                 try {
@@ -483,11 +414,11 @@ export async function createMessageStream(
                   currentToolUseBlock.input = {};
                 }
                 currentContent.push(currentToolUseBlock);
-                onToolUse?.({
+                callbacks.onToolUse?.({
                   id: currentToolUseBlock.id,
                   name: currentToolUseBlock.name,
                   input: currentToolUseBlock.input,
-                });
+                }); // Emit in real-time
                 currentToolUseBlock = null;
                 toolUseInput = "";
               }
@@ -506,13 +437,10 @@ export async function createMessageStream(
             }
 
             case "message_stop":
-              // Message complete
               break;
 
             // OpenAI/Z.AI compatible format (for GLM-5, etc.)
-            // OpenAI streaming sends chunks with choices array
             default: {
-              // Check for OpenAI format: { choices: [{ delta: { content: "..." } }], usage: {...} }
               if (event.choices && Array.isArray(event.choices)) {
                 const choice = event.choices[0] as { delta?: { content?: string }; finish_reason?: string } | undefined;
                 if (choice?.delta?.content) {
@@ -522,13 +450,12 @@ export async function createMessageStream(
                   } else {
                     currentTextBlock = { type: "text", text };
                   }
-                  onToken?.(text);
+                  callbacks.onToken?.(text); // Emit in real-time
                   if (firstToken) {
                     ttft = Date.now() - startTime;
                     firstToken = false;
                   }
                 }
-                // Check for finish
                 if (choice?.finish_reason) {
                   if (currentTextBlock) {
                     currentContent.push(currentTextBlock);
@@ -550,7 +477,6 @@ export async function createMessageStream(
                   }
                 }
               }
-              // OpenAI usage format (often in final chunk)
               if (event.usage) {
                 const openaiUsage = event.usage as { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
                 usage.input_tokens = openaiUsage.prompt_tokens || 0;
@@ -560,11 +486,13 @@ export async function createMessageStream(
             }
           }
         } catch (err: unknown) {
-          // Log the parse error with more detail
+          // Only rethrow if it's an API error, not a JSON parse error
+          if (err instanceof Error && err.message.startsWith("API error:")) {
+            throw err;
+          }
           if (process.env.DEBUG_API === '1') {
             console.error('\x1b[91m[DEBUG] JSON parse error:', err);
             console.error('\x1b[91m[DEBUG] Error parsing SSE data:', data.substring(0, 200));
-            console.error('\x1b[91m[DEBUG] Original buffer:', buffer.substring(0, 500));
           }
         }
       }
@@ -573,8 +501,8 @@ export async function createMessageStream(
     reader.releaseLock();
   }
 
+  // Handle "No message received" case - this is retryable
   if (!message) {
-    // If we received content via OpenAI format but no message_start, create a message
     if (currentContent.length > 0) {
       message = {
         id: `msg-${Date.now()}`,
@@ -587,31 +515,213 @@ export async function createMessageStream(
         usage: { input_tokens: 0, output_tokens: 0 },
       };
     } else {
-      // Debug: Log what we did receive
-      if (process.env.DEBUG_API === '1') {
-        console.log('\x1b[91m[DEBUG] No message_start event received. Buffer:\x1b[0m', buffer.substring(0, 500));
-      }
+      // This is a transient error - throw to trigger retry
       throw new Error("No message received from API");
     }
   }
 
-  message.content = currentContent;
+  return {
+    message,
+    content: currentContent,
+    usage,
+    thinkingTokens: totalThinkingTokens,
+    ttftMs: ttft,
+  };
+}
+
+/**
+ * Create a streaming message request to Anthropic API
+ * Full retry support including stream parsing errors
+ */
+export async function createMessageStream(
+  messages: Message[],
+  options: StreamOptions
+): Promise<StreamResult> {
+  const {
+    apiKey,
+    model = "claude-sonnet-4-6",
+    maxTokens = 4096,
+    tools,
+    systemPrompt,
+    cacheConfig = DEFAULT_CACHE_CONFIG,
+    thinking,
+    extendedThinking,
+    onToken,
+    onThinking,
+    onRedactedThinking,
+    onToolUse,
+    onRetryStart,
+    signal,
+  } = options;
+
+  const startTime = Date.now();
+
+  // Build cached messages
+  const cachedMessages = buildCachedMessages(messages, cacheConfig);
+
+  // Build system prompt with cache control
+  const cachedSystemPrompt = buildSystemPrompt(systemPrompt, cacheConfig);
+
+  // Build request
+  const request: APIRequest = {
+    model,
+    max_tokens: maxTokens,
+    messages: cachedMessages.map((m) => ({
+      role: m.role,
+      content: m.content,
+    })),
+    stream: true,
+  };
+
+  if (cachedSystemPrompt) {
+    request.system = cachedSystemPrompt;
+  }
+
+  // Tools will be set after determining API format (for format conversion)
+
+  // Resolve provider based on model name
+  const providerInfo = resolveProvider(model);
+
+  // Determine API endpoint and headers based on provider
+  let apiEndpoint: string;
+  let headers: Record<string, string>;
+  let apiFormat: "anthropic" | "openai";
+
+  if (providerInfo) {
+    // Use provider-specific configuration
+    apiEndpoint = providerInfo.endpoint;
+    apiFormat = providerInfo.config.format;
+
+    if (apiFormat === "anthropic") {
+      // Anthropic/MiniMax format
+      headers = {
+        "Content-Type": "application/json",
+        [providerInfo.config.authHeader]: providerInfo.apiKey,
+        "anthropic-version": "2023-06-01",
+      };
+    } else {
+      // OpenAI/Zhipu format
+      headers = {
+        "Content-Type": "application/json",
+        [providerInfo.config.authHeader]: `Bearer ${providerInfo.apiKey}`,
+      };
+    }
+  } else {
+    // Fallback to environment-based configuration (legacy)
+    const baseUrl = process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com";
+    apiEndpoint = `${baseUrl}/v1/messages`;
+    apiFormat = "anthropic";
+
+    headers = {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+    };
+  }
+
+  // Set tools with format conversion if needed
+  if (tools && tools.length > 0) {
+    if (apiFormat === "openai") {
+      // Convert Anthropic-style tools to OpenAI format
+      // Cast needed because OpenAI format differs from APITool
+      (request as unknown as Record<string, unknown>).tools = convertToolsToOpenAIFormat(tools);
+    } else {
+      // Keep Anthropic format as-is
+      request.tools = tools;
+    }
+  }
+
+  const shouldUseExtendedThinking =
+    (extendedThinking?.enabled ?? false) ||
+    (thinking && thinking.type !== "disabled");
+
+  if (shouldUseExtendedThinking && supportsExtendedThinking(model)) {
+    let budgetTokens: number;
+
+    if (extendedThinking?.budgetTokens) {
+      budgetTokens = extendedThinking.budgetTokens;
+    } else if (thinking?.type === "enabled") {
+      budgetTokens = thinking.budget_tokens;
+    } else {
+      const effort = extendedThinking?.effort || "medium";
+      budgetTokens = calculateBudgetTokens(
+        { enabled: true, effort, modelMultiplier: model.includes("opus") ? 2 : 1 },
+        model
+      );
+    }
+
+    budgetTokens = Math.max(1024, Math.min(budgetTokens, 100000));
+
+    request.thinking = { type: "enabled", budget_tokens: budgetTokens };
+
+    const betaFeatures: string[] = ["extended-thinking-2025-01-24"];
+    if (extendedThinking?.interleaved !== false) {
+      betaFeatures.push("interleaved-thinking-2025-01-24");
+    }
+    headers["anthropic-beta"] = betaFeatures.join(",");
+  } else if (apiFormat === "anthropic") {
+    headers["anthropic-beta"] = "max-tokens-3-5-sonnet-2024-07-15";
+  }
+
+  // Retry options - now covers entire stream parsing
+  const retryOptions: RetryOptions = {
+    maxRetries: 10,
+    baseDelayMs: 1000,
+    maxDelayMs: 60000,
+    retryableStatusCodes: [429, 500, 502, 503, 504, 529],
+    onRetry: (attempt, error, delayMs) => {
+      console.log(`\x1b[33mAPI retry ${attempt}/10 after ${delayMs}ms: ${error.message}\x1b[0m`);
+      // Notify UI to reset streaming state before retry
+      onRetryStart?.();
+      // Track provider failure on retry
+      const providerName = getProviderForModel(model);
+      if (providerName) {
+        recordProviderFailure(providerName);
+      }
+    },
+  };
+
+  // Execute with retry - wraps entire fetch + stream parsing
+  // Callbacks are emitted in real-time during streaming
+  const result = await withRetry(
+    () => executeStreamAttempt(
+      request,
+      headers,
+      apiEndpoint,
+      signal,
+      model,
+      retryOptions.retryableStatusCodes ?? [],
+      startTime,
+      { onToken, onThinking, onRedactedThinking, onToolUse }
+    ),
+    retryOptions
+  );
+
+  // Build final message
+  const message = result.message!;
+  message.content = result.content;
 
   // Calculate cost and cache metrics
-  const { costUSD, estimatedSavingsUSD } = calculateCost(model, usage);
-  const cacheMetrics = calculateCacheMetrics(usage);
+  const { costUSD, estimatedSavingsUSD } = calculateCost(model, result.usage);
+  const cacheMetrics = calculateCacheMetrics(result.usage);
   cacheMetrics.estimatedSavingsUSD = estimatedSavingsUSD;
 
   const durationMs = Date.now() - startTime;
 
+  // Track provider health on success
+  const providerName = getProviderForModel(model);
+  if (providerName) {
+    recordProviderSuccess(providerName, durationMs);
+  }
+
   return {
     message,
-    usage,
+    usage: result.usage,
     cacheMetrics,
     costUSD,
     durationMs,
-    ttftMs: ttft || durationMs,
-    thinkingTokens: totalThinkingTokens,
+    ttftMs: result.ttftMs || durationMs,
+    thinkingTokens: result.thinkingTokens,
   };
 }
 

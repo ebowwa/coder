@@ -40,6 +40,8 @@ export interface TurnExecutorOptions {
   onThinking?: (thinking: string) => void;
   onToolUse?: (toolUse: { id: string; name: string; input: unknown }) => void;
   onReminder?: (reminder: string) => void;
+  /** Called when API retry starts - UI should reset streaming state */
+  onRetryStart?: () => void;
   permissionMode: PermissionMode;
   permissionManager: PermissionManager;
   onMetrics?: (metrics: import("../../types/index.js").QueryMetrics) => void;
@@ -84,6 +86,7 @@ export async function executeTurn(
     onThinking,
     onToolUse,
     onReminder,
+    onRetryStart,
     permissionMode,
     permissionManager,
     onToolResult,
@@ -134,6 +137,7 @@ export async function executeTurn(
     onToken: onText,
     onThinking,
     onToolUse,
+    onRetryStart,
     signal,
   });
 

@@ -10,6 +10,109 @@
  * 4. Dispatches to TUI or single-query mode
  */
 
+// ============================================
+// PTY WRAPPER DETECTION (must run before any other code)
+// ============================================
+
+import { spawn, spawnSync } from "node:child_process";
+import process from "node:process";
+
+/**
+ * Check if we're running under doppler without a TTY and need a PTY wrapper
+ * This must run before any other code to properly handle the TTY requirement
+ *
+ * When successful wrapping occurs, this function NEVER returns - it exits the process
+ * when the wrapped child exits.
+ */
+function checkPtyWrapper(): void {
+  const isTTY = process.stdin.isTTY;
+  const isDoppler = !!process.env.DOPPLER_TOKEN;
+  const forceInteractive = process.env.CLAUDE_FORCE_INTERACTIVE === "true";
+  const hasQuery = process.argv.includes("-q") || process.argv.includes("--query");
+  const hasVersion = process.argv.includes("--version") || process.argv.includes("-v");
+  const hasHelp = process.argv.includes("--help") || process.argv.includes("-h");
+  const alreadyWrapped = process.env.CODER_PTY_WRAPPED === "1";
+
+  // Skip if we have a TTY, force interactive, have a query, version, help, or already wrapped
+  if (isTTY || forceInteractive || hasQuery || hasVersion || hasHelp || alreadyWrapped) {
+    return;
+  }
+
+  // If under doppler without TTY, try to wrap with unbuffer
+  if (isDoppler) {
+    const result = tryWrapWithUnbuffer();
+    if (result.wrapped && result.child) {
+      // Successfully wrapped - child is running
+      // Wait for child to exit, then exit parent with same code
+      result.child.on("exit", (code: number | null) => {
+        process.exit(code ?? 1);
+      });
+      // Prevent further execution by keeping parent alive
+      // The exit handler above will terminate this process
+      setInterval(() => {
+        /* keep alive */
+      }, 10000);
+      return; // TypeScript needs this
+    }
+
+    // Failed to wrap - show helpful error
+    console.error("Error: Interactive mode requires a TTY.");
+    console.error("");
+    console.error("When using 'doppler run', TTY is not passed through.");
+    console.error("");
+    console.error("Install 'expect' package for automatic PTY support:");
+    console.error("  macOS:   brew install expect");
+    console.error("  Ubuntu:  sudo apt install expect");
+    console.error("  Fedora:  sudo dnf install expect");
+    console.error("");
+    console.error("Or use one of these alternatives:");
+    console.error("  1. Single query:    doppler run -- coder -q \"your question\"");
+    console.error("  2. Export secrets:  doppler secrets download --no-file && coder");
+    console.error("  3. Force simple:    CLAUDE_FORCE_INTERACTIVE=true doppler run -- coder");
+    console.error("  4. With unbuffer:   unbuffer doppler run -- coder");
+    process.exit(1);
+  }
+}
+
+/**
+ * Try to wrap execution with unbuffer to provide a PTY
+ * @returns Object with wrapped status and child process if successful
+ */
+function tryWrapWithUnbuffer(): { wrapped: boolean; child?: ReturnType<typeof spawn> } {
+  try {
+    // Check if unbuffer is available
+    const checkResult = spawnSync("which", ["unbuffer"], {
+      stdio: "ignore",
+      timeout: 1000,
+    });
+
+    if (checkResult.status !== 0) {
+      return { wrapped: false };
+    }
+
+    // Re-exec ourselves with unbuffer
+    const args = [process.execPath, ...process.argv.slice(1)];
+    const child = spawn("unbuffer", args, {
+      stdio: "inherit",
+      env: {
+        ...process.env,
+        CODER_PTY_WRAPPED: "1",
+      },
+    });
+
+    return { wrapped: true, child };
+  } catch {
+    return { wrapped: false };
+  }
+}
+
+// Run PTY check before any other code
+checkPtyWrapper();
+
+// ============================================
+// MAIN IMPORTS
+// ============================================
+
 import type { Message } from "../../../../types/index.js";
 import type { ToolDefinition, PermissionMode } from "../../../../types/index.js";
 import type { builtInTools } from "../../../../ecosystem/tools/index.js";
@@ -20,7 +123,8 @@ import type { TeammateMessage } from "../../../../types/index.js";
 import { SessionStore, printSessionsList } from "../../../../core/session-store.js";
 import { getGitStatus } from "../../../../core/git-status.js";
 import { renderStatusLine, getContextWindow, VERSION, type StatusLineOptions } from "../shared/status-line.js";
-import { runInteractiveTUI } from "../tui/index.js";
+import { InteractiveRunner } from "./interactive/index.js";
+import type { InteractiveRunnerProps } from "./interactive/types.js";
 import {
   TeammateModeRunner,
   setTeammateRunner,
@@ -66,11 +170,15 @@ async function main(): Promise<void> {
   // Get API key
   const apiKey = requireApiKey();
 
+  // Determine if we'll be in interactive TUI mode (no query = interactive)
+  const isInteractiveMode = !args.query;
+
   // Setup session (config, MCP, hooks, skills)
   const setup = await setupSession({
     args,
     apiKey,
     workingDirectory: process.cwd(),
+    isTuiMode: isInteractiveMode, // Disable console logging in TUI mode
   });
 
   // Get git status for system prompt
@@ -228,6 +336,7 @@ async function main(): Promise<void> {
       hookManager: setup.hookManager,
       workingDirectory: process.cwd(),
       gitStatus,
+      permissionMode: setup.permissionMode,
     });
   }
 }
@@ -250,26 +359,26 @@ async function runInteractiveMode(
   permissionMode: PermissionMode,
   teammateRunner: TeammateModeRunner | null = null
 ): Promise<void> {
-  // Check if stdin is a TTY (interactive terminal)
+  // Note: PTY wrapper check already ran at module load time
+  // This check is for non-doppler environments without TTY
   const isInteractive = process.stdin.isTTY;
-
-  // Allow force-interactive mode for testing
   const forceInteractive = process.env.CLAUDE_FORCE_INTERACTIVE === "true";
 
   if (!isInteractive && !forceInteractive) {
-    console.error("Error: Interactive mode requires a TTY. Use -q for single query mode.");
-    console.error("       Or set CLAUDE_FORCE_INTERACTIVE=true for testing.");
+    console.error("Error: Interactive mode requires a TTY.");
+    console.error("");
+    console.error("Use -q for single query mode, or set CLAUDE_FORCE_INTERACTIVE=true.");
     return;
   }
 
-  // Create a mutable session ID holder for the TUI
+  // Create a mutable session ID holder for the interactive runner
   let currentSessionId = sessionId;
   const setSessionId = (newId: string) => {
     currentSessionId = newId;
   };
 
-  // Run the Ink-based React TUI
-  await runInteractiveTUI({
+  // Run the non-React interactive CLI
+  const runner = new InteractiveRunner({
     apiKey,
     model: args.model,
     permissionMode,
@@ -292,6 +401,8 @@ async function runInteractiveMode(
       console.log("\n\x1b[90mGoodbye!\x1b[0m");
     },
   });
+
+  await runner.start();
 }
 
 // ============================================

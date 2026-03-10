@@ -69,6 +69,16 @@ function isRetryableError(
     return true;
   }
 
+  // Check for transient API errors (empty/malformed responses)
+  if (error.message.includes("No message received") ||
+      error.message.includes("empty response") ||
+      error.message.includes("invalid response") ||
+      error.message.includes("unexpected EOF") ||
+      error.message.includes("connection reset") ||
+      error.message.includes("aborted")) {
+    return true;
+  }
+
   // Check for specific status codes in error message
   for (const code of retryableStatusCodes) {
     if (error.message.includes(String(code))) {

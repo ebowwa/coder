@@ -21,6 +21,7 @@ import {
   safeParseTeammateMessage,
   safeParseStoredMessage,
   ValidationError,
+  sanitizeForFilePath,
 } from "./schemas.js";
 
 // ============================================
@@ -59,8 +60,24 @@ export class TeammateManager {
   // INBOX PATH HELPERS
   // ============================================
 
+  /**
+   * Get safe directory name for a team (prevents ENAMETOOLONG)
+   */
+  private getSafeTeamDir(teamName: string): string {
+    return sanitizeForFilePath(teamName);
+  }
+
+  /**
+   * Get safe directory name for a teammate (prevents ENAMETOOLONG)
+   */
+  private getSafeTeammateDir(teammateId: string): string {
+    return sanitizeForFilePath(teammateId);
+  }
+
   private getInboxPath(teamName: string, teammateId: string): string {
-    return join(this.storagePath, teamName, "inboxes", teammateId);
+    const safeTeamName = this.getSafeTeamDir(teamName);
+    const safeTeammateId = this.getSafeTeammateDir(teammateId);
+    return join(this.storagePath, safeTeamName, "inboxes", safeTeammateId);
   }
 
   private getPendingPath(teamName: string, teammateId: string): string {
@@ -146,8 +163,8 @@ export class TeammateManager {
       }
       this.teams.delete(name);
 
-      // Delete team directory from disk
-      const teamDir = join(this.storagePath, name);
+      // Delete team directory from disk (use safe path)
+      const teamDir = join(this.storagePath, this.getSafeTeamDir(name));
       try {
         rmSync(teamDir, { recursive: true, force: true });
       } catch (err) {
@@ -813,7 +830,7 @@ export class TeammateManager {
    * Persist a team configuration to disk
    */
   private async persistTeam(team: Team): Promise<void> {
-    const teamDir = join(this.storagePath, team.name);
+    const teamDir = join(this.storagePath, this.getSafeTeamDir(team.name));
     const configPath = join(teamDir, "config.json");
 
     // Ensure directory exists
@@ -1020,3 +1037,16 @@ export {
   type TeammateModeConfig,
   type TeammateModeState,
 } from "./runner.js";
+
+// Re-export coordination module
+export {
+  CoordinationManager,
+  createCoordinationMessage,
+  parseCoordinationMessage,
+  type CoordinationEvent,
+  type CoordinationEventType,
+  type CoordinationCallback,
+  type CoordinationConfig,
+  type ProgressReport,
+  type FileClaim,
+} from "./coordination.js";

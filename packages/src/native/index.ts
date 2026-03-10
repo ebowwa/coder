@@ -70,9 +70,138 @@ export interface MultiEditPreviewEntry {
   replacementCount: number;
 }
 
+// ===== Grep Types =====
+
+/** Options for grep search operations */
+export interface GrepQueryOptions {
+  /** Case insensitive matching */
+  caseInsensitive?: boolean;
+  /** Maximum number of results to return */
+  maxResults?: number;
+  /** Glob patterns for files to include */
+  includePatterns?: string[];
+  /** Glob patterns for files/dirs to exclude */
+  excludePatterns?: string[];
+  /** Treat pattern as literal string (no regex) */
+  literal?: boolean;
+  /** Match whole words only */
+  wholeWord?: boolean;
+  /** Invert match (show non-matching lines) */
+  invert?: boolean;
+  /** Enable multiline matching */
+  multiline?: boolean;
+  /** Number of context lines (sets both before and after) */
+  contextLines?: number;
+  /** Number of lines to show before match */
+  contextBefore?: number;
+  /** Number of lines to show after match */
+  contextAfter?: number;
+  /** Maximum directory depth */
+  maxDepth?: number;
+  /** Follow symbolic links */
+  followSymlinks?: boolean;
+  /** Skip hidden files and directories */
+  skipHidden?: boolean;
+  /** Respect .gitignore rules */
+  respectGitignore?: boolean;
+  /** Skip binary files */
+  skipBinary?: boolean;
+  /** Maximum file size in bytes */
+  maxFilesize?: number;
+  /** File extensions to include */
+  extensions?: string[];
+}
+
+/** A single grep match result */
+export interface GrepMatch {
+  /** File path containing the match */
+  path: string;
+  /** 1-based line number */
+  line: number;
+  /** 1-based column number */
+  column: number;
+  /** The matched line content */
+  content: string;
+  /** Length of the match in bytes */
+  matchLength: number;
+  /** Lines before the match (for context) */
+  contextBefore: string[];
+  /** Lines after the match (for context) */
+  contextAfter: string[];
+}
+
+/** Result of a grep search operation */
+export interface GrepResult {
+  /** Total number of matches found */
+  totalCount: number;
+  /** All matches found */
+  matches: GrepMatch[];
+  /** Number of files searched */
+  filesSearched: number;
+  /** Number of files skipped */
+  filesSkipped: number;
+  /** Time spent searching in milliseconds */
+  durationMs: number;
+}
+
+/** Count result per file */
+export interface GrepCountResult {
+  /** File path */
+  path: string;
+  /** Number of matches in this file */
+  count: number;
+  /** Number of lines in this file */
+  lineCount: number;
+}
+
+/** Result for files-with-matches mode */
+export interface GrepFilesResult {
+  /** List of file paths containing matches */
+  files: string[];
+  /** Total number of files with matches */
+  totalMatches: number;
+}
+
 // ===== Quant Types =====
 
 /** OHLCV candlestick data */
+// ===== TUI v2 Types =====
+
+export interface RenderMessage {
+  role: string;
+  content: string;
+}
+
+export interface RenderState {
+  messages: RenderMessage[];
+  inputValue: string;
+  cursorPos: number;
+  statusText: string;
+  isLoading: boolean;
+  streamingText: string;
+  model: string;
+  showHelp: boolean;
+  helpText: string;
+  searchMode: boolean;
+  searchQuery: string;
+  searchResults: SearchResult[];
+  searchSelected: number;
+}
+
+export interface InputEvent {
+  eventType: "key" | "resize" | "none";
+  key?: string;
+  modifiers?: string;
+  newWidth?: number;
+  newHeight?: number;
+}
+
+export interface SearchResult {
+  filePath: string;
+  lineNumber: number;
+  content: string;
+}
+
 export interface OHLCV {
   timestamp: number;
   open: number;
@@ -246,6 +375,9 @@ export interface NativeModule {
   /** Highlight a diff with ANSI colors */
   highlight_diff: (oldText: string, newText: string, options?: DiffOptions) => HighlightDiffResult;
 
+  // ===== Grep Functions =====
+
+  /** Legacy search_files (deprecated, use grep_search instead) */
   search_files: (
     pattern: string,
     path: string,
@@ -266,6 +398,17 @@ export interface NativeModule {
     total_count: number;
     files_searched: number;
   };
+
+  /** Search for pattern in files with full options */
+  grep_search: (pattern: string, path: string, options?: GrepQueryOptions) => Promise<GrepResult>;
+
+  /** Count matches per file */
+  grep_count: (pattern: string, path: string, options?: GrepQueryOptions) => Promise<GrepCountResult[]>;
+
+  /** List files containing matches */
+  grep_files: (pattern: string, path: string, options?: GrepQueryOptions) => Promise<GrepFilesResult>;
+
+  // ===== Token Functions =====
 
   count_tokens: (text: string) => number;
 
@@ -538,6 +681,11 @@ export function loadNative(): NativeModule {
             validate_multi_edits: native.validateMultiEdits || native.validate_multi_edits,
             preview_multi_edits: native.previewMultiEdits || native.preview_multi_edits,
             apply_multi_edits: native.applyMultiEdits || native.apply_multi_edits,
+
+            // Grep functions (NAPI exports camelCase for async functions)
+            grep_search: native.grepSearch,
+            grep_count: native.grepCount,
+            grep_files: native.grepFiles,
 
             // Cognitive Security - Action Module (NAPI exports camelCase)
             classify_operation: native.classifyOperation,
@@ -985,9 +1133,42 @@ function getFallbackModule(): NativeModule {
       };
     },
 
-    count_tokens: (text) => {
-      // Approximate token count: ~4 chars per token
-      return Math.ceil(text.length / 4);
+    count_tokens: (text: string): number => {
+      // Sophisticated fallback matching Rust implementation
+      if (!text || text.length === 0) return 0;
+
+      const bytes = text.length;
+
+      // Count whitespace
+      const whitespace = text.split('').filter(c => /\s/.test(c)).length;
+
+      // Count punctuation
+      const punctuation = text.split('').filter(c => /[^\w\s]/.test(c)).length;
+
+      // Detect if this is code (heuristic)
+      const isCode = text.includes('{') ||
+        text.includes('}') ||
+        text.includes(';') ||
+        text.includes('fn ') ||
+        text.includes('function') ||
+        text.includes('const ') ||
+        text.includes('let ') ||
+        text.includes('import ');
+
+      // Base estimate: ~4 characters per token
+      const baseEstimate = Math.floor(bytes / 4);
+
+      // Adjust for code (typically more tokens)
+      const codeAdjustment = isCode ? Math.floor(bytes / 10) : 0;
+
+      // Adjust for whitespace (tokens are often split on whitespace)
+      const whitespaceAdjustment = Math.floor(whitespace * 0.2);
+
+      // Adjust for punctuation
+      const punctuationAdjustment = Math.floor(punctuation * 0.5);
+
+      // Combine estimates, minimum 1
+      return Math.max(1, baseEstimate + codeAdjustment + whitespaceAdjustment + punctuationAdjustment);
     },
 
     calculate_diff: (oldText, newText) => {
@@ -1025,34 +1206,102 @@ function getFallbackModule(): NativeModule {
       }
 
       switch (strategy) {
-        case "truncate":
+        case "truncate": {
+          // Smart truncation: find paragraph or sentence boundary
+          const half = Math.floor(maxChars / 2);
+          const searchStart = Math.max(0, half - 100);
+          const searchEnd = Math.min(content.length, half + 100);
+
+          // Try to find paragraph break
+          let breakPoint = half;
+          for (let i = searchEnd; i >= searchStart; i--) {
+            if (content[i] === '\n' && content[i + 1] === '\n') {
+              breakPoint = i;
+              break;
+            }
+          }
+
           return (
-            content.slice(0, maxChars / 2) +
-            "\n\n... [truncated] ...\n\n" +
-            content.slice(-maxChars / 2)
+            content.slice(0, breakPoint) +
+            "\n\n... [content truncated: " + Math.floor((content.length - maxChars) / charsPerToken) + " tokens omitted] ...\n\n" +
+            content.slice(-half)
           );
-        case "summarize":
-          // Return first and last sections
-          const quarter = Math.floor(maxChars / 4);
-          return (
-            "=== BEGINNING ===\n" +
-            content.slice(0, quarter) +
-            "\n\n=== END ===\n" +
-            content.slice(-quarter)
-          );
-        case "extract":
-          // Return important lines only
+        }
+        case "summarize": {
+          // Return beginning, key sections, and end
           const lines = content.split("\n");
-          const important = lines.filter(
-            (line) =>
-              line.trim().startsWith("#") ||
-              line.trim().startsWith("function") ||
-              line.trim().startsWith("const") ||
-              line.trim().startsWith("class") ||
-              line.trim().startsWith("export") ||
-              line.trim().startsWith("import")
-          );
-          return important.slice(0, maxChars / 50).join("\n");
+          const firstCount = Math.min(20, Math.floor(lines.length / 4));
+          const lastCount = Math.min(20, Math.floor(lines.length / 4));
+          const quarter = Math.floor(maxChars / 4);
+
+          let result = "=== BEGINNING ===\n";
+          result += lines.slice(0, firstCount).join("\n").slice(0, quarter) + "\n\n";
+
+          result += "=== KEY LINES ===\n";
+          const importantLines = lines.filter(line => {
+            const t = line.trim();
+            return t.startsWith('#') ||
+              t.startsWith('function') ||
+              t.startsWith('const') ||
+              t.startsWith('class') ||
+              t.startsWith('export') ||
+              t.startsWith('import') ||
+              t.startsWith('async ') ||
+              t.startsWith('pub fn') ||
+              t.startsWith('fn ');
+          });
+          result += importantLines.slice(0, 20).join("\n").slice(0, quarter) + "\n\n";
+
+          result += "=== END ===\n";
+          result += lines.slice(-lastCount).join("\n").slice(0, quarter);
+
+          return result;
+        }
+        case "extract": {
+          // Extract structure (headings, declarations, etc.)
+          const lines = content.split("\n");
+          const result: string[] = [];
+          let currentChars = 0;
+          let inCodeBlock = false;
+
+          for (const line of lines) {
+            // Track code blocks
+            if (line.trim().startsWith('```')) {
+              inCodeBlock = !inCodeBlock;
+            }
+
+            const trimmed = line.trim();
+
+            // Include important lines
+            const isImportant =
+              trimmed.startsWith('#') ||
+              trimmed.startsWith('##') ||
+              trimmed.startsWith('###') ||
+              trimmed.startsWith('function ') ||
+              trimmed.startsWith('const ') ||
+              trimmed.startsWith('let ') ||
+              trimmed.startsWith('class ') ||
+              trimmed.startsWith('interface ') ||
+              trimmed.startsWith('type ') ||
+              trimmed.startsWith('export ') ||
+              trimmed.startsWith('import ') ||
+              trimmed.startsWith('async ') ||
+              trimmed.startsWith('pub fn') ||
+              trimmed.startsWith('fn ') ||
+              trimmed.startsWith('struct ') ||
+              trimmed.startsWith('impl ') ||
+              trimmed.startsWith('// TODO') ||
+              trimmed.startsWith('// FIXME') ||
+              trimmed.startsWith('// NOTE');
+
+            if (isImportant && currentChars + line.length < maxChars) {
+              result.push(line);
+              currentChars += line.length + 1;
+            }
+          }
+
+          return result.length > 0 ? result.join("\n") : content.slice(0, maxChars);
+        }
         default:
           return content.slice(0, maxChars);
       }
@@ -1862,6 +2111,17 @@ function getFallbackModule(): NativeModule {
       throw new Error("Native TUI not available in fallback mode. Build the Rust native module.");
     },
     is_native_tui_available: () => false,
+
+    // Grep functions (fallback - use Grep tool instead)
+    grep_search: async (_pattern: string, _path: string, _options?: GrepQueryOptions): Promise<GrepResult> => {
+      throw new Error("grep_search not available in fallback mode. Build the Rust native module or use the Grep tool.");
+    },
+    grep_count: async (_pattern: string, _path: string, _options?: GrepQueryOptions): Promise<GrepCountResult[]> => {
+      throw new Error("grep_count not available in fallback mode. Build the Rust native module or use the Grep tool.");
+    },
+    grep_files: async (_pattern: string, _path: string, _options?: GrepQueryOptions): Promise<GrepFilesResult> => {
+      throw new Error("grep_files not available in fallback mode. Build the Rust native module or use the Grep tool.");
+    },
   };
 }
 
@@ -2342,4 +2602,121 @@ export function quantCorrelation(x: number[], y: number[]): number {
   const { ptr: ptrY } = toFloat64Ptr(y);
   return quant.quant_correlation(ptrX, ptrY, x.length);
 }
+
+
+
+
+// ===== TUI v2 Native Renderer Re-export =====
+// Re-export the NativeRenderer class directly from the native module (the .node binary)
+// Use lazy loading to avoid circular dependency issues during module initialization
+
+import * as path from "path";
+
+let _NativeRendererClass: any = null;
+
+/**
+ * Find the native module directory at runtime
+ * Works both in development and when bundled
+ */
+function findNativeDir(): string | null {
+  // Try multiple possible locations for the native directory
+  const possiblePaths = [
+    // When running from dist/ (bundled)
+    path.resolve(__dirname, "..", "..", "..", "native"),
+    // When running from dist/native/ (native loader location)
+    path.resolve(__dirname, "..", "..", "native"),
+    // When running from packages/src/native/ (development)
+    path.resolve(__dirname, "..", "..", "..", "..", "..", "native"),
+    // Try from current working directory
+    path.resolve(process.cwd(), "native"),
+    // Try from dist directory relative to executable
+    path.resolve(path.dirname(process.execPath), "..", "native"),
+  ];
+
+  for (const p of possiblePaths) {
+    try {
+      const files = require("fs").readdirSync(p);
+      if (files.some((f: string) => f.endsWith(".node"))) {
+        return p;
+      }
+    } catch {
+      // Directory doesn't exist or can't be read, try next
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Get the NativeRenderer class (lazy-loaded to avoid circular dependencies)
+ */
+function getNativeRendererClass(): any {
+  if (!_NativeRendererClass) {
+    const { platform, arch } = process;
+
+    // Find the native directory
+    const nativeDir = findNativeDir();
+    if (!nativeDir) {
+      throw new Error("Could not find native module directory");
+    }
+
+    // Determine the correct native module file based on platform
+    let nativeFile: string;
+    if (platform === "darwin" && arch === "arm64") {
+      nativeFile = "index.darwin-arm64.node";
+    } else if (platform === "darwin" && arch === "x64") {
+      nativeFile = "claude_code_native.darwin-x64.node";
+    } else if (platform === "linux" && arch === "x64") {
+      nativeFile = "claude_code_native.linux-x64-gnu.node";
+    } else if (platform === "win32" && arch === "x64") {
+      nativeFile = "claude_code_native.win32-x64-msvc.node";
+    } else {
+      throw new Error(`Unsupported platform: ${platform}-${arch}`);
+    }
+
+    const nativePath = path.join(nativeDir, nativeFile);
+    const nativeModule = require(nativePath);
+    _NativeRendererClass = nativeModule.NativeRenderer;
+  }
+  return _NativeRendererClass;
+}
+
+/**
+ * Lazy-loading wrapper for the NativeRenderer class
+ * This allows us to defer loading the native module until it's actually needed
+ */
+export const NativeRenderer = new Proxy(
+  // Use a function as the target so it can be called with `new`
+  function NativeRenderer(this: any, ...args: any[]) {
+    const ActualClass = getNativeRendererClass();
+    const instance = new ActualClass(...args);
+    // Copy instance to `this` if called with new
+    Object.assign(this, instance);
+    return instance;
+  } as any,
+  {
+    // Proxy property access to the actual class
+    get(_target, prop) {
+      const ActualClass = getNativeRendererClass();
+      return Reflect.get(ActualClass, prop, ActualClass);
+    },
+    // Proxy static method calls
+    apply(_target, _thisArg, args) {
+      const ActualClass = getNativeRendererClass();
+      return ActualClass(...args);
+    },
+  }
+) as any;
+
+// Type alias for the NativeRenderer instance type
+// Use typeof since NativeRenderer is a value (Proxy)
+export type NativeRendererType = typeof NativeRenderer;
+
+// Note: RenderState, RenderMessage, InputEvent, SearchResult types are already
+// defined as interfaces in this file (lines 78-107).
+// Type aliases for the v2 TUI using the already-defined types
+export type NativeRenderState = RenderState;
+export type NativeRenderMessage = RenderMessage;
+export type NativeInputEvent = InputEvent;
+export type NativeSearchResult = SearchResult;
 

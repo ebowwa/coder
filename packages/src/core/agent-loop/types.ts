@@ -29,6 +29,8 @@ export interface AgentLoopCallbacks {
   onToolResult?: (result: { id: string; result: ToolResult }) => void;
   onMetrics?: (metrics: QueryMetrics) => void;
   onReminder?: (reminder: string) => void;
+  /** Called when API retry starts - UI should reset streaming state */
+  onRetryStart?: () => void;
 }
 
 /**
@@ -116,6 +118,8 @@ export interface TurnOptions {
   onThinking?: (thinking: string) => void;
   onToolUse?: (toolUse: { id: string; name: string; input: unknown }) => void;
   onReminder?: (reminder: string) => void;
+  /** Called when API retry starts - UI should reset streaming state */
+  onRetryStart?: () => void;
 }
 
 /**

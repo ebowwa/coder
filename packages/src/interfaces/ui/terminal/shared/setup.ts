@@ -45,6 +45,8 @@ export interface SetupOptions {
   apiKey: string;
   workingDirectory: string;
   onProgress?: (message: string) => void;
+  /** When true, disable console logging for security hooks (prevents TUI corruption) */
+  isTuiMode?: boolean;
 }
 
 // ============================================
@@ -196,14 +198,16 @@ export async function setupSession(options: SetupOptions): Promise<SessionSetup>
 
   // Register cognitive security hooks (in-process handlers)
   // When bypassPermissions is set, disable all security checks
+  // In TUI mode, disable console logging to prevent corrupting the display
   const isBypassMode = permissionMode === "bypassPermissions";
+  const isTuiMode = options.isTuiMode ?? false;
   const securityHandlers = createSecurityHookHandlers({
     enabled: !isBypassMode, // Disable entirely in bypass mode
     checkIntentAlignment: !isBypassMode,
     enforceFlowPolicies: !isBypassMode,
     preventLeaks: !isBypassMode,
     trackTaints: !isBypassMode,
-    logEvents: true, // Always log for audit trail
+    logEvents: !isTuiMode, // Disable console logging in TUI mode to prevent display corruption
     blockOnViolation: false, // Never block - log only
     minAlignmentScore: 0.3,
     approvalRequiredSensitivities: ["secret", "top_secret"],

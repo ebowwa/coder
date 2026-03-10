@@ -9,7 +9,7 @@ import type {
   CacheMetrics,
   UsageMetrics,
 } from "../../types/index.js";
-import type { CompactionResult, getCompactionStats } from "../context-compaction.js";
+import type { CompactionResult, getCompactionStats } from "../context/index.js";
 
 /**
  * Creates an initial cache metrics object

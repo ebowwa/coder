@@ -2,28 +2,42 @@
 // Loads the appropriate .node file based on platform
 
 const { platform, arch } = process;
+const fs = require('fs');
+const path = require('path');
 
-let nativeBinding;
+// List all .node files in the native directory
+const nativeDir = __dirname;
+const nodeFiles = fs.readdirSync(nativeDir).filter(f => f.endsWith('.node'));
 
-try {
-  switch (`${platform}-${arch}`) {
-    case 'darwin-x64':
-      nativeBinding = require('./claude_code_native.darwin-x64.node');
-      break;
-    case 'darwin-arm64':
-      nativeBinding = require('./index.darwin-arm64.node');
-      break;
-    case 'linux-x64':
-      nativeBinding = require('./claude_code_native.linux-x64-gnu.node');
-      break;
-    case 'win32-x64':
-      nativeBinding = require('./claude_code_native.win32-x64-msvc.node');
-      break;
-    default:
-      throw new Error(`Unsupported platform: ${platform}-${arch}`);
+// Find the matching file for current platform
+let nativeBinding = null;
+
+// Try to find a file matching our platform
+for (const file of nodeFiles) {
+  // Check for darwin-arm64
+  if (platform === 'darwin' && arch === 'arm64' && file.includes('darwin') && file.includes('arm64')) {
+    nativeBinding = require(path.join(nativeDir, file));
+    break;
   }
-} catch (e) {
-  throw new Error(`Failed to load native module: ${e.message}`);
+  // Check for darwin-x64
+  if (platform === 'darwin' && arch === 'x64' && file.includes('darwin') && (file.includes('x64') && !file.includes('arm64'))) {
+    nativeBinding = require(path.join(nativeDir, file));
+    break;
+  }
+  // Check for linux-x64
+  if (platform === 'linux' && arch === 'x64' && file.includes('linux') && file.includes('x64')) {
+    nativeBinding = require(path.join(nativeDir, file));
+    break;
+  }
+  // Check for win32-x64
+  if (platform === 'win32' && arch === 'x64' && file.includes('win32') && file.includes('x64')) {
+    nativeBinding = require(path.join(nativeDir, file));
+    break;
+  }
+}
+
+if (!nativeBinding) {
+  throw new Error(`Unsupported platform: ${platform}-${arch}. Available files: ${nodeFiles.join(', ')}`);
 }
 
 module.exports = nativeBinding;

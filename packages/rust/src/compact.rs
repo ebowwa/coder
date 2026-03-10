@@ -3,7 +3,11 @@
 //! Strategies for reducing content size while preserving key information.
 
 /// Compact content to fit within token limit
-pub fn compact_content(content: &str, max_tokens: u32, strategy: Option<&str>) -> anyhow::Result<String> {
+pub fn compact_content(
+    content: &str,
+    max_tokens: u32,
+    strategy: Option<&str>,
+) -> anyhow::Result<String> {
     let current_tokens = estimate_tokens(content);
 
     if current_tokens <= max_tokens {
@@ -70,7 +74,11 @@ fn summarize_compact(content: &str, max_tokens: u32) -> anyhow::Result<String> {
 
     // Add important lines
     result.push_str("\n=== KEY SECTIONS ===\n");
-    for line in lines.iter().skip(first_count).take(lines.len() - first_count - last_count) {
+    for line in lines
+        .iter()
+        .skip(first_count)
+        .take(lines.len() - first_count - last_count)
+    {
         if is_important_line(line) && current_chars + line.len() < max_chars * 3 / 4 {
             result.push_str(line);
             result.push('\n');
@@ -165,6 +173,7 @@ fn is_section_header(line: &str) -> bool {
 }
 
 /// Find a good truncation point
+/// TODO: LETS REMOVE THIS
 fn find_truncate_point(content: &str, max_chars: usize) -> usize {
     if content.len() <= max_chars {
         return content.len();

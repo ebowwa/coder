@@ -64,6 +64,7 @@ export async function agentLoop(
     onToolResult,
     onMetrics,
     onReminder,
+    onRetryStart,
     onPermissionRequest,
     signal,
   } = options;
@@ -107,6 +108,7 @@ export async function agentLoop(
       onThinking,
       onToolUse,
       onReminder,
+      onRetryStart,
       permissionMode,
       permissionManager,
       onMetrics,

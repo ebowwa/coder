@@ -1,4 +1,8 @@
 - channels
 - stream
 - keyboard event activity
--
+- tools/mcps
+
+
+packages/src/sandbox-body/channels/channel-command handles all this
+this si an npm package

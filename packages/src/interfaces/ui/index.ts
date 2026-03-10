@@ -53,27 +53,24 @@ export {
   type ContextInfo,
 } from "./terminal/shared/status-line.js";
 
-// TUI Footer (from tui)
+// Interactive CLI (non-React, from interactive module)
 export {
-  TUIFooter,
-  getTUIFooter,
-  enableTUIFooter,
-  disableTUIFooter,
-  renderTUIFooter,
-  clearTUIFooter,
-  ANSI,
-  type TUIFooterOptions,
-  type TUIFooterState,
-} from "./terminal/tui/tui-footer.js";
-
-// TUI App (Ink-based, from tui)
-export {
-  createTUIApp,
-  type TUIAppProps,
-  type TUIAppHandle,
-  type Message as TUIMessage,
-} from "./terminal/tui/tui-app.js";
-export { default as TUIApp } from "./terminal/tui/tui-app.js";
+  InteractiveRunner,
+  runInteractiveMode,
+  MessageStoreImpl,
+  InputManagerImpl,
+  KeyEvents,
+  InputPriority,
+  type InteractiveRunnerProps,
+  type InteractiveState,
+  type UIMessage,
+  type MessageSubType,
+  type MessageStore,
+  type InputManager,
+  type InputHandler,
+  type InputHandlerOptions,
+  type NativeKeyEvent,
+} from "./terminal/cli/interactive/index.js";
 
 // ============================================
 // PROGRESS CALLBACK TYPES

@@ -71,6 +71,27 @@ export * from "./teammates/index.js";
 // Cognitive Security
 export * from "./core/cognitive-security/index.js";
 
+// Providers
+export {
+  PROVIDERS,
+  getProvider,
+  getProviderForModel,
+  resolveProvider,
+  isProviderHealthy,
+  getHealthyProviders,
+  getNextHealthyProvider,
+  recordProviderSuccess,
+  recordProviderFailure,
+  getProviderHealth,
+} from "./core/providers/index.js";
+export type {
+  ProviderName,
+  ProviderConfig,
+  ProviderHealth,
+  ResolvedProvider,
+  ProviderRoutingConfig,
+} from "./core/providers/index.js";
+
 // UI Components (exclude types that are already in types/index.js)
 export {
   Spinner,
@@ -112,9 +133,9 @@ export {
   summarizeMessages,
   summarizeWithLLM,
   getCompactionStats,
-} from "./core/context-compaction.js";
+} from "./core/context/index.js";
 export type {
   CompactionOptions,
   CompactionResult,
   LLMSummarizationOptions,
-} from "./core/context-compaction.js";
+} from "./core/context/index.js";

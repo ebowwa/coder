@@ -8,7 +8,7 @@ import {
   compactMessages,
   getCompactionStats,
   type CompactionResult,
-} from "../context-compaction.js";
+} from "../context/index.js";
 import type { LoopState } from "./loop-state.js";
 
 /**
@@ -89,4 +89,4 @@ export { needsCompaction };
 /**
  * Get token estimate for messages
  */
-export { estimateMessagesTokens } from "../context-compaction.js";
+export { estimateMessagesTokens } from "../context/index.js";

@@ -8,6 +8,32 @@
 import { z } from "zod";
 
 // ============================================
+// CONSTANTS FOR FILE-SAFE PATHS
+// ============================================
+
+// Maximum lengths for file-safe paths (filesystem limit is 255 chars per component)
+export const MAX_TEAM_NAME_LENGTH = 64;
+export const MAX_TEAMMATE_NAME_LENGTH = 64;
+export const MAX_TEAMMATE_ID_LENGTH = 128;
+export const MAX_DESCRIPTION_LENGTH = 500;
+
+// Re-export for use in other modules
+export const FILENAME_MAX_LENGTH = 64;
+
+/**
+ * Sanitize a string for use in file paths
+ * Removes/replaces characters that could cause filesystem issues
+ */
+export function sanitizeForFilePath(name: string): string {
+  return name
+    .replace(/[<>:"/\\|?*\x00-\x1f]/g, "_") // Replace invalid chars
+    .replace(/\s+/g, "_") // Replace whitespace with underscore
+    .replace(/_{2,}/g, "_") // Collapse multiple underscores
+    .replace(/^_|_$/g, "") // Remove leading/trailing underscores
+    .slice(0, FILENAME_MAX_LENGTH); // Truncate to max length
+}
+
+// ============================================
 // BASE SCHEMAS
 // ============================================
 
@@ -28,9 +54,15 @@ export type TeammateStatus = z.infer<typeof TeammateStatusSchema>;
  * Teammate validation
  */
 export const TeammateSchema = z.object({
-  teammateId: z.string().min(1, "teammateId cannot be empty"),
-  name: z.string().min(1, "name cannot be empty"),
-  teamName: z.string().min(1, "teamName cannot be empty"),
+  teammateId: z.string()
+    .min(1, "teammateId cannot be empty")
+    .max(MAX_TEAMMATE_ID_LENGTH, `teammateId cannot exceed ${MAX_TEAMMATE_ID_LENGTH} characters`),
+  name: z.string()
+    .min(1, "name cannot be empty")
+    .max(MAX_TEAMMATE_NAME_LENGTH, `name cannot exceed ${MAX_TEAMMATE_NAME_LENGTH} characters`),
+  teamName: z.string()
+    .min(1, "teamName cannot be empty")
+    .max(MAX_TEAM_NAME_LENGTH, `teamName cannot exceed ${MAX_TEAM_NAME_LENGTH} characters`),
   color: z.string().default("blue"),
   prompt: z.string().default(""), // Allow empty prompts for backward compatibility
   planModeRequired: z.boolean().default(false),
@@ -68,9 +100,17 @@ export type CoordinationSettings = z.infer<typeof CoordinationSettingsSchema>;
  * Team validation
  */
 export const TeamSchema = z.object({
-  name: z.string().min(1, "name cannot be empty"),
-  description: z.string().default(""), // Allow empty description for backward compatibility
-  teammates: z.array(TeammateSchema).default([]), // Allow empty teammates array
+  name: z.string()
+    .min(1, "name cannot be empty")
+    .max(MAX_TEAM_NAME_LENGTH, `name cannot exceed ${MAX_TEAM_NAME_LENGTH} characters`)
+    .refine(
+      (name) => /^[a-zA-Z0-9_-]+$/.test(name),
+      "name can only contain alphanumeric characters, hyphens, and underscores"
+    ),
+  description: z.string()
+    .max(MAX_DESCRIPTION_LENGTH, `description cannot exceed ${MAX_DESCRIPTION_LENGTH} characters`)
+    .default(""),
+  teammates: z.array(TeammateSchema).default([]),
   taskListId: z.string().default(""),
   status: TeamStatusSchema.default("active"),
   coordination: CoordinationSettingsSchema.default({

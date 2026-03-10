@@ -69,3 +69,16 @@ export {
   type StatusLineOptions,
   type ContextInfo,
 } from "./status-line.js";
+
+// Spinner Frames
+export {
+  spinnerFrames,
+  dotSpinnerFrames,
+  asciiSpinnerFrames,
+  arrowSpinnerFrames,
+  simpleDotFrames,
+  toolSpinnerFrames,
+  nextFrame,
+  createSpinnerIterator,
+  getFrame,
+} from "./spinner-frames.js";

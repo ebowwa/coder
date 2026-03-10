@@ -7,9 +7,18 @@
  * - Inject messages into conversation via callback
  * - Report idle status to team
  * - Coordinate with task system
+ * - File locking and progress reporting
  */
 
 import { TeammateManager, generateTeammateId } from "./index.js";
+import {
+  CoordinationManager,
+  type CoordinationConfig,
+  type CoordinationEvent,
+  type ProgressReport,
+  type FileClaim,
+  type CoordinationEventType,
+} from "./coordination.js";
 import type { Teammate, Team, TeammateMessage, TeammateStatus } from "../types/index.js";
 
 // ============================================
@@ -35,6 +44,16 @@ export interface TeammateModeConfig {
   onIdle?: () => void;
   /** Polling interval in ms (default: 2000) */
   pollInterval?: number;
+  /** Coordination configuration */
+  coordination?: CoordinationConfig;
+  /** Callback when another teammate reports progress */
+  onTeammateProgress?: (teammateId: string, progress: ProgressReport) => void;
+  /** Callback when a file is claimed by another teammate */
+  onFileClaimed?: (claim: FileClaim) => void;
+  /** Callback when a file is released */
+  onFileReleased?: (filePath: string, teammateId: string) => void;
+  /** Callback for any coordination event */
+  onCoordinationEvent?: (event: CoordinationEvent) => void;
 }
 
 export interface TeammateModeState {
@@ -52,6 +71,10 @@ export interface TeammateModeState {
   status: TeammateStatus;
   /** Pending messages waiting to be processed */
   pendingMessages: TeammateMessage[];
+  /** Files currently claimed by this teammate */
+  claimedFiles: Set<string>;
+  /** Current progress report */
+  currentProgress?: ProgressReport;
 }
 
 // ============================================
@@ -60,6 +83,7 @@ export interface TeammateModeState {
 
 export class TeammateModeRunner {
   private manager: TeammateManager;
+  private coordination: CoordinationManager;
   private config: TeammateModeConfig;
   private state: TeammateModeState;
   private idleCheckTimer: Timer | null = null;
@@ -68,6 +92,10 @@ export class TeammateModeRunner {
   constructor(config: TeammateModeConfig) {
     this.config = config;
     this.manager = new TeammateManager();
+    this.coordination = new CoordinationManager(
+      this.manager,
+      config.coordination || {}
+    );
     this.state = {
       active: false,
       teammate: null,
@@ -76,7 +104,55 @@ export class TeammateModeRunner {
       lastActivity: Date.now(),
       status: "pending",
       pendingMessages: [],
+      claimedFiles: new Set(),
     };
+
+    // Set up coordination callbacks
+    this.setupCoordinationCallbacks();
+  }
+
+  /**
+   * Set up coordination event callbacks
+   */
+  private setupCoordinationCallbacks(): void {
+    const coordinationConfig = this.config.coordination || {};
+
+    // Merge user callbacks with internal handling
+    this.coordination = new CoordinationManager(this.manager, {
+      ...coordinationConfig,
+      onProgress: (teammateId, progress) => {
+        if (this.config.onTeammateProgress) {
+          this.config.onTeammateProgress(teammateId, progress);
+        }
+        if (coordinationConfig.onProgress) {
+          coordinationConfig.onProgress(teammateId, progress);
+        }
+      },
+      onFileClaimed: (claim) => {
+        if (this.config.onFileClaimed) {
+          this.config.onFileClaimed(claim);
+        }
+        if (coordinationConfig.onFileClaimed) {
+          coordinationConfig.onFileClaimed(claim);
+        }
+      },
+      onFileReleased: (filePath, teammateId) => {
+        if (this.config.onFileReleased) {
+          this.config.onFileReleased(filePath, teammateId);
+        }
+        if (coordinationConfig.onFileReleased) {
+          coordinationConfig.onFileReleased(filePath, teammateId);
+        }
+      },
+      onCoordinationEvent: (event) => {
+        if (this.config.onCoordinationEvent) {
+          this.config.onCoordinationEvent(event);
+        }
+        if (coordinationConfig.onCoordinationEvent) {
+          coordinationConfig.onCoordinationEvent(event);
+        }
+      },
+    });
   }
 
   // ============================================
@@ -144,11 +220,17 @@ export class TeammateModeRunner {
     // Update status
     this.manager.updateTeammateStatus(teammate.teammateId, "in_progress");
 
+    // Initialize coordination
+    this.coordination.initialize(teammate.teammateId, this.config.teamName);
+
     // Start message polling
     this.startPolling();
 
     // Start idle check
     this.startIdleCheck();
+
+    // Broadcast join
+    this.broadcast(`Teammate ${teammate.name} joined the team`);
 
     return teammate;
   }
@@ -163,6 +245,12 @@ export class TeammateModeRunner {
     // Stop polling
     this.stopPolling();
     this.stopIdleCheck();
+
+    // Release all file claims
+    this.releaseAllFiles();
+
+    // Shutdown coordination
+    this.coordination.shutdown();
 
     // Update status to idle
     if (this.state.teammate) {
@@ -410,6 +498,194 @@ export class TeammateModeRunner {
     }
 
     return this.manager.waitForTeammatesToBecomeIdle(this.config.teamName, options);
+  }
+
+  // ============================================
+  // COORDINATION - PROGRESS REPORTING
+  // ============================================
+
+  /**
+   * Report progress to teammates
+   * This broadcasts progress information to all team members
+   */
+  reportProgress(progress: ProgressReport): void {
+    if (!this.state.active) return;
+
+    this.state.currentProgress = progress;
+    this.coordination.reportProgress(progress);
+    this.reportActivity();
+  }
+
+  /**
+   * Report that you're blocked on something
+   */
+  reportBlocked(reason: string, blockedBy?: string): void {
+    if (!this.state.active) return;
+
+    this.updateStatus("pending");
+    this.coordination.reportBlocked(reason, blockedBy);
+  }
+
+  /**
+   * Report that you're unblocked
+   */
+  reportUnblocked(): void {
+    if (!this.state.active) return;
+
+    this.updateStatus("in_progress");
+    this.coordination.reportUnblocked();
+  }
+
+  /**
+   * Get progress reports from all teammates
+   */
+  getTeammateProgress(): Map<string, ProgressReport> {
+    // This would require storing progress in TeammateManager
+    // For now, return empty map
+    return new Map();
+  }
+
+  // ============================================
+  // COORDINATION - FILE LOCKING
+  // ============================================
+
+  /**
+   * Claim a file for exclusive editing
+   * Returns true if claim was successful
+   */
+  claimFile(filePath: string, reason?: string, expiresIn?: number): boolean {
+    if (!this.state.active) {
+      throw new Error("Teammate mode not active");
+    }
+
+    const claimed = this.coordination.claimFile(filePath, reason, expiresIn);
+    if (claimed) {
+      this.state.claimedFiles.add(filePath);
+    }
+    return claimed;
+  }
+
+  /**
+   * Release a file claim
+   */
+  releaseFile(filePath: string): void {
+    if (!this.state.active) return;
+
+    this.coordination.releaseFile(filePath);
+    this.state.claimedFiles.delete(filePath);
+  }
+
+  /**
+   * Release all file claims
+   */
+  releaseAllFiles(): void {
+    if (!this.state.active) return;
+
+    for (const file of this.state.claimedFiles) {
+      this.coordination.releaseFile(file);
+    }
+    this.state.claimedFiles.clear();
+  }
+
+  /**
+   * Check if a file is claimed by another teammate
+   */
+  isFileClaimed(filePath: string): boolean {
+    return this.coordination.isFileClaimed(filePath);
+  }
+
+  /**
+   * Get the claim on a file (if any)
+   */
+  getFileClaim(filePath: string): FileClaim | undefined {
+    return this.coordination.getFileClaim(filePath);
+  }
+
+  /**
+   * Get all files claimed by this teammate
+   */
+  getClaimedFiles(): string[] {
+    return Array.from(this.state.claimedFiles);
+  }
+
+  /**
+   * Get all claims across the team
+   */
+  getAllClaims(): FileClaim[] {
+    return this.coordination.getAllClaims();
+  }
+
+  /**
+   * Attempt to claim a file, wait if blocked
+   */
+  async waitForFileClaim(
+    filePath: string,
+    options?: {
+      timeout?: number;
+      pollInterval?: number;
+      reason?: string;
+    }
+  ): Promise<boolean> {
+    const { timeout = 30000, pollInterval = 1000, reason } = options || {};
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < timeout) {
+      if (this.claimFile(filePath, reason)) {
+        return true;
+      }
+
+      // Check if current claimant has finished
+      const claim = this.getFileClaim(filePath);
+      if (claim) {
+        // Wait and retry
+        await new Promise(resolve => setTimeout(resolve, pollInterval));
+      } else {
+        // Try again immediately
+        if (this.claimFile(filePath, reason)) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  // ============================================
+  // COORDINATION - UTILITIES
+  // ============================================
+
+  /**
+   * Check if we should work on a file (not claimed by others)
+   */
+  canWorkOnFile(filePath: string): boolean {
+    if (this.isFileClaimed(filePath)) {
+      const claim = this.getFileClaim(filePath);
+      // Can work if we're the claimant
+      return claim?.teammateId === this.state.teammate?.teammateId;
+    }
+    return true;
+  }
+
+  /**
+   * Claim multiple files atomically
+   * Returns true if all claims were successful
+   */
+  claimFiles(files: string[], reason?: string): boolean {
+    const claimed: string[] = [];
+
+    for (const file of files) {
+      if (this.claimFile(file, reason)) {
+        claimed.push(file);
+      } else {
+        // Rollback - release all claimed files
+        for (const f of claimed) {
+          this.releaseFile(f);
+        }
+        return false;
+      }
+    }
+
+    return true;
   }
 
   // ============================================

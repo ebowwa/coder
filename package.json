@@ -24,7 +24,7 @@
   },
   "scripts": {
     "build": "bun run build:native && bun run build:ts && bun run link",
-    "build:ts": "bun build ./packages/src/index.ts ./packages/src/interfaces/ui/terminal/cli/index.ts --outdir ./dist --target bun",
+    "build:ts": "bun build ./packages/src/index.ts ./packages/src/interfaces/ui/terminal/cli/bootstrap.ts --outdir ./dist --target bun --external @ebowwa/coder-native && cp -r native dist/ && mkdir -p dist/interfaces/ui/terminal && cp -r native dist/interfaces/ui/terminal/ && mv dist/interfaces/ui/terminal/cli/bootstrap.js dist/interfaces/ui/terminal/cli/index.js",
     "build:native": "cd packages/rust && cargo build --release --target-dir ./target && cd ../.. && bun run build:napi-artifacts",
     "build:napi-artifacts": "napi build --platform --release --target-dir packages/rust/target --manifest-path packages/rust/Cargo.toml --output-dir native --js-package-name @ebowwa/coder-native --const-enum --strip --dts index.d.ts",
     "link": "bun link || npm link",
@@ -55,6 +55,7 @@
     "ora": "^8.2.0",
     "react": "^18.3.1",
     "react-devtools-core": "^7.0.1",
+    "react-dom": "^19.2.4",
     "sharp": "^0.34.5",
     "viem": "^2.46.3",
     "wagmi": "^3.5.0",

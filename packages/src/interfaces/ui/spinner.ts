@@ -7,14 +7,14 @@
 import ora, { type Ora } from "ora";
 import chalk from "chalk";
 
-// Import spinner frames from the single source of truth
+// Import spinner frames from the single source of truth (shared)
 import {
   spinnerFrames,
   dotSpinnerFrames,
   asciiSpinnerFrames,
   arrowSpinnerFrames,
   simpleDotFrames,
-} from "./terminal/tui/spinner.js";
+} from "./terminal/shared/spinner-frames.js";
 
 // Re-export for external use
 export {
