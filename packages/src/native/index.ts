@@ -186,6 +186,7 @@ export interface RenderState {
   searchQuery: string;
   searchResults: SearchResult[];
   searchSelected: number;
+  scrollOffset?: number;
 }
 
 export interface InputEvent {

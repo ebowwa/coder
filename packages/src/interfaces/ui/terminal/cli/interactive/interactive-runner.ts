@@ -23,6 +23,7 @@ import type { InputEvent, NativeRendererType } from "../../../../../native/index
 import { spinnerFrames } from "../../shared/spinner-frames.js";
 import { MessageStoreImpl } from "./message-store.js";
 import { InputManagerImpl, KeyEvents, inputEventToNativeKeyEvent } from "./input-handler.js";
+import { handleScrollEvent } from "./scroll-handler.js";
 import type {
   InteractiveRunnerProps,
   InteractiveState,
@@ -269,7 +270,34 @@ export class InteractiveRunner {
       return true;
     }
 
-    // History navigation
+    // Chat history scroll - handle all scroll keys via scroll handler
+    // Debug: log event details
+    if (process.env.CODER_DEBUG_SCROLL === "1") {
+      console.error("[InteractiveRunner] Key event:", {
+        code: event.code,
+        shift: event.shift,
+        ctrl: event.ctrl,
+        alt: event.alt,
+        is_special: event.is_special,
+      });
+    }
+
+    const scrollResult = handleScrollEvent(
+      event,
+      this.state.scrollOffset,
+      this.messageStore.messages.length
+    );
+
+    if (process.env.CODER_DEBUG_SCROLL === "1") {
+      console.error("[InteractiveRunner] Scroll result:", scrollResult);
+    }
+
+    if (scrollResult.handled) {
+      this.state = { ...this.state, scrollOffset: scrollResult.newOffset };
+      return true;
+    }
+
+    // History navigation (plain Up/Down without shift)
     if (KeyEvents.isUp(event)) {
       return this._handleHistoryUp();
     }
@@ -682,21 +710,22 @@ export class InteractiveRunner {
       content: `${s.messageCount} messages`,
     })) : [];
 
-    // NativeRenderer expects camelCase field names (NAPI-RS converts snake_case to camelCase)
+    // NativeRenderer expects snake_case field names (NAPI-RS keeps Rust naming)
     return {
       messages: renderMessages,
-      inputValue: inputValue,
-      cursorPos: cursorPos,
-      statusText: statusText,
-      isLoading: isLoading,
-      streamingText: streamingText,
+      input_value: inputValue,
+      cursor_pos: cursorPos,
+      status_text: statusText,
+      is_loading: isLoading,
+      streaming_text: streamingText,
       model: this.props.model,
-      showHelp: helpMode,
-      helpText: helpText,
-      searchMode: sessionSelectMode,
-      searchQuery: "",
-      searchResults: searchResults,
-      searchSelected: 0,
+      show_help: helpMode,
+      help_text: helpText,
+      search_mode: sessionSelectMode,
+      search_query: "",
+      search_results: searchResults,
+      search_selected: 0,
+      scroll_offset: this.state.scrollOffset,
     };
   }
 

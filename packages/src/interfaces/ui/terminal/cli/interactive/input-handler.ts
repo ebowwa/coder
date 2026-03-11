@@ -200,16 +200,25 @@ export const KeyEvents = {
     return event.code === "down" || event.code === "Down";
   },
 
+  /** Check if event is Space key */
+  isSpace(event: NativeKeyEvent): boolean {
+    return event.code === " " || event.code === "Space";
+  },
+
   /** Check if event is a printable character */
   isPrintable(event: NativeKeyEvent): boolean {
     if (event.is_special) return false;
     const code = event.code;
+    // Space is printable (normalized to "Space" but should work in text input)
+    if (code === " " || code === "Space") return true;
     // Single character that is not a control character
     return code.length === 1 && !event.ctrl;
   },
 
   /** Get the character from the event */
   getChar(event: NativeKeyEvent): string {
+    // Handle normalized space
+    if (event.code === "Space") return " ";
     return event.code;
   },
 };

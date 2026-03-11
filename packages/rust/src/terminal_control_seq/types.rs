@@ -20,6 +20,8 @@ pub struct RenderState {
     // === Chat Messages ===
     /// Chat history to display
     pub messages: Vec<RenderMessage>,
+    /// Scroll offset for chat history (0 = bottom/latest)
+    pub scroll_offset: u32,
 
     // === Input State ===
     /// Current input buffer content
@@ -86,6 +88,7 @@ impl Default for RenderState {
     fn default() -> Self {
         Self {
             messages: Vec::new(),
+            scroll_offset: 0,
             input_value: String::new(),
             cursor_pos: 0,
             status_text: String::new(),

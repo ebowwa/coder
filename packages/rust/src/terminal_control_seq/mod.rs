@@ -10,6 +10,7 @@
 //! ├── mod.rs       # NativeRenderer (main entry point)
 //! ├── types.rs     # NAPI object types for TS interop
 //! ├── terminal.rs  # Terminal setup/teardown (raw mode, alternate screen)
+//! ├── input.rs     # Input event polling and key conversion
 //! ├── keys.rs      # Key code and modifier string conversions
 //! ├── layout.rs    # Layout helpers (centered_rect)
 //! └── widgets.rs   # Widget rendering functions
@@ -17,6 +18,7 @@
 
 mod types;
 mod terminal;
+pub mod input;
 mod keys;
 mod layout;
 mod widgets;

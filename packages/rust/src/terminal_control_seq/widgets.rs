@@ -46,8 +46,30 @@ pub fn render_chat(f: &mut Frame, area: Rect, state: &RenderState) {
 pub fn render_messages(f: &mut Frame, area: Rect, state: &RenderState) {
     let mut lines = Vec::new();
 
-    // Render each message
-    for msg in &state.messages {
+    // Calculate visible range based on scroll
+    let total_lines_estimate: usize = state.messages.iter()
+        .map(|m| m.content.lines().count() + 2) // +2 for header and spacing
+        .sum();
+
+    let visible_height = area.height.saturating_sub(3) as usize; // Reserve for status
+    let max_visible = if visible_height > 5 { visible_height - 5 } else { visible_height.saturating_sub(1) };
+
+    // Calculate which messages to show based on scroll_offset
+    // scroll_offset = 0 means show latest (bottom)
+    // scroll_offset > 0 means scroll up (show older messages)
+    let total_messages = state.messages.len();
+
+    // Simple approach: skip oldest messages based on scroll_offset
+    let skip_count = (state.scroll_offset as usize).min(total_messages.saturating_sub(1));
+    let take_count = max_visible.min(total_messages.saturating_sub(skip_count));
+
+    // Render visible messages
+    let start_idx = total_messages.saturating_sub(skip_count + take_count);
+    let start_idx = start_idx.max(0);
+    let end_idx = total_messages.min(start_idx + take_count);
+
+    for idx in start_idx..end_idx {
+        let msg = &state.messages[idx];
         let (color, name) = match msg.role.as_str() {
             "user" => (Color::Cyan, "You"),
             "assistant" => (Color::Green, "Claude"),
@@ -73,6 +95,28 @@ pub fn render_messages(f: &mut Frame, area: Rect, state: &RenderState) {
         }
 
         lines.push(Line::from("")); // Spacing
+    }
+
+    // Show scroll indicator if there are more messages
+    if total_messages > take_count {
+        let older_count = skip_count;
+        let newer_count = total_messages.saturating_sub(start_idx + take_count);
+        let scroll_info = format!(
+            "📊 {}/{} messages | ↑PgUp older({}) | ↓PgDn newer({})",
+            end_idx - start_idx,
+            total_messages,
+            older_count,
+            newer_count
+        );
+        lines.push(Line::from(Span::styled(
+            scroll_info,
+            Style::default().fg(Color::DarkGray)
+        )));
+    } else if total_messages > 0 {
+        lines.push(Line::from(Span::styled(
+            "📊 PgUp/PgDn: scroll | Home: bottom | Alt+↑↓: line scroll",
+            Style::default().fg(Color::DarkGray)
+        )));
     }
 
     // Streaming response

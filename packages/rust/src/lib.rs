@@ -14,7 +14,6 @@ pub mod patterns;
 pub mod structure;
 pub mod tool_pairs;
 pub mod tool_use;
-pub mod input;
 
 // Terminal Control Sequences - Modular TUI (replaces interactive.rs)
 pub mod terminal_control_seq;
@@ -28,6 +27,7 @@ pub use terminal_control_seq::{
     InputEvent as InteractiveInputEvent,
     SearchResult as InteractiveSearchResult,
 };
+pub use terminal_control_seq::input::NativeKeyEvent;
 
 // Legacy module alias (deprecated - use terminal_control_seq)
 #[deprecated(since = "0.2.0", note = "Use terminal_control_seq module instead")]
@@ -1155,12 +1155,9 @@ pub fn create_taint_tracker() -> cognitive_security::flow::TaintTrackerHandle {
 
 // ===== Terminal Input Module =====
 
-/// Re-export NativeKeyEvent type
-pub use input::NativeKeyEvent;
-
 /// Create a terminal handle for raw mode input
 /// This is the main entry point for terminal input handling
 #[napi]
-pub fn create_terminal() -> input::TerminalHandle {
-    input::create_terminal()
+pub fn create_terminal() -> terminal_control_seq::input::TerminalHandle {
+    terminal_control_seq::input::create_terminal()
 }
