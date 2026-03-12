@@ -300,7 +300,7 @@ export interface NativeModule {
     include_patterns?: string[];
     exclude_patterns?: string[];
   }
-  ) => number;
+  ) => Promise<number>;
 
   /** List files containing matches */
   grep_files: (
@@ -311,7 +311,7 @@ export interface NativeModule {
     include_patterns?: string[];
     exclude_patterns?: string[];
     }
-  ) => { files: string[]; total_matches: number };
+  ) => Promise<{ files: string[]; total_matches: number }>;
 
   count_tokens: (text: string) => number;
 
@@ -601,7 +601,7 @@ export function loadNative(): NativeModule {
                     return { files: results, total_matches: results.length };
                   }
                   // Handle array of objects with path property
-                  const files = results.map((r: { path?: string }) => r.path).filter(Boolean);
+                  const files = results.map((r: { path?: string }) => r.path).filter((p): p is string => Boolean(p));
                   return { files, total_matches: files.length };
                 }
                 // Already in expected format
@@ -613,7 +613,7 @@ export function loadNative(): NativeModule {
               const results = await (native.grepSearch || native.grep_search)(pattern, path, options || {});
               const matches = results?.matches || [];
               const fileSet = new Set(matches.map((m: GrepSearchResult) => m.path));
-              return { files: Array.from(fileSet), total_matches: fileSet.size };
+              return { files: Array.from(fileSet) as string[], total_matches: fileSet.size };
             },
             count_tokens: native.countTokens || native.count_tokens,
             calculate_diff: native.calculateDiff || native.calculate_diff,
@@ -1179,7 +1179,7 @@ function getFallbackModule(): NativeModule {
       }
     },
 
-    grep_count: (pattern, path, options) => {
+    grep_count: async (pattern, path, options) => {
       // Simple fallback - count matches using grep_search
       try {
         const fs = require('fs');
@@ -1200,7 +1200,7 @@ function getFallbackModule(): NativeModule {
       }
     },
 
-    grep_files: (pattern, path, options): { files: string[]; total_matches: number } => {
+    grep_files: async (pattern, path, options): Promise<{ files: string[]; total_matches: number }> => {
       // Simple fallback - return files containing matches
       try {
         const fs = require('fs');
