@@ -39,6 +39,12 @@ export interface StreamOptions {
   model?: string;
   maxTokens?: number;
   tools?: APITool[];
+  /** Force tool usage: "auto", "required", "none", or specific tool name */
+  toolChoice?: "auto" | "required" | "none" | string;
+  /** API format: "anthropic" (default) or "openai" (for GLM, etc.) */
+  apiFormat?: "anthropic" | "openai";
+  /** Base URL for API (defaults to ANTHROPIC_BASE_URL env or api.anthropic.com) */
+  baseUrl?: string;
   systemPrompt?: string | SystemBlock[];
   cacheConfig?: CacheConfig;
   /** Legacy thinking config (budget_tokens) */
@@ -208,6 +214,7 @@ export async function createMessageStream(
     model = "claude-sonnet-4-6",
     maxTokens = 4096,
     tools,
+    apiFormat = "anthropic",
     systemPrompt,
     cacheConfig = DEFAULT_CACHE_CONFIG,
     thinking,
@@ -249,18 +256,103 @@ export async function createMessageStream(
   // Add tools if provided (with optional caching)
   if (tools && tools.length > 0) {
     request.tools = tools;
+
+    // Add tool_choice if specified (important for models like GLM that need explicit tool forcing)
+    // Note: We cast to avoid type issues - Anthropic accepts different tool_choice formats
+    if (options.toolChoice) {
+      const req = request as unknown as Record<string, unknown>;
+      if (options.toolChoice === "auto" || options.toolChoice === "required" || options.toolChoice === "none") {
+        req.tool_choice = { type: options.toolChoice };
+      } else {
+        // Specific tool name
+        req.tool_choice = { type: "function", function: { name: options.toolChoice } };
+      }
+    }
   }
 
   // Determine API endpoint (support custom base URL for GLM, etc.)
-  const baseUrl = process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com";
-  const apiEndpoint = `${baseUrl}/v1/messages`;
+  const baseUrl = options.baseUrl || process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com";
+  const apiEndpoint = apiFormat === "openai"
+    ? `${baseUrl}/chat/completions`
+    : `${baseUrl}/v1/messages`;
 
-  // Build headers
+  // Build headers based on API format
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    "x-api-key": apiKey,
-    "anthropic-version": "2023-06-01",
   };
+
+  if (apiFormat === "openai") {
+    // OpenAI-compatible format (GLM, etc.)
+    headers["Authorization"] = `Bearer ${apiKey}`;
+  } else {
+    // Anthropic format
+    headers["x-api-key"] = apiKey;
+    headers["anthropic-version"] = "2023-06-01";
+  }
+
+  // Convert request to OpenAI format if needed
+  // OpenAI message format allows "system" role which Message type doesn't
+  interface OpenAIMessage {
+    role: "system" | "user" | "assistant" | "tool";
+    content: string;
+  }
+
+  let openaiRequest: Record<string, unknown> | undefined;
+  if (apiFormat === "openai") {
+    // Convert Anthropic-style request to OpenAI format
+    const openaiMessages: OpenAIMessage[] = [];
+    openaiRequest = {
+      model: request.model,
+      max_tokens: request.max_tokens,
+      messages: openaiMessages,
+      stream: true,
+    };
+
+    // Add system prompt as first message if present
+    if (request.system) {
+      const systemContent = typeof request.system === "string"
+        ? request.system
+        : request.system.map(b => b.text).join("\n");
+      openaiMessages.push({
+        role: "system",
+        content: systemContent,
+      });
+    }
+
+    // Convert messages
+    for (const msg of request.messages) {
+      openaiMessages.push({
+        role: msg.role,
+        content: typeof msg.content === "string"
+          ? msg.content
+          : msg.content.map(b => b.type === "text" ? b.text : JSON.stringify(b)).join(""),
+      });
+    }
+
+    // Convert tools to OpenAI format
+    if (request.tools && request.tools.length > 0) {
+      openaiRequest.tools = request.tools.map((t) => ({
+        type: "function",
+        function: {
+          name: t.name,
+          description: t.description,
+          parameters: t.input_schema,
+        },
+      }));
+
+      // Convert tool_choice
+      if (request.tool_choice) {
+        const tc = request.tool_choice as { type: string; function?: { name: string } };
+        if (tc.type === "auto" || tc.type === "required" || tc.type === "none") {
+          openaiRequest.tool_choice = tc.type;
+        } else if (tc.function) {
+          openaiRequest.tool_choice = { type: "function", function: tc.function };
+        }
+      }
+    }
+
+    console.log(`[API] Using OpenAI format, endpoint: ${apiEndpoint}`);
+  }
 
   // Determine thinking configuration
   const shouldUseExtendedThinking =
@@ -326,7 +418,7 @@ export async function createMessageStream(
       const res = await fetch(apiEndpoint, {
         method: "POST",
         headers,
-        body: JSON.stringify(request),
+        body: JSON.stringify(apiFormat === "openai" ? openaiRequest : request),
         signal,
       });
 
@@ -514,7 +606,22 @@ export async function createMessageStream(
             default: {
               // Check for OpenAI format: { choices: [{ delta: { content: "..." } }], usage: {...} }
               if (event.choices && Array.isArray(event.choices)) {
-                const choice = event.choices[0] as { delta?: { content?: string }; finish_reason?: string } | undefined;
+                const choice = event.choices[0] as {
+                  delta?: {
+                    content?: string;
+                    tool_calls?: Array<{
+                      id?: string;
+                      type?: string;
+                      index?: number;
+                      function?: {
+                        name?: string;
+                        arguments?: string;
+                      };
+                    }>;
+                  };
+                  finish_reason?: string;
+                } | undefined;
+
                 if (choice?.delta?.content) {
                   const text = choice.delta.content;
                   if (currentTextBlock) {
@@ -528,11 +635,72 @@ export async function createMessageStream(
                     firstToken = false;
                   }
                 }
+
+                // Handle OpenAI tool_calls in streaming format (GLM, OpenAI, etc.)
+                if (choice?.delta?.tool_calls && Array.isArray(choice.delta.tool_calls)) {
+                  for (const toolCallDelta of choice.delta.tool_calls) {
+                    const index = toolCallDelta.index ?? 0;
+                    const toolCallId = toolCallDelta.id;
+
+                    // New tool call - create the block
+                    if (toolCallId && toolCallDelta.function?.name) {
+                      // Finalize previous tool use block if exists
+                      if (currentToolUseBlock) {
+                        try {
+                          currentToolUseBlock.input = JSON.parse(toolUseInput);
+                        } catch {
+                          currentToolUseBlock.input = {};
+                        }
+                        currentContent.push(currentToolUseBlock);
+                        onToolUse?.({
+                          id: currentToolUseBlock.id,
+                          name: currentToolUseBlock.name,
+                          input: currentToolUseBlock.input,
+                        });
+                        toolUseInput = "";
+                      }
+
+                      // Create new tool use block
+                      currentToolUseBlock = {
+                        type: "tool_use",
+                        id: toolCallId,
+                        name: toolCallDelta.function.name,
+                        input: {},
+                      };
+                      toolUseInput = toolCallDelta.function.arguments || "";
+                      if (firstToken) {
+                        ttft = Date.now() - startTime;
+                        firstToken = false;
+                      }
+                    }
+                    // Continuation of tool call - accumulate arguments
+                    else if (toolCallDelta.function?.arguments && currentToolUseBlock) {
+                      toolUseInput += toolCallDelta.function.arguments;
+                    }
+                  }
+                }
+
                 // Check for finish
                 if (choice?.finish_reason) {
                   if (currentTextBlock) {
                     currentContent.push(currentTextBlock);
                     currentTextBlock = null;
+                  }
+                  // Finalize any pending tool use block (OpenAI format)
+                  if (currentToolUseBlock) {
+                    try {
+                      currentToolUseBlock.input = JSON.parse(toolUseInput);
+                    } catch {
+                      currentToolUseBlock.input = {};
+                    }
+                    currentContent.push(currentToolUseBlock);
+                    onToolUse?.({
+                      id: currentToolUseBlock.id,
+                      name: currentToolUseBlock.name,
+                      input: currentToolUseBlock.input,
+                    });
+                    currentToolUseBlock = null;
+                    toolUseInput = "";
                   }
                   if (!message) {
                     message = {
