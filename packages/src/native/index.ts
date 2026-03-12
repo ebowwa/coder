@@ -311,7 +311,7 @@ export interface NativeModule {
     include_patterns?: string[];
     exclude_patterns?: string[];
     }
-  ) => string[];
+  ) => { files: string[]; total_matches: number };
 
   count_tokens: (text: string) => number;
 
@@ -576,8 +576,45 @@ export function loadNative(): NativeModule {
             highlight_diff: native.highlightDiff || native.highlight_diff,
             search_files: native.searchFiles || native.search_files,
             grep_search: native.grepSearch || native.grep_search,
-            grep_count: native.grepCount || native.grep_count,
-            grep_files: native.grepFiles || native.grep_files,
+            // Wrap native grepCount to always return number (native returns [{path, count, lineCount}])
+            grep_count: async (pattern: string, path: string, options?: GrepOptions): Promise<number> => {
+              // If native grepCount exists, normalize its output
+              if (native.grepCount || native.grep_count) {
+                const results = await (native.grepCount || native.grep_count)(pattern, path, options || {});
+                // Native returns array of {path, count, lineCount} - sum all counts
+                if (Array.isArray(results)) {
+                  return results.reduce((sum: number, r: { count?: number }) => sum + (r.count || 0), 0);
+                }
+                return typeof results === 'number' ? results : 0;
+              }
+              // Fallback: derive from grepSearch
+              const results = await (native.grepSearch || native.grep_search)(pattern, path, options || {});
+              return (results?.matches || []).length;
+            },
+            // Wrap native grepFiles to always return {files, total_matches}
+            grep_files: async (pattern: string, path: string, options?: GrepOptions): Promise<{ files: string[]; total_matches: number }> => {
+              if (native.grepFiles || native.grep_files) {
+                const results = await (native.grepFiles || native.grep_files)(pattern, path, options || {});
+                // Handle array of strings (file paths)
+                if (Array.isArray(results)) {
+                  if (results.length > 0 && typeof results[0] === 'string') {
+                    return { files: results, total_matches: results.length };
+                  }
+                  // Handle array of objects with path property
+                  const files = results.map((r: { path?: string }) => r.path).filter(Boolean);
+                  return { files, total_matches: files.length };
+                }
+                // Already in expected format
+                if (results && typeof results === 'object' && 'files' in results) {
+                  return results;
+                }
+              }
+              // Fallback: derive from grepSearch
+              const results = await (native.grepSearch || native.grep_search)(pattern, path, options || {});
+              const matches = results?.matches || [];
+              const fileSet = new Set(matches.map((m: GrepSearchResult) => m.path));
+              return { files: Array.from(fileSet), total_matches: fileSet.size };
+            },
             count_tokens: native.countTokens || native.count_tokens,
             calculate_diff: native.calculateDiff || native.calculate_diff,
             compact_content: native.compactContent || native.compact_content,
@@ -1163,13 +1200,13 @@ function getFallbackModule(): NativeModule {
       }
     },
 
-    grep_files: (pattern, path, options): string[] => {
+    grep_files: (pattern, path, options): { files: string[]; total_matches: number } => {
       // Simple fallback - return files containing matches
       try {
         const fs = require('fs');
         const pathModule = require('path');
 
-        if (!fs.existsSync(path)) return [];
+        if (!fs.existsSync(path)) return { files: [], total_matches: 0 };
 
         const files: string[] = [];
         const regex = new RegExp(
@@ -1208,9 +1245,9 @@ function getFallbackModule(): NativeModule {
           checkFile(path);
         }
 
-        return files;
+        return { files, total_matches: files.length };
       } catch {
-        return [];
+        return { files: [], total_matches: 0 };
       }
     },
 
@@ -2243,11 +2280,11 @@ export interface GrepOptions {
  * Search for pattern in files using native ripgrep
  * Returns array of matches with file path, line number, and content
  */
-export function grep_search(
+export async function grep_search(
   pattern: string,
   path: string,
   options?: GrepOptions
-): GrepSearchResult[] {
+): Promise<GrepSearchResult[]> {
   return native.grep_search(pattern, path, options || {});
 }
 
@@ -2255,23 +2292,23 @@ export function grep_search(
  * Count matching lines in files
  * Returns total number of matches
  */
-export function grep_count(
+export async function grep_count(
   pattern: string,
   path: string,
   options?: GrepOptions
-): number {
+): Promise<number> {
   return native.grep_count(pattern, path, options || {});
 }
 
 /**
  * List files containing matches
- * Returns array of file paths with at least one match
+ * Returns object with files array and total count
  */
-export function grep_files(
+export async function grep_files(
   pattern: string,
   path: string,
   options?: GrepOptions
-): string[] {
+): Promise<{ files: string[]; total_matches: number }> {
   return native.grep_files(pattern, path, options || {});
 }
 
