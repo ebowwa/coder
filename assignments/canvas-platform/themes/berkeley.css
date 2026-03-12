@@ -1,0 +1,75 @@
+/* UC Berkeley Theme */
+.theme-berkeley {
+  --primary: #003262;
+  --primary-dark: #002147;
+  --primary-light: #004a8f;
+  --accent: #fdd547;
+  --gold: #fdd547;
+}
+
+.theme-berkeley .school-logo .logo-icon::before {
+  content: "🐻";
+}
+
+.theme-berkeley .top-nav {
+  background: linear-gradient(90deg, #003262, #002147);
+}
+
+.theme-berkeley .welcome-banner {
+  background: linear-gradient(135deg, #003262 0%, #002147 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.theme-berkeley .welcome-banner::after {
+  content: "🐻";
+  position: absolute;
+  right: 30px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 80px;
+  opacity: 0.15;
+}
+
+.theme-berkeley .nav-item.active {
+  background: #003262;
+}
+
+.theme-berkeley .progress-fill {
+  background: linear-gradient(90deg, #003262, #fdd547);
+}
+
+.theme-berkeley .stat-number {
+  color: #003262;
+}
+
+.theme-berkeley .due-day {
+  color: #003262;
+}
+
+.theme-berkeley .event.lecture {
+  background: #003262;
+}
+
+.theme-berkeley .calendar-day.today {
+  background: #003262;
+}
+
+/* Berkeley Gold Accent */
+.theme-berkeley .course-card:first-child .course-banner {
+  background: linear-gradient(135deg, #003262, #fdd547) !important;
+}
+
+.theme-berkeley .urgency-badge {
+  background: #003262;
+}
+
+.theme-berkeley .nav-item .badge {
+  background: #fdd547;
+  color: #003262;
+}
+
+.theme-berkeley .notification-badge {
+  background: #fdd547;
+  color: #003262;
+}

@@ -1,0 +1,10 @@
+error: unexpected argument '-2' found
+
+Usage:error: unexpected argument '-2' found
+
+Usage: cargo build [OPTIONS]
+
+For more information, try '--help'.
+ cargo build [OPTIONS]
+
+For more information, try '--help'.

@@ -510,7 +510,7 @@ pub async fn grep_count(
     let mut results = Vec::new();
 
     for entry_result in walker.walk() {
-        let entry = entry_result.map_err(|e| Error::from_reason(e.to_string()))?;
+        let entry = entry_result.map_err(|e: anyhow::Error| Error::from_reason(e.to_string()))?;
 
         if !filter.should_process(&entry) {
             continue;
@@ -518,7 +518,7 @@ pub async fn grep_count(
 
         let file_path = entry.path();
         let count_result = grep::GrepSearcher::search_count(file_path, &matcher, &config).await
-            .map_err(|e| Error::from_reason(e.to_string()))?;
+            .map_err(|e: anyhow::Error| Error::from_reason(e.to_string()))?;
 
         if count_result.count > 0 {
             results.push(GrepCountResult {
@@ -579,7 +579,7 @@ pub async fn grep_files(
     let mut total_matches = 0u32;
 
     for entry_result in walker.walk() {
-        let entry = entry_result.map_err(|e| Error::from_reason(e.to_string()))?;
+        let entry = entry_result.map_err(|e: anyhow::Error| Error::from_reason(e.to_string()))?;
 
         if !filter.should_process(&entry) {
             continue;

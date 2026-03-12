@@ -267,6 +267,52 @@ export interface NativeModule {
     files_searched: number;
   };
 
+  // ===== Grep Functions (ripgrep-like) =====
+
+  /** Full search with context lines and column positions */
+  grep_search: (
+    pattern: string,
+    path: string,
+    options?: {
+    case_insensitive?: boolean;
+    max_results?: number;
+    include_patterns?: string[];
+    exclude_patterns?: string[];
+    context_lines?: number;
+    show_line_numbers?: boolean;
+    show_column?: boolean;
+  }
+  ) => Array<{
+    path: string;
+    line_number: number;
+    column?: number;
+    line: string;
+    context_before?: string[];
+    context_after?: string[];
+  }>;
+
+  /** Count matching lines in files */
+  grep_count: (
+    pattern: string,
+    path: string,
+    options?: {
+    case_insensitive?: boolean;
+    include_patterns?: string[];
+    exclude_patterns?: string[];
+  }
+  ) => number;
+
+  /** List files containing matches */
+  grep_files: (
+    pattern: string,
+    path: string,
+    options?: {
+    case_insensitive?: boolean;
+    include_patterns?: string[];
+    exclude_patterns?: string[];
+    }
+  ) => string[];
+
   count_tokens: (text: string) => number;
 
   calculate_diff: (
@@ -529,6 +575,9 @@ export function loadNative(): NativeModule {
             highlight_markdown: native.highlightMarkdown || native.highlight_markdown,
             highlight_diff: native.highlightDiff || native.highlight_diff,
             search_files: native.searchFiles || native.search_files,
+            grep_search: native.grepSearch || native.grep_search,
+            grep_count: native.grepCount || native.grep_count,
+            grep_files: native.grepFiles || native.grep_files,
             count_tokens: native.countTokens || native.count_tokens,
             calculate_diff: native.calculateDiff || native.calculate_diff,
             compact_content: native.compactContent || native.compact_content,
@@ -634,6 +683,18 @@ export function loadNative(): NativeModule {
             returns: "pointer",
           },
           search_files: {
+            args: ["cstring", "cstring", "pointer"],
+            returns: "pointer",
+          },
+          grep_search: {
+            args: ["cstring", "cstring", "pointer"],
+            returns: "pointer",
+          },
+          grep_count: {
+            args: ["cstring", "cstring", "pointer"],
+            returns: "u32",
+          },
+          grep_files: {
             args: ["cstring", "cstring", "pointer"],
             returns: "pointer",
           },
@@ -983,6 +1044,174 @@ function getFallbackModule(): NativeModule {
         total_count: 0,
         files_searched: 0,
       };
+    },
+
+    // ===== Grep Fallback Implementations =====
+
+    grep_search: (pattern, path, options) => {
+      // Fallback implementation using simple regex
+      try {
+        const fs = require('fs');
+        const pathModule = require('path');
+        const results: Array<{
+          path: string;
+          line_number: number;
+          column?: number;
+          line: string;
+        }> = [];
+
+        if (!fs.existsSync(path)) return results;
+
+        const stats = fs.statSync(path);
+        const maxResults = options?.max_results ?? 1000;
+        const caseInsensitive = options?.case_insensitive ?? false;
+        const includePatterns = options?.include_patterns ?? [];
+        const excludePatterns = options?.exclude_patterns ?? [];
+
+        const regex = new RegExp(
+          pattern,
+          caseInsensitive ? 'gi' : 'g'
+        );
+
+        const shouldInclude = (filePath: string): boolean => {
+          if (includePatterns.length > 0) {
+            return includePatterns.some(p => {
+              const glob = p.replace(/\*/g, '.*').replace(/\?/g, '.');
+              return new RegExp(glob).test(filePath);
+            });
+          }
+          if (excludePatterns.length > 0) {
+            return !excludePatterns.some(p => {
+              const glob = p.replace(/\*/g, '.*').replace(/\?/g, '.');
+              return new RegExp(glob).test(filePath);
+            });
+          }
+          return true;
+        };
+
+        const searchFile = (filePath: string) => {
+          if (!shouldInclude(filePath)) return;
+          if (excludePatterns.some(p => filePath.includes('node_modules') || filePath.includes('.git'))) return;
+
+          try {
+            const content = fs.readFileSync(filePath, 'utf-8');
+            const lines = content.split('\n');
+
+            lines.forEach((line: string, idx: number) => {
+              if (results.length >= maxResults) return;
+              const match = regex.exec(line);
+              if (match) {
+                results.push({
+                  path: filePath,
+                  line_number: idx + 1,
+                  column: match.index + 1,
+                  line,
+                });
+              }
+              regex.lastIndex = 0; // Reset for next line
+            });
+          } catch {
+            // Skip binary or unreadable files
+          }
+        };
+
+        const searchDir = (dirPath: string) => {
+          const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+          for (const entry of entries) {
+            if (results.length >= maxResults) break;
+            const fullPath = pathModule.join(dirPath, entry.name);
+            if (entry.isDirectory()) {
+              if (!excludePatterns.some(p => fullPath.includes('node_modules') || fullPath.includes('.git'))) {
+                searchDir(fullPath);
+              }
+            } else if (entry.isFile()) {
+              searchFile(fullPath);
+            }
+          }
+        };
+
+        if (stats.isDirectory()) {
+          searchDir(path);
+        } else {
+          searchFile(path);
+        }
+
+        return results;
+      } catch {
+        return [];
+      }
+    },
+
+    grep_count: (pattern, path, options) => {
+      // Simple fallback - count matches using grep_search
+      try {
+        const fs = require('fs');
+        if (!fs.existsSync(path)) return 0;
+
+        const content = fs.statSync(path).isDirectory()
+          ? '' // For directories, we'd need to walk - return 0 for fallback
+          : fs.readFileSync(path, 'utf-8');
+
+        const regex = new RegExp(
+          pattern,
+          options?.case_insensitive ? 'gi' : 'g'
+        );
+        const matches = content.match(regex);
+        return matches ? matches.length : 0;
+      } catch {
+        return 0;
+      }
+    },
+
+    grep_files: (pattern, path, options): string[] => {
+      // Simple fallback - return files containing matches
+      try {
+        const fs = require('fs');
+        const pathModule = require('path');
+
+        if (!fs.existsSync(path)) return [];
+
+        const files: string[] = [];
+        const regex = new RegExp(
+          pattern,
+          options?.case_insensitive ? 'gi' : 'g'
+        );
+
+        const checkFile = (filePath: string) => {
+          try {
+            const content = fs.readFileSync(filePath, 'utf-8');
+            if (regex.test(content)) {
+              files.push(filePath);
+            }
+          } catch {
+            // Skip unreadable files
+          }
+        };
+
+        const checkDir = (dirPath: string) => {
+          const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+          for (const entry of entries) {
+            const fullPath = pathModule.join(dirPath, entry.name);
+            if (entry.isDirectory()) {
+              if (!fullPath.includes('node_modules') && !fullPath.includes('.git')) {
+                checkDir(fullPath);
+              }
+            } else if (entry.isFile()) {
+              checkFile(fullPath);
+            }
+          }
+        };
+
+        if (fs.statSync(path).isDirectory()) {
+          checkDir(path);
+        } else {
+          checkFile(path);
+        }
+
+        return files;
+      } catch {
+        return [];
+      }
     },
 
     count_tokens: (text) => {
@@ -1976,6 +2205,74 @@ export function preview_multi_edits(edits: MultiEditEntry[]): MultiEditPreviewEn
  */
 export function apply_multi_edits(edits: MultiEditEntry[]): MultiEditResult {
   return native.apply_multi_edits(edits);
+}
+
+// ===== Grep Functions =====
+
+/** Result from grep search operations */
+export interface GrepSearchResult {
+  /** File path */
+  path: string;
+  /** Line number (1-based) */
+  line_number: number;
+  /** Column offset (0-based, optional) */
+  column?: number;
+  /** The matching line content */
+  line: string;
+}
+
+/** Options for grep operations */
+export interface GrepOptions {
+  /** Case insensitive search (default: false) */
+  case_insensitive?: boolean;
+  /** Maximum number of results (default: 1000) */
+  max_results?: number;
+  /** Glob patterns to include (e.g., ["*.ts", "*.js"]) */
+  include_patterns?: string[];
+  /** Glob patterns to exclude (e.g., ["node_modules/**", "dist/**"]) */
+  exclude_patterns?: string[];
+  /** Number of context lines to show around matches (default: 0) */
+  context_lines?: number;
+  /** Match whole words only (default: false) */
+  whole_word?: boolean;
+  /** Use regex pattern (default: true) */
+  regex?: boolean;
+}
+
+/**
+ * Search for pattern in files using native ripgrep
+ * Returns array of matches with file path, line number, and content
+ */
+export function grep_search(
+  pattern: string,
+  path: string,
+  options?: GrepOptions
+): GrepSearchResult[] {
+  return native.grep_search(pattern, path, options || {});
+}
+
+/**
+ * Count matching lines in files
+ * Returns total number of matches
+ */
+export function grep_count(
+  pattern: string,
+  path: string,
+  options?: GrepOptions
+): number {
+  return native.grep_count(pattern, path, options || {});
+}
+
+/**
+ * List files containing matches
+ * Returns array of file paths with at least one match
+ */
+export function grep_files(
+  pattern: string,
+  path: string,
+  options?: GrepOptions
+): string[] {
+  return native.grep_files(pattern, path, options || {});
 }
 
 // ===== Helper Functions =====

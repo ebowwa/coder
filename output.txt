@@ -1,0 +1,38 @@
+$ cd packages/rust && cargo build --release --target-dir ./target && cd ../.. && bun run build:napi-artifacts "2"
+warning: unused variable: `total_lines_estimate`
+  --> src/terminal_control_seq/widgets.rs:50:9
+   |
+50 |     let total_lines_estimate: usize = state.messages.iter()
+   |         ^^^^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_total_lines_estimate`
+   |
+   = note: `#[warn(unused_variables)]` on by default
+
+warning: function `split_vertical` is never used
+  --> src/terminal_control_seq/layout.rs:75:8
+   |
+75 | pub fn split_vertical(constraints: Vec<Constraint>, r: Rect) -> Vec<Rect> {
+   |        ^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: function `split_horizontal` is never used
+  --> src/terminal_control_seq/layout.rs:84:8
+   |
+84 | pub fn split_horizontal(constraints: Vec<Constraint>, r: Rect) -> Vec<Rect> {
+   |        ^^^^^^^^^^^^^^^^
+
+warning: `claude-code-native` (lib) generated 3 warnings
+    Finished `release` profile [optimized] target(s) in 0.42s
+$ napi build --platform --release --target-dir packages/rust/target --manifest-path packages/rust/Cargo.toml --output-dir native --js-package-name @ebowwa/coder-native --const-enum --strip --dts index.d.ts "2"
+error: unexpected argument '2' found
+
+Usage: cargo build [OPTIONS]
+
+For more information, try '--help'.
+[31m[1mInternal Error[22m[39m: Build failed with exit code 1
+    at ChildProcess.<anonymous> (file:///Users/ebowwa/Desktop/codespaces/packages/node_modules/.bun/@napi-rs+cli@3.5.1+0a61293c3f3fd7d8/node_modules/@napi-rs/cli/dist/cli.js:1304:36)
+    at Object.onceWrapper (node:events:623:26)
+    at ChildProcess.emit (node:events:520:35)
+    at ChildProcess._handle.onexit (node:internal/child_process:294:12)
+error: script "build:napi-artifacts" exited with code 1
+error: script "build:native" exited with code 1

@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Canvas Platform</title>
+  <link rel="stylesheet" href="themes/base.css">
+  <link rel="stylesheet" href="themes/csueb.css" id="theme-csueb" disabled>
+  <link rel="stylesheet" href="themes/berkeley.css" id="theme-berkeley" disabled>
+  <link rel="stylesheet" href="themes/scu.css" id="theme-scu" disabled>
+  <link rel="stylesheet" href="themes/ohlone.css" id="theme-ohlone" disabled>
+</head>
+<body class="theme-csueb">
+  <!-- Top Navigation -->
+  <header class="top-nav">
+    <div class="nav-left">
+      <button class="menu-toggle" aria-label="Toggle menu">
+        <span></span><span></span><span></span>
+      </button>
+      <div class="school-logo">
+        <span class="logo-icon">🎓</span>
+        <span class="school-name">Cal State East Bay</span>
+      </div>
+    </div>
+    <div class="nav-center">
+      <input type="search" placeholder="Search courses, assignments..." class="global-search">
+    </div>
+    <div class="nav-right">
+      <button class="nav-btn help-btn" title="Help">?</button>
+      <button class="nav-btn notifications-btn" title="Notifications">
+        <span class="notification-badge">3</span>
+        🔔
+      </button>
+      <div class="user-menu">
+        <div class="avatar">JS</div>
+        <span class="user-name">John Student</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="main-container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <nav class="sidebar-nav">
+        <a href="#" class="nav-item active">
+          <span class="icon">🏠</span>
+          <span>Dashboard</span>
+        </a>
+        <a href="#" class="nav-item">
+          <span class="icon">📚</span>
+          <span>Courses</span>
+        </a>
+        <a href="#" class="nav-item">
+          <span class="icon">📅</span>
+          <span>Calendar</span>
+        </a>
+        <a href="#" class="nav-item">
+          <span class="icon">📬</span>
+          <span>Inbox</span>
+          <span class="badge">5</span>
+        </a>
+        <a href="#" class="nav-item">
+          <span class="icon">📊</span>
+          <span>Grades</span>
+        </a>
+        <a href="#" class="nav-item">
+          <span class="icon">👥</span>
+          <span>Groups</span>
+        </a>
+        <a href="#" class="nav-item">
+          <span class="icon">💼</span>
+          <span>Resources</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="school-selector">
+          <label>Select School Theme:</label>
+          <select id="school-select">
+            <option value="csueb">Cal State East Bay</option>
+            <option value="berkeley">UC Berkeley</option>
+            <option value="scu">Santa Clara University</option>
+            <option value="ohlone">Ohlone College</option>
+          </select>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="content">
+      <!-- Welcome Banner -->
+      <section class="welcome-banner">
+        <h1>Welcome back, John!</h1>
+        <p>You have <strong>3 assignments</strong> due this week and <strong>2 upcoming exams</strong>.</p>
+      </section>
+
+      <!-- Quick Stats -->
+      <section class="quick-stats">
+        <div class="stat-card">
+          <div class="stat-icon">📝</div>
+          <div class="stat-info">
+            <span class="stat-number">12</span>
+            <span class="stat-label">Active Courses</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">✅</div>
+          <div class="stat-info">
+            <span class="stat-number">87%</span>
+            <span class="stat-label">Completion Rate</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">⏰</div>
+          <div class="stat-info">
+            <span class="stat-number">3</span>
+            <span class="stat-label">Due This Week</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">💬</div>
+          <div class="stat-info">
+            <span class="stat-number">8</span>
+            <span class="stat-label">Unread Messages</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Course Cards -->
+      <section class="courses-section">
+        <h2>My Courses</h2>
+        <div class="course-grid">
+          <article class="course-card">
+            <div class="course-banner" style="background: linear-gradient(135deg, #1a365d, #2d4a7c);">
+              <span class="course-code">CS 301</span>
+            </div>
+            <div class="course-content">
+              <h3>Data Structures & Algorithms</h3>
+              <p class="instructor">Dr. Sarah Chen</p>
+              <div class="course-progress">
+                <div class="progress-bar">
+                  <div class="progress-fill" style="width: 75%;"></div>
+                </div>
+                <span class="progress-text">75% Complete</span>
+              </div>
+              <div class="course-meta">
+                <span>📚 12 Modules</span>
+                <span>👥 45 Students</span>
+              </div>
+            </div>
+          </article>
+
+          <article class="course-card">
+            <div class="course-banner" style="background: linear-gradient(135deg, #7c2d12, #9a3412);">
+              <span class="course-code">MATH 201</span>
+            </div>
+            <div class="course-content">
+              <h3>Linear Algebra</h3>
+              <p class="instructor">Prof. Michael Torres</p>
+              <div class="course-progress">
+                <div class="progress-bar">
+                  <div class="progress-fill" style="width: 60%;"></div>
+                </div>
+                <span class="progress-text">60% Complete</span>
+              </div>
+              <div class="course-meta">
+                <span>📚 10 Modules</span>
+                <span>👥 38 Students</span>
+              </div>
+            </div>
+          </article>
+
+          <article class="course-card">
+            <div class="course-banner" style="background: linear-gradient(135deg, #14532d, #166534);">
+              <span class="course-code">ENG 102</span>
+            </div>
+            <div class="course-content">
+              <h3>Technical Writing</h3>
+              <p class="instructor">Dr. Emily Watson</p>
+              <div class="course-progress">
+                <div class="progress-bar">
+                  <div class="progress-fill" style="width: 90%;"></div>
+                </div>
+                <span class="progress-text">90% Complete</span>
+              </div>
+              <div class="course-meta">
+                <span>📚 8 Modules</span>
+                <span>👥 52 Students</span>
+              </div>
+            </div>
+          </article>
+
+          <article class="course-card">
+            <div class="course-banner" style="background: linear-gradient(135deg, #4c1d95, #6d28d9);">
+              <span class="course-code">PHYS 101</span>
+            </div>
+            <div class="course-content">
+              <h3>Physics for Engineers</h3>
+              <p class="instructor">Dr. James Park</p>
+              <div class="course-progress">
+                <div class="progress-bar">
+                  <div class="progress-fill" style="width: 45%;"></div>
+                </div>
+                <span class="progress-text">45% Complete</span>
+              </div>
+              <div class="course-meta">
+                <span>📚 15 Modules</span>
+                <span>👥 60 Students</span>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- Two Column Layout -->
+      <div class="two-column">
+        <!-- Upcoming Assignments -->
+        <section class="assignments-section">
+          <h2>Upcoming Assignments</h2>
+          <div class="assignment-list">
+            <div class="assignment-item urgent">
+              <div class="assignment-due">
+                <span class="due-day">15</span>
+                <span class="due-month">Mar</span>
+              </div>
+              <div class="assignment-info">
+                <h4>Algorithm Analysis Paper</h4>
+                <p>CS 301 - Data Structures</p>
+                <span class="due-time">Due: 11:59 PM</span>
+              </div>
+              <span class="urgency-badge">Due Soon</span>
+            </div>
+
+            <div class="assignment-item">
+              <div class="assignment-due">
+                <span class="due-day">18</span>
+                <span class="due-month">Mar</span>
+              </div>
+              <div class="assignment-info">
+                <h4>Matrix Operations Quiz</h4>
+                <p>MATH 201 - Linear Algebra</p>
+                <span class="due-time">Due: 3:00 PM</span>
+              </div>
+            </div>
+
+            <div class="assignment-item">
+              <div class="assignment-due">
+                <span class="due-day">20</span>
+                <span class="due-month">Mar</span>
+              </div>
+              <div class="assignment-info">
+                <h4>Lab Report #4</h4>
+                <p>PHYS 101 - Physics</p>
+                <span class="due-time">Due: 5:00 PM</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Announcements -->
+        <section class="announcements-section">
+          <h2>Recent Announcements</h2>
+          <div class="announcement-list">
+            <div class="announcement-item">
+              <div class="announcement-avatar">SC</div>
+              <div class="announcement-content">
+                <h4>Office Hours Changed</h4>
+                <p>My office hours for next week have been moved to Wednesday 2-4 PM...</p>
+                <span class="announcement-meta">Dr. Sarah Chen • 2 hours ago</span>
+              </div>
+            </div>
+
+            <div class="announcement-item">
+              <div class="announcement-avatar">MT</div>
+              <div class="announcement-content">
+                <h4>Study Group Session</h4>
+                <p>Join us for a study session before the midterm. Library Room 204...</p>
+                <span class="announcement-meta">Prof. Michael Torres • 1 day ago</span>
+              </div>
+            </div>
+
+            <div class="announcement-item">
+              <div class="announcement-avatar">🎓</div>
+              <div class="announcement-content">
+                <h4>Campus Event: Career Fair</h4>
+                <p>Annual career fair happening March 25th. Register now...</p>
+                <span class="announcement-meta">Student Services • 3 days ago</span>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Calendar Preview -->
+      <section class="calendar-section">
+        <h2>This Week</h2>
+        <div class="calendar-grid">
+          <div class="calendar-day today">
+            <span class="day-name">Mon</span>
+            <span class="day-number">13</span>
+            <div class="day-events">
+              <span class="event lecture">CS 301 Lecture</span>
+            </div>
+          </div>
+          <div class="calendar-day">
+            <span class="day-name">Tue</span>
+            <span class="day-number">14</span>
+            <div class="day-events">
+              <span class="event quiz">MATH Quiz</span>
+            </div>
+          </div>
+          <div class="calendar-day">
+            <span class="day-name">Wed</span>
+            <span class="day-number">15</span>
+            <div class="day-events">
+              <span class="event assignment">Assignment Due</span>
+              <span class="event lecture">ENG 102</span>
+            </div>
+          </div>
+          <div class="calendar-day">
+            <span class="day-name">Thu</span>
+            <span class="day-number">16</span>
+            <div class="day-events">
+              <span class="event lecture">PHYS Lab</span>
+            </div>
+          </div>
+          <div class="calendar-day">
+            <span class="day-name">Fri</span>
+            <span class="day-number">17</span>
+            <div class="day-events">
+              <span class="event office-hours">Office Hours</span>
+            </div>
+          </div>
+          <div class="calendar-day weekend">
+            <span class="day-name">Sat</span>
+            <span class="day-number">18</span>
+            <div class="day-events">
+              <span class="event study">Study Group</span>
+            </div>
+          </div>
+          <div class="calendar-day weekend">
+            <span class="day-name">Sun</span>
+            <span class="day-number">19</span>
+            <div class="day-events"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-content">
+      <p>&copy; 2026 Student Canvas Platform. All rights reserved.</p>
+      <div class="footer-links">
+        <a href="#">Privacy Policy</a>
+        <a href="#">Terms of Service</a>
+        <a href="#">Help Center</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // Theme Switching
+    const schoolSelect = document.getElementById('school-select');
+    const schoolName = document.querySelector('.school-name');
+    const themes = {
+      csueb: { name: 'Cal State East Bay', file: 'theme-csueb' },
+      berkeley: { name: 'UC Berkeley', file: 'theme-berkeley' },
+      scu: { name: 'Santa Clara University', file: 'theme-scu' },
+      ohlone: { name: 'Ohlone College', file: 'theme-ohlone' }
+    };
+
+    function setTheme(school) {
+      // Remove all theme classes
+      document.body.className = '';
+      // Disable all theme stylesheets
+      Object.values(themes).forEach(t => {
+        const link = document.getElementById(t.file);
+        if (link) link.disabled = true;
+      });
+
+      // Apply new theme
+      document.body.classList.add(`theme-${school}`);
+      const themeLink = document.getElementById(themes[school].file);
+      if (themeLink) themeLink.disabled = false;
+      schoolName.textContent = themes[school].name;
+
+      // Save preference
+      localStorage.setItem('canvas-theme', school);
+    }
+
+    schoolSelect.addEventListener('change', (e) => {
+      setTheme(e.target.value);
+    });
+
+    // Load saved theme
+    const savedTheme = localStorage.getItem('canvas-theme') || 'csueb';
+    schoolSelect.value = savedTheme;
+    setTheme(savedTheme);
+
+    // Menu toggle for mobile
+    document.querySelector('.menu-toggle').addEventListener('click', () => {
+      document.querySelector('.sidebar').classList.toggle('open');
+    });
+  </script>
+</body>
+</html>

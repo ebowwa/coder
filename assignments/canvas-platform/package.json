@@ -1,0 +1,13 @@
+{
+  "name": "canvas-platform",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "test:screenshots": "bun run test-screenshots.js",
+    "serve": "bunx serve -p 3456"
+  },
+  "devDependencies": {
+    "playwright": "^1.42.0",
+    "serve": "^14.2.1"
+  }
+}
