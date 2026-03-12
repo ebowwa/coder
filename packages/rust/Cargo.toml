@@ -48,9 +48,15 @@ path-clean = "1"
 regex = "1"
 similar = "2"
 
+# Memory-mapped files
+memmap2 = "0.9"
+
 # Terminal Input & TUI
 crossterm = { version = "0.28", features = ["events"] }
 ratatui = { version = "0.29", features = ["crossterm"] }
+
+# File system traversal
+walkdir = "2"
 
 # Cognitive Security
 ed25519-dalek = { version = "2", features = ["rand_core"] }

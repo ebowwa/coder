@@ -160,6 +160,7 @@ dependencies = [
  "hex",
  "ignore",
  "md-5",
+ "memmap2",
  "napi",
  "napi-build",
  "napi-derive",
@@ -186,6 +187,7 @@ dependencies = [
  "tree-sitter-rust",
  "tree-sitter-typescript",
  "twox-hash",
+ "walkdir",
  "xxhash-rust",
 ]
 

@@ -6,14 +6,32 @@ use napi::bindgen_prelude::*;
 pub mod hash;
 pub mod grep;
 pub mod highlight;
+pub mod tokens;
+pub mod compact;
 pub mod diff;
 pub mod multi_edit;
 pub mod patterns;
 pub mod structure;
 pub mod tool_pairs;
 pub mod tool_use;
-pub mod input;
-pub mod tui;
+
+// Terminal Control Sequences - Modular TUI (replaces interactive.rs)
+pub mod terminal_control_seq;
+
+// Backward-compatible re-exports from terminal_control_seq
+// These maintain the same API as the old interactive module
+pub use terminal_control_seq::{
+    NativeRenderer,
+    RenderState as InteractiveRenderState,
+    RenderMessage as InteractiveRenderMessage,
+    InputEvent as InteractiveInputEvent,
+    SearchResult as InteractiveSearchResult,
+};
+pub use terminal_control_seq::input::NativeKeyEvent;
+
+// Legacy module alias (deprecated - use terminal_control_seq)
+#[deprecated(since = "0.2.0", note = "Use terminal_control_seq module instead")]
+pub use terminal_control_seq as interactive;
 
 // Cognitive Security Module
 pub mod cognitive_security;
@@ -23,27 +41,141 @@ pub mod cognitive_security;
 #[napi(object)]
 pub struct GrepMatch {
     pub path: String,
+    /// 1-based line number
     pub line: u32,
+    /// 1-based column number (where match starts)
     pub column: u32,
+    /// The matched line content
     pub content: String,
+    /// Length of the match in bytes
+    pub match_length: u32,
+    /// Lines before the match (for context)
     pub context_before: Vec<String>,
+    /// Lines after the match (for context)
     pub context_after: Vec<String>,
 }
 
+
+
+/// Options for grep search operations
 #[napi(object)]
-pub struct GrepOptions {
+#[derive(Default)]
+pub struct GrepQueryOptions {
+    // === Basic Options ===
+    /// Case sensitive matching (default: false)
     pub case_sensitive: Option<bool>,
+    /// Case insensitive matching
     pub case_insensitive: Option<bool>,
+    /// Number of context lines around matches
     pub context_lines: Option<u32>,
+    /// Maximum number of results to return
     pub max_results: Option<u32>,
-    pub include_patterns: Vec<String>,
-    pub exclude_patterns: Vec<String>,
+    /// Glob patterns for files to include (e.g., ["*.ts", "*.rs"])
+    pub include_patterns: Option<Vec<String>>,
+    /// Glob patterns for files/dirs to exclude (e.g., ["node_modules", "*.lock"])
+    pub exclude_patterns: Option<Vec<String>>,
+
+    // === Pattern Options ===
+    /// Treat pattern as literal string (no regex)
+    pub literal: Option<bool>,
+    /// Match whole words only (word boundaries)
+    pub whole_word: Option<bool>,
+    /// Invert match (show non-matching lines)
+    pub invert: Option<bool>,
+    /// Enable multiline matching
+    pub multiline: Option<bool>,
+
+    // === Context Options ===
+    /// Number of lines to show before match
+    pub context_before: Option<u32>,
+    /// Number of lines to show after match
+    pub context_after: Option<u32>,
+
+    // === Output Mode ===
+    /// Output mode: "normal", "count", "files-with-matches"
+    pub output_mode: Option<String>,
+
+    // === Directory Traversal ===
+    /// Maximum directory depth (None = unlimited)
+    pub max_depth: Option<u32>,
+    /// Follow symbolic links
+    pub follow_symlinks: Option<bool>,
+    /// Skip hidden files and directories (default: true)
+    pub skip_hidden: Option<bool>,
+    /// Respect .gitignore rules (default: true)
+    pub respect_gitignore: Option<bool>,
+
+    // === File Filtering ===
+    /// Skip binary files (default: true)
+    pub skip_binary: Option<bool>,
+    /// Maximum file size in bytes (skip larger files)
+    pub max_filesize: Option<f64>,
+    /// File extensions to include (e.g., ["ts", "rs", "js"])
+    pub extensions: Option<Vec<String>>,
+}
+
+impl From<&GrepQueryOptions> for grep::GrepOptions {
+    fn from(opts: &GrepQueryOptions) -> Self {
+        grep::GrepOptions {
+            case_insensitive: opts.case_insensitive.unwrap_or(false),
+            max_results: opts.max_results,
+            include_patterns: opts.include_patterns.clone().unwrap_or_default(),
+            exclude_patterns: opts.exclude_patterns.clone().unwrap_or_default(),
+            literal: opts.literal.unwrap_or(false),
+            whole_word: opts.whole_word.unwrap_or(false),
+            invert: opts.invert.unwrap_or(false),
+            multiline: opts.multiline.unwrap_or(false),
+            context_before: opts.context_before.or(opts.context_lines),
+            context_after: opts.context_after.or(opts.context_lines),
+            context: opts.context_lines,
+            output_mode: grep::OutputMode::Normal,
+            max_depth: opts.max_depth,
+            follow_symlinks: opts.follow_symlinks.unwrap_or(false),
+            skip_hidden: opts.skip_hidden.unwrap_or(true),
+            respect_gitignore: opts.respect_gitignore.unwrap_or(true),
+            skip_binary: opts.skip_binary.unwrap_or(true),
+            max_filesize: opts.max_filesize.map(|f| f as u64),
+            extensions: opts.extensions.clone().unwrap_or_default(),
+            skip_files: vec![],
+            parallel_workers: 0,
+            use_mmap: false,
+            mmap_threshold: None,
+        }
+    }
 }
 
 #[napi(object)]
 pub struct GrepResult {
+    /// All matches found
     pub matches: Vec<GrepMatch>,
+    /// Total number of matches
     pub total_count: u32,
+    /// Number of files searched
+    pub files_searched: u32,
+    /// Number of files skipped
+    pub files_skipped: u32,
+    /// Search duration in milliseconds
+    pub duration_ms: u32,
+}
+
+/// Result for count mode search
+#[napi(object)]
+pub struct GrepCountResult {
+    /// File path
+    pub path: String,
+    /// Number of matches
+    pub count: u32,
+    /// Number of lines with matches
+    pub line_count: u32,
+}
+
+/// Result for files-with-matches mode
+#[napi(object)]
+pub struct GrepFilesResult {
+    /// List of file paths with matches
+    pub files: Vec<String>,
+    /// Total number of matches
+    pub total_matches: u32,
 }
 
 #[napi(object)]
@@ -266,39 +398,206 @@ pub fn calculate_context_stats(messages: Vec<String>) -> ContextStatsResult {
 pub async fn grep_search(
     pattern: String,
     path: String,
-    options: Option<GrepOptions>,
+    options: Option<GrepQueryOptions>,
 ) -> Result<GrepResult> {
+    let start = std::time::Instant::now();
+
+    let opts = options.unwrap_or_default();
     let internal_opts = grep::GrepOptions {
-        case_insensitive: options.as_ref()
-            .and_then(|o| o.case_insensitive)
-            .unwrap_or_else(|| options.as_ref()
-                .and_then(|o| o.case_sensitive)
-                .map(|v| !v)
-                .unwrap_or(false)),
-        max_results: options.as_ref().and_then(|o| o.max_results),
-        include_patterns: options.as_ref()
-            .map(|o| o.include_patterns.clone())
-            .unwrap_or_default(),
-        exclude_patterns: options.as_ref()
-            .map(|o| o.exclude_patterns.clone())
-            .unwrap_or_default(),
+        // Basic options
+        case_insensitive: opts.case_insensitive.unwrap_or(false),
+        max_results: opts.max_results,
+        include_patterns: opts.include_patterns.clone().unwrap_or_default(),
+        exclude_patterns: opts.exclude_patterns.clone().unwrap_or_default(),
+
+        // Pattern options
+        literal: opts.literal.unwrap_or(false),
+        whole_word: opts.whole_word.unwrap_or(false),
+        invert: opts.invert.unwrap_or(false),
+        multiline: opts.multiline.unwrap_or(false),
+
+        // Context options
+        context_before: opts.context_before.or(opts.context_lines),
+        context_after: opts.context_after.or(opts.context_lines),
+        context: opts.context_lines,
+
+        // Directory traversal
+        max_depth: opts.max_depth,
+        follow_symlinks: opts.follow_symlinks.unwrap_or(false),
+        skip_hidden: opts.skip_hidden.unwrap_or(true),
+        respect_gitignore: opts.respect_gitignore.unwrap_or(true),
+
+        // File filtering
+        skip_binary: opts.skip_binary.unwrap_or(true),
+        max_filesize: opts.max_filesize.map(|f| f as u64),
+        extensions: opts.extensions.clone().unwrap_or_default(),
+        skip_files: vec![],
+        output_mode: grep::OutputMode::Normal,
+
+        // Performance
+        use_mmap: false,
+        mmap_threshold: None,
+        parallel_workers: 0,
     };
 
-    let results = grep::grep_search(&pattern, std::path::Path::new(&path), internal_opts).await
+    let results = grep::grep_search(&pattern, std::path::Path::new(&path), &internal_opts).await
         .map_err(|e| Error::from_reason(e.to_string()))?;
+
+    let duration = start.elapsed().as_millis() as u32;
 
     let matches: Vec<GrepMatch> = results.into_iter().map(|r| GrepMatch {
         path: r.path.to_string_lossy().to_string(),
         line: r.line_number as u32,
-        column: 0,
-        content: r.line,
-        context_before: vec![],
-        context_after: vec![],
+        column: r.column,
+        content: r.line.clone(),
+        match_length: r.match_length,
+        context_before: r.context_before.clone(),
+        context_after: r.context_after.clone(),
     }).collect();
 
     Ok(GrepResult {
         total_count: matches.len() as u32,
         matches,
+        files_searched: 0, // Populated by the search
+        files_skipped: 0,
+        duration_ms: duration,
+    })
+}
+
+/// Count matches in files (returns counts per file)
+#[napi]
+pub async fn grep_count(
+    pattern: String,
+    path: String,
+    options: Option<GrepQueryOptions>,
+) -> Result<Vec<GrepCountResult>> {
+    let opts = options.unwrap_or_default();
+
+    // Convert GrepQueryOptions to grep::GrepOptions
+    let grep_opts = grep::GrepOptions {
+        case_insensitive: opts.case_insensitive.unwrap_or(false),
+        max_results: opts.max_results,
+        include_patterns: opts.include_patterns.clone().unwrap_or_default(),
+        exclude_patterns: opts.exclude_patterns.clone().unwrap_or_default(),
+        literal: opts.literal.unwrap_or(false),
+        whole_word: opts.whole_word.unwrap_or(false),
+        invert: opts.invert.unwrap_or(false),
+        multiline: opts.multiline.unwrap_or(false),
+        context_before: opts.context_before,
+        context_after: opts.context_after,
+        context: opts.context_lines,
+        output_mode: grep::OutputMode::Count,
+        max_depth: opts.max_depth,
+        follow_symlinks: opts.follow_symlinks.unwrap_or(false),
+        skip_hidden: opts.skip_hidden.unwrap_or(true),
+        respect_gitignore: opts.respect_gitignore.unwrap_or(true),
+        skip_binary: opts.skip_binary.unwrap_or(true),
+        max_filesize: opts.max_filesize.map(|f| f as u64),
+        extensions: opts.extensions.clone().unwrap_or_default(),
+        skip_files: vec![],
+        parallel_workers: 0,
+        use_mmap: false,
+        mmap_threshold: None,
+    };
+
+    let config = grep::SearchConfig::from_options(&grep_opts);
+    let matcher = grep::PatternMatcher::new(&pattern, &config)
+        .map_err(|e| Error::from_reason(e.to_string()))?;
+
+    let walker = grep::FileWalker::new(std::path::Path::new(&path), &config);
+    let filter = grep::FileFilter::new(&config);
+
+    let mut results = Vec::new();
+
+    for entry_result in walker.walk() {
+        let entry = entry_result.map_err(|e| Error::from_reason(e.to_string()))?;
+
+        if !filter.should_process(&entry) {
+            continue;
+        }
+
+        let file_path = entry.path();
+        let count_result = grep::GrepSearcher::search_count(file_path, &matcher, &config).await
+            .map_err(|e| Error::from_reason(e.to_string()))?;
+
+        if count_result.count > 0 {
+            results.push(GrepCountResult {
+                path: file_path.to_string_lossy().to_string(),
+                count: count_result.count as u32,
+                line_count: count_result.line_count as u32,
+            });
+        }
+    }
+
+    Ok(results)
+}
+
+/// List files containing matches (returns file paths only)
+#[napi]
+pub async fn grep_files(
+    pattern: String,
+    path: String,
+    options: Option<GrepQueryOptions>,
+) -> Result<GrepFilesResult> {
+    let opts = options.unwrap_or_default();
+
+    // Convert GrepQueryOptions to grep::GrepOptions
+    let grep_opts = grep::GrepOptions {
+        case_insensitive: opts.case_insensitive.unwrap_or(false),
+        max_results: opts.max_results,
+        include_patterns: opts.include_patterns.clone().unwrap_or_default(),
+        exclude_patterns: opts.exclude_patterns.clone().unwrap_or_default(),
+        literal: opts.literal.unwrap_or(false),
+        whole_word: opts.whole_word.unwrap_or(false),
+        invert: opts.invert.unwrap_or(false),
+        multiline: opts.multiline.unwrap_or(false),
+        context_before: opts.context_before,
+        context_after: opts.context_after,
+        context: opts.context_lines,
+        output_mode: grep::OutputMode::FilesWithMatches,
+        max_depth: opts.max_depth,
+        follow_symlinks: opts.follow_symlinks.unwrap_or(false),
+        skip_hidden: opts.skip_hidden.unwrap_or(true),
+        respect_gitignore: opts.respect_gitignore.unwrap_or(true),
+        skip_binary: opts.skip_binary.unwrap_or(true),
+        max_filesize: opts.max_filesize.map(|f| f as u64),
+        extensions: opts.extensions.clone().unwrap_or_default(),
+        skip_files: vec![],
+        parallel_workers: 0,
+        use_mmap: false,
+        mmap_threshold: None,
+    };
+
+    let config = grep::SearchConfig::from_options(&grep_opts);
+    let matcher = grep::PatternMatcher::new(&pattern, &config)
+        .map_err(|e| Error::from_reason(e.to_string()))?;
+
+    let walker = grep::FileWalker::new(std::path::Path::new(&path), &config);
+    let filter = grep::FileFilter::new(&config);
+
+    let mut files = Vec::new();
+    let mut total_matches = 0u32;
+
+    for entry_result in walker.walk() {
+        let entry = entry_result.map_err(|e| Error::from_reason(e.to_string()))?;
+
+        if !filter.should_process(&entry) {
+            continue;
+        }
+
+        let file_path = entry.path();
+
+        if grep::GrepSearcher::has_matches(file_path, &matcher, &config).await
+            .map_err(|e| Error::from_reason(e.to_string()))?
+        {
+            files.push(file_path.to_string_lossy().to_string());
+            total_matches += 1;
+        }
+    }
+
+    Ok(GrepFilesResult {
+        files,
+        total_matches,
     })
 }
 
@@ -308,10 +607,58 @@ pub fn calculate_hash(content: String, algorithm: Option<String>) -> Result<Hash
         .map_err(|e| Error::from_reason(e.to_string()))
 }
 
+/// Count tokens using sophisticated heuristic (code-aware)
 #[napi]
 pub fn count_tokens(text: String) -> u32 {
-    // Rough approximation: ~4 chars per token
-    (text.len() / 4) as u32
+    tokens::count_tokens(&text)
+}
+
+/// Count tokens specifically for code content
+#[napi]
+pub fn count_code_tokens(code: String) -> u32 {
+    tokens::count_code_tokens(&code)
+}
+
+// ===== Content Compaction =====
+
+/// Compaction strategy to use
+#[napi(object)]
+pub struct CompactOptions {
+    /// Maximum tokens in output
+    pub max_tokens: u32,
+    /// Strategy: "truncate", "summarize", or "extract"
+    pub strategy: Option<String>,
+}
+
+/// Result of content compaction
+#[napi(object)]
+pub struct CompactResult {
+    /// Compacted content
+    pub content: String,
+    /// Original token count
+    pub original_tokens: u32,
+    /// Final token count
+    pub final_tokens: u32,
+    /// Strategy used
+    pub strategy: String,
+}
+
+/// Compact content to fit within token limit
+#[napi]
+pub fn compact_content(content: String, options: CompactOptions) -> Result<CompactResult> {
+    let strategy = options.strategy.as_deref().unwrap_or("truncate");
+
+    compact::compact_content(&content, options.max_tokens, Some(strategy))
+        .map(|result| {
+            let final_tokens = tokens::count_tokens(&result);
+            CompactResult {
+                content: result,
+                original_tokens: tokens::count_tokens(&content),
+                final_tokens,
+                strategy: strategy.to_string(),
+            }
+        })
+        .map_err(|e| Error::from_reason(e.to_string()))
 }
 
 #[napi]
@@ -808,24 +1155,9 @@ pub fn create_taint_tracker() -> cognitive_security::flow::TaintTrackerHandle {
 
 // ===== Terminal Input Module =====
 
-/// Re-export NativeKeyEvent type
-pub use input::NativeKeyEvent;
-
 /// Create a terminal handle for raw mode input
 /// This is the main entry point for terminal input handling
 #[napi]
-pub fn create_terminal() -> input::TerminalHandle {
-    input::create_terminal()
-}
-
-// ===== Native TUI Module =====
-
-/// Re-export TUI types
-pub use tui::{TuiMessage, TuiState, InputResult, NativeTuiHandle};
-
-/// Create a native TUI handle
-/// This replaces the Ink-based React TUI with a pure Rust implementation
-#[napi]
-pub fn create_tui() -> Result<NativeTuiHandle> {
-    NativeTuiHandle::new()
+pub fn create_terminal() -> terminal_control_seq::input::TerminalHandle {
+    terminal_control_seq::input::create_terminal()
 }
