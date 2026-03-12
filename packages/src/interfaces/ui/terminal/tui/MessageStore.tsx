@@ -147,8 +147,10 @@ export function MessageStoreProvider({
   const [apiMessages, setApiMessages] = useState<ApiMessage[]>(initialMessages);
   const [tokenCount, setTokenCount] = useState(0);
 
-  // Track pending user messages that were added manually (to skip in addApiMessages)
-  const pendingUserMessagesRef = useRef<Set<string>>(new Set());
+  // Track that we're expecting a user message from the API (to skip it when it arrives)
+  // This is set when addMessage is called for a user message
+  // and cleared when addApiMessages skips the first user message
+  const expectingUserMessageRef = useRef(false);
 
   const addMessage = useCallback((msg: Omit<UIMessage, "id" | "timestamp">): string => {
     const id = generateId();
@@ -159,9 +161,10 @@ export function MessageStoreProvider({
     };
     setMessages((prev) => [...prev, fullMsg]);
 
-    // Track user messages that were added manually
+    // Track that we're expecting this user message from the API
+    // (API response will include it, so we skip it to avoid duplicates)
     if (msg.role === "user") {
-      pendingUserMessagesRef.current.add(msg.content);
+      expectingUserMessageRef.current = true;
     }
 
     return id;
@@ -173,14 +176,17 @@ export function MessageStoreProvider({
     // Update API messages
     setApiMessages((prev) => [...prev, ...newApiMsgs]);
 
-    // Convert API messages to UI messages, skipping user messages that were already added manually
+    // Convert API messages to UI messages
+    // Skip the FIRST user message if we're expecting one (was already added via addMessage)
+    let skippedExpectedUser = false;
     const newUiMsgs = newApiMsgs
       .map(apiToUi)
       .filter((m): m is UIMessage => m !== null)
       .filter((m) => {
-        // Skip user messages that were already added manually
-        if (m.role === "user" && pendingUserMessagesRef.current.has(m.content)) {
-          pendingUserMessagesRef.current.delete(m.content); // Clean up
+        // Skip first user message if we're expecting one (already added to UI)
+        if (m.role === "user" && expectingUserMessageRef.current && !skippedExpectedUser) {
+          skippedExpectedUser = true;
+          expectingUserMessageRef.current = false;
           return false;
         }
         return true;
@@ -209,13 +215,13 @@ export function MessageStoreProvider({
   const clear = useCallback(() => {
     setMessages([]);
     setApiMessages([]);
-    pendingUserMessagesRef.current.clear();
+    expectingUserMessageRef.current = false;
   }, []);
 
   const replace = useCallback((ui: UIMessage[], api: ApiMessage[]) => {
     setMessages(ui);
     setApiMessages(api);
-    pendingUserMessagesRef.current.clear();
+    expectingUserMessageRef.current = false;
   }, []);
 
   const value: MessageStoreValue = {
