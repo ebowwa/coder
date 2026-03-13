@@ -17,7 +17,7 @@ package = "claude-code-native"
 
 [dependencies]
 napi = { version = "2", features = ["async", "tokio_rt"] }
-napi-derive = "2"
+napi-derive = { version = "2", features = ["type-def"] }
 tokio = { version = "1", features = ["full"] }
 lazy_static = "1"
 grep = "0.3"
