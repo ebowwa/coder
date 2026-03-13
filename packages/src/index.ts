@@ -103,6 +103,19 @@ export {
 // Native module (Rust)
 export * from "./native/index.js";
 
+// Image processing
+export {
+  isSharpAvailable,
+  IMAGE_EXTENSIONS,
+  BINARY_EXCLUSIONS,
+  MAX_IMAGE_TOKENS,
+  MAX_FILE_SIZE,
+  MAX_DIMENSION,
+  detectMimeType,
+  readImageFile,
+  type ImageFileResult,
+} from "./core/image.js";
+
 // Context Compaction
 export {
   estimateTokens,
