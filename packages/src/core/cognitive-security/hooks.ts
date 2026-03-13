@@ -420,6 +420,96 @@ export class CognitiveSecurityHooks {
     return { decision: "allow" };
   }
 
+  /**
+   * PrePrompt hook - Check prompt before sending to model
+   */
+  async onPrePrompt(input: HookInput): Promise<HookOutput> {
+    if (!this.config.enabled) {
+      return { decision: "allow" };
+    }
+
+    await this.initialize();
+    const prompt = input.prompt || "";
+
+    try {
+      // Classify prompt content
+      const classified = await classifyData(prompt, "agent", ["prompt"]);
+
+      this.log("PrePrompt", undefined, "check",
+        `Prompt: ${classified.sensitivity}/${classified.category}`,
+        classified.sensitivity, classified.category
+      );
+
+      // Check for sensitive data in prompt
+      if (this.config.preventLeaks && this.leakPrevention) {
+        const leakCheck = this.leakPrevention.check(prompt, "external");
+
+        if (leakCheck.action === "block") {
+          const patterns = leakCheck.detections.map(d => d.pattern_name).join(", ");
+          this.log("PrePrompt", undefined, "deny", `Sensitive data: ${patterns}`);
+
+          if (this.config.blockOnViolation) {
+            return {
+              decision: "deny",
+              reason: `[Security] Prompt contains sensitive data: ${patterns}`,
+            };
+          }
+        }
+      }
+
+      return { decision: "allow" };
+    } catch (error) {
+      return { decision: "allow" };
+    }
+  }
+
+  /**
+   * PostPrompt hook - Check model response
+   */
+  async onPostPrompt(input: HookInput): Promise<HookOutput> {
+    if (!this.config.enabled) {
+      return { decision: "allow" };
+    }
+
+    await this.initialize();
+    const response = input.tool_result || "";
+
+    try {
+      // Track response in flow
+      if (this.config.trackTaints && this.flowTracker) {
+        const content = typeof response === "string" ? response : JSON.stringify(response);
+        const classified = await classifyData(content, "model", ["response"]);
+
+        this.log("PostPrompt", undefined, "check",
+          `Response: ${classified.sensitivity}`,
+          classified.sensitivity
+        );
+      }
+
+      return { decision: "allow" };
+    } catch (error) {
+      return { decision: "allow" };
+    }
+  }
+
+  /**
+   * TeammateIdle hook - Handle idle teammate
+   */
+  async onTeammateIdle(input: HookInput): Promise<HookOutput> {
+    if (!this.config.enabled) {
+      return { decision: "allow" };
+    }
+
+    const teammateId = input.session_id || "unknown";
+
+    this.log("TeammateIdle", undefined, "check",
+      `Teammate ${teammateId} idle for 60+ seconds`
+    );
+
+    // Could trigger notification or cleanup
+    return { decision: "allow" };
+  }
+
   // ============================================
   // Utility Methods
   // ============================================
@@ -577,6 +667,9 @@ export function createSecurityHookHandlers(
   PostToolUse: (input: HookInput) => Promise<HookOutput>;
   UserPromptSubmit: (input: HookInput) => Promise<HookOutput>;
   SessionEnd: (input: HookInput) => Promise<HookOutput>;
+  PrePrompt: (input: HookInput) => Promise<HookOutput>;
+  PostPrompt: (input: HookInput) => Promise<HookOutput>;
+  TeammateIdle: (input: HookInput) => Promise<HookOutput>;
 } {
   const hooks = new CognitiveSecurityHooks(config);
 
@@ -586,5 +679,8 @@ export function createSecurityHookHandlers(
     PostToolUse: (input) => hooks.onPostToolUse(input),
     UserPromptSubmit: (input) => hooks.onUserPromptSubmit(input),
     SessionEnd: (input) => hooks.onSessionEnd(input),
+    PrePrompt: (input) => hooks.onPrePrompt(input),
+    PostPrompt: (input) => hooks.onPostPrompt(input),
+    TeammateIdle: (input) => hooks.onTeammateIdle(input),
   };
 }

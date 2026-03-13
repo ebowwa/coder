@@ -560,7 +560,15 @@ export function loadNative(): NativeModule {
   ];
 
   // Try .node files first (NAPI modules)
-  const nodeFiles = ["index.darwin-arm64.node", "index.darwin-x64.node", "index.node"];
+  const nodeFiles = [
+    `index.${process.platform}-${process.arch}.node`,  // Platform-specific (e.g., linux-x64-gnu, darwin-arm64)
+    `index.${process.platform}-${process.arch}-gnu.node`,  // Linux gnu variant
+    "index.darwin-arm64.node",
+    "index.darwin-x64.node",
+    "index.linux-x64-gnu.node",
+    "index.linux-x64.node",
+    "index.node"
+  ];
 
   for (const basePath of basePaths) {
     for (const file of nodeFiles) {

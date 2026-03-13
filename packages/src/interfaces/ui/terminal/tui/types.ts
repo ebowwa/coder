@@ -5,7 +5,6 @@
 
 import type { PermissionMode, ClaudeModel, Message as ApiMessage, ToolDefinition } from "../../../../types/index.js";
 import type { HookManager } from "../../../../ecosystem/hooks/index.js";
-import type { TerminalHandle } from "../../../../native/index.js";
 import type { LoadedSession, SessionSummary } from "../../../../core/sessions/types.js";
 
 /**

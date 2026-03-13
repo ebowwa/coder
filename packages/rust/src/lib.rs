@@ -10,28 +10,9 @@ pub mod tokens;
 pub mod compact;
 pub mod diff;
 pub mod multi_edit;
-pub mod patterns;
 pub mod structure;
-pub mod tool_pairs;
-pub mod tool_use;
-
-// Terminal Control Sequences - Modular TUI (replaces interactive.rs)
-pub mod terminal_control_seq;
-
-// Backward-compatible re-exports from terminal_control_seq
-// These maintain the same API as the old interactive module
-pub use terminal_control_seq::{
-    NativeRenderer,
-    RenderState as InteractiveRenderState,
-    RenderMessage as InteractiveRenderMessage,
-    InputEvent as InteractiveInputEvent,
-    SearchResult as InteractiveSearchResult,
-};
-pub use terminal_control_seq::input::NativeKeyEvent;
-
-// Legacy module alias (deprecated - use terminal_control_seq)
-#[deprecated(since = "0.2.0", note = "Use terminal_control_seq module instead")]
-pub use terminal_control_seq as interactive;
+pub mod tools;
+pub mod file_index;
 
 // Cognitive Security Module
 pub mod cognitive_security;
@@ -275,8 +256,8 @@ pub fn analyze_patterns(messages: Vec<String>, min_support: Option<u32>) -> Vec<
         .filter_map(|s| serde_json::from_str(s).ok())
         .collect();
 
-    let tool_uses = patterns::parse_tool_uses(&parsed);
-    let patterns = patterns::find_sequential_patterns(&tool_uses, min_support);
+    let tool_uses = tools::patterns::parse_tool_uses(&parsed);
+    let patterns = tools::patterns::find_sequential_patterns(&tool_uses, min_support);
 
     patterns
         .into_iter()
@@ -301,7 +282,7 @@ pub fn count_tool_uses_native(messages: Vec<String>) -> Vec<ToolCountEntry> {
         .filter_map(|s| serde_json::from_str(s).ok())
         .collect();
 
-    let counts = tool_use::count_tool_uses(&parsed);
+    let counts = tools::tool_use::count_tool_uses(&parsed);
 
     counts
         .into_iter()
@@ -698,7 +679,7 @@ pub fn find_tool_pairs(logs: Vec<String>, threshold: Option<f64>) -> ToolPairsRe
         })
         .collect();
 
-    tool_pairs::find_tool_pairs(&pairs, threshold.unwrap_or(0.5))
+    tools::tool_pairs::find_tool_pairs(&pairs, threshold.unwrap_or(0.5))
 }
 
 #[napi]
@@ -1151,13 +1132,4 @@ pub fn sanitize_content(content: String) -> String {
 #[napi]
 pub fn create_taint_tracker() -> cognitive_security::flow::TaintTrackerHandle {
     cognitive_security::flow::create_taint_tracker()
-}
-
-// ===== Terminal Input Module =====
-
-/// Create a terminal handle for raw mode input
-/// This is the main entry point for terminal input handling
-#[napi]
-pub fn create_terminal() -> terminal_control_seq::input::TerminalHandle {
-    terminal_control_seq::input::create_terminal()
 }

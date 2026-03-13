@@ -1,55 +1,90 @@
 /**
- * Main Interactive TUI Component
- * Orchestrates all sub-components and manages state and agent loop
+ * InteractiveTUI - Simplified terminal UI
  *
- * Uses:
- * - MessageStore: Centralized message state management
- * - InputContext: Centralized keyboard input handling
+ * Principles:
+ * 1. Use Ink's useInput directly (no native polling)
+ * 2. Single state source (no dual message tracking)
+ * 3. No context providers
+ * 4. No global state hacks
+ * 5. Show tool calls and results in UI
  */
 
-import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { Box, Text, useApp, useStdout } from "ink";
-import type { ExtendedThinkingConfig } from "../../../../types/index.js";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { render, Box, Text, useInput, useApp } from "ink";
+import type { Key } from "ink";
+import type { PermissionMode, Message as ApiMessage, ToolDefinition } from "../../../../types/index.js";
+import type { HookManager } from "../../../../ecosystem/hooks/index.js";
 import { agentLoop } from "../../../../core/agent-loop.js";
 import { getGitStatus } from "../../../../core/git-status.js";
-import { createStreamHighlighter } from "../../../../core/stream-highlighter.js";
-import { calculateContextInfo } from "../shared/status-line.js";
+import { calculateContextInfo, VERSION } from "../shared/status-line.js";
 import { spinnerFrames } from "./spinner.js";
-import { MessageArea } from "./MessageArea.js";
-import { InputField, setGlobalInput } from "./InputField.js";
-import { handleCommand } from "./commands.js";
-import { useNativeInput, KeyEvents } from "./useNativeInput.js";
-import { InputProvider } from "./InputContext.js";
-import { MessageStoreProvider, useMessageStore } from "./MessageStore.js";
-import type { InteractiveTUIProps, MessageSubType } from "./types.js";
+import type { SessionStore, ContextInfo } from "./types.js";
+import { useTerminalSize } from "./useTerminalSize.js";
 
-/**
- * Estimate token count from text
- * Uses ~4 characters per token as rough approximation
- */
-function estimateTokens(text: string): number {
-  if (!text) return 0;
-  return Math.ceil(text.length / 4);
+// ============================================
+// TYPES
+// ============================================
+
+interface UIMessage {
+  id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  /** Tool name if this is a tool call/result */
+  toolName?: string;
+  /** Tool input preview */
+  toolInput?: string;
+  /** Tool output preview */
+  toolOutput?: string;
+  /** Whether tool result was an error */
+  isError?: boolean;
+  /** Message type for styling */
+  type?: "tool_call" | "tool_result" | "text";
 }
 
-/**
- * Estimate total tokens from messages
- */
-function estimateMessagesTokens(messages: import("../../../../types/index.js").Message[]): number {
+export interface InteractiveTUIProps {
+  apiKey: string;
+  model: string;
+  permissionMode: PermissionMode;
+  maxTokens: number;
+  systemPrompt?: string;
+  tools?: ToolDefinition[];
+  hookManager: HookManager;
+  sessionStore: SessionStore;
+  sessionId: string;
+  setSessionId: (id: string) => void;
+  workingDirectory: string;
+  onExit?: () => void;
+  initialMessages?: ApiMessage[];
+}
+
+export interface InteractiveTUIHandle {
+  rerender: (props: Partial<InteractiveTUIProps>) => void;
+  unmount: () => void;
+  waitUntilExit: () => Promise<void>;
+}
+
+// ============================================
+// HELPERS
+// ============================================
+
+let msgId = 0;
+const genId = () => `msg-${++msgId}-${Date.now()}`;
+
+function estimateTokens(text: string): number {
+  return Math.ceil((text?.length || 1) / 4);
+}
+
+function estimateMessagesTokens(messages: ApiMessage[]): number {
   let total = 0;
   for (const msg of messages) {
     if (typeof msg.content === "string") {
       total += estimateTokens(msg.content);
     } else if (Array.isArray(msg.content)) {
       for (const block of msg.content) {
-        if (block.type === "text") {
-          total += estimateTokens(block.text);
-        } else if (block.type === "tool_use") {
-          total += estimateTokens(JSON.stringify(block.input));
-        } else if (block.type === "tool_result") {
-          if (typeof block.content === "string") {
-            total += estimateTokens(block.content);
-          }
+        if (block.type === "text") total += estimateTokens(block.text);
+        else if (block.type === "tool_use") total += estimateTokens(JSON.stringify(block.input));
+        else if (block.type === "tool_result" && typeof block.content === "string") {
+          total += estimateTokens(block.content);
         }
       }
     }
@@ -57,15 +92,40 @@ function estimateMessagesTokens(messages: import("../../../../types/index.js").M
   return total;
 }
 
-/**
- * Inner component that uses MessageStore
- */
-function InteractiveTUIInner({
+function apiToText(msg: ApiMessage): string {
+  if (typeof msg.content === "string") return msg.content;
+  if (!Array.isArray(msg.content)) return "";
+  return msg.content.map(b => {
+    if (b.type === "text") return b.text;
+    if (b.type === "tool_use") return `[Tool: ${b.name}]`;
+    if (b.type === "tool_result") return b.is_error ? "[Error]" : "[Result]";
+    return "";
+  }).join("\n");
+}
+
+const HELP_TEXT = `
+Commands:
+  /help     - Show this help
+  /clear    - Clear messages
+  /compact  - Compact context
+  /exit     - Exit Coder
+  Ctrl+C    - Exit Coder
+
+Navigation:
+  Shift+↑/↓  - Scroll chat history
+  PgUp/PgDn  - Page through messages
+`;
+
+// ============================================
+// COMPONENT
+// ============================================
+
+function InteractiveTUI({
   apiKey,
-  model: initialModel,
+  model,
   permissionMode,
   maxTokens,
-  systemPrompt: initialSystemPrompt,
+  systemPrompt,
   tools,
   hookManager,
   sessionStore,
@@ -73,465 +133,471 @@ function InteractiveTUIInner({
   setSessionId,
   workingDirectory,
   onExit,
+  initialMessages = [],
 }: InteractiveTUIProps) {
-  // Message store
-  const {
-    messages,
-    apiMessages,
-    addMessage,
-    addApiMessages,
-    addSystem,
-    tokenCount,
-    setTokenCount,
-  } = useMessageStore();
-
-  // UI state - use refs for immediate input display updates
-  const inputRef = useRef("");
-  const cursorRef = useRef(0);
+  // Single state source
+  const [messages, setMessages] = useState<UIMessage[]>([]);
+  const [apiMessages, setApiMessages] = useState<ApiMessage[]>(initialMessages);
+  const [inputValue, setInputValue] = useState("");
+  const [cursorPos, setCursorPos] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
-
-  // Update input and sync to global state for InputField
-  // NOTE: Use inputRef.current and cursorRef.current directly in callbacks
-  // to avoid stale closure values. Don't use inputValue/cursorPos variables.
-  const setInputValue = useCallback((value: string) => {
-    inputRef.current = value;
-    setGlobalInput(value, cursorRef.current);
-  }, []);
-
-  const setCursorPos = useCallback((pos: number | ((prev: number) => number)) => {
-    const newPos = typeof pos === "function" ? pos(cursorRef.current) : pos;
-    cursorRef.current = newPos;
-    setGlobalInput(inputRef.current, newPos);
-  }, []);
-
-  const [totalCost, setTotalCost] = useState(0);
-  const [spinnerFrame, setSpinnerFrame] = useState("⠋");
-  const [model, setModel] = useState(initialModel);
-  const [systemPrompt] = useState(initialSystemPrompt);
   const [streamingText, setStreamingText] = useState("");
-  const [scrollOffset, setScrollOffset] = useState(0);
-  const [sessionSelectMode, setSessionSelectMode] = useState(false);
-  const [selectableSessions, setSelectableSessions] = useState<Array<{ id: string; messageCount: number; metadata?: Record<string, unknown> }>>([]);
-  const [helpMode, setHelpMode] = useState(false);
-  const [helpSection, setHelpSection] = useState(0);
+  const [spinnerFrame, setSpinnerFrame] = useState(0);
+  const [tokenCount, setTokenCount] = useState(0);
 
-  // Input history
-  const [inputHistory, setInputHistory] = useState<string[]>([]);
-  const [historyIndex, setHistoryIndex] = useState(-1);
-  const [savedInput, setSavedInput] = useState("");
+  // Refs for history (no re-renders needed)
+  const historyRef = useRef<string[]>([]);
+  const historyIdxRef = useRef(-1);
+  const savedInputRef = useRef("");
+  const isProcessingRef = useRef(false);
+
+  // Scroll state for chat history
+  const [scrollOffset, setScrollOffset] = useState(0); // 0 = bottom, higher = scrolled up
 
   const { exit } = useApp();
-  const { stdout } = useStdout();
-  const frameRef = useRef(0);
-  const isProcessingRef = useRef(false);
-  const highlighterRef = useRef(createStreamHighlighter());
 
-  // Calculate terminal layout
-  const terminalHeight = stdout.rows || 24;
-  const inputHeight = 3;
-  const statusHeight = 3;
-  const messageHeight = terminalHeight - inputHeight - statusHeight;
+  // Track terminal dimensions with resize support
+  const { width: terminalWidth, height: terminalHeight } = useTerminalSize();
 
-  // Calculate context warning
-  const contextInfo = calculateContextInfo(tokenCount, model);
-  const contextWarning = contextInfo.isCritical
-    ? "Context critical! Use /compact or start new conversation"
-    : contextInfo.isLow
-      ? `Context low: ${contextInfo.percentRemaining.toFixed(0)}% remaining`
-      : null;
-
-  // Auto-scroll to bottom when new messages arrive
-  useEffect(() => {
-    setScrollOffset(0);
-  }, [messages.length]);
+  // Dynamic limits based on terminal size
+  const maxContentWidth = Math.max(terminalWidth - 20, 40); // Reserve space for labels/padding
+  const visibleMessageCount = Math.max(terminalHeight - 4, 5); // Reserve lines for status/input
+  const maxToolPreview = Math.floor(maxContentWidth * 2); // Tool previews can span ~2 lines
+  const maxMessageLength = Math.floor(maxContentWidth * 10); // Messages can span ~10 lines
 
   // Spinner animation
   useEffect(() => {
     if (!isLoading) return;
-
-    const interval = setInterval(() => {
-      frameRef.current = (frameRef.current + 1) % spinnerFrames.length;
-      const frame = spinnerFrames[frameRef.current];
-      if (frame) setSpinnerFrame(frame);
-    }, 80);
-
-    return () => clearInterval(interval);
+    const iv = setInterval(() => setSpinnerFrame(f => (f + 1) % spinnerFrames.length), 80);
+    return () => clearInterval(iv);
   }, [isLoading]);
 
-  // Process a message
-  const processMessage = useCallback(async (input: string, messageAlreadyAdded = false) => {
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    setScrollOffset(0); // Reset scroll when new messages come in
+  }, [messages.length]);
+
+  // Process message
+  const processMessage = useCallback(async (input: string) => {
     if (isProcessingRef.current) return;
     isProcessingRef.current = true;
 
-    // Add user message to UI if not already added
-    if (!messageAlreadyAdded) {
-      addMessage({ role: "user", content: input });
-    }
+    // Add user message
+    setMessages(prev => [...prev, { id: genId(), role: "user", content: input }]);
 
     setIsLoading(true);
     setStreamingText("");
-    highlighterRef.current = createStreamHighlighter();
 
     try {
-      // Execute UserPromptSubmit hook
-      const hookResult = await hookManager.execute("UserPromptSubmit", {
-        prompt: input,
-        session_id: sessionId,
-      });
-
-      if (hookResult.decision === "deny" || hookResult.decision === "block") {
-        addSystem(`Input blocked: ${hookResult.reason || "Security policy"}`);
-        return;
-      }
-
-      const processedInput = (hookResult.modified_input?.prompt as string) ?? input;
-
-      // Build messages for API
-      const newUserMsg = {
-        role: "user" as const,
-        content: [{ type: "text" as const, text: processedInput }],
+      const newUserMsg: ApiMessage = {
+        role: "user",
+        content: [{ type: "text", text: input }],
       };
       const messagesForApi = [...apiMessages, newUserMsg];
 
-      // Get git status
-      const gitStatus = await getGitStatus(workingDirectory);
-
-      // Run agent loop
       const result = await agentLoop(messagesForApi, {
         apiKey,
         model,
         maxTokens,
-        systemPrompt,
-        tools,
+        systemPrompt: systemPrompt ?? "You are a helpful AI assistant.",
+        tools: tools ?? [],
         permissionMode,
         workingDirectory,
-        gitStatus,
+        gitStatus: await getGitStatus(workingDirectory),
         extendedThinking: undefined,
         hookManager,
         sessionId,
-        onText: (text) => {
-          setStreamingText((prev) => prev + text);
+        onText: (text) => setStreamingText(prev => prev + text),
+        onToolUse: (tu) => {
+          // Show tool call with input preview
+          const inputPreview = typeof tu.input === "object"
+            ? JSON.stringify(tu.input, null, 2).slice(0, maxToolPreview)
+            : String(tu.input).slice(0, maxToolPreview);
+          setMessages(prev => [...prev, {
+            id: genId(),
+            role: "system",
+            content: inputPreview,
+            toolName: tu.name,
+            type: "tool_call",
+          }]);
         },
-        onThinking: () => {
-          // Could show thinking in UI
-        },
-        onToolUse: (toolUse) => {
-          addSystem(`[Using: ${toolUse.name}]`, "tool_call", toolUse.name);
-        },
-        onToolResult: (toolResult) => {
-          if (toolResult.result.is_error) {
-            addSystem(`[Tool ${toolResult.id}: Error]`, "tool_result", undefined, true);
+        onToolResult: (tr) => {
+          // Show tool result with output preview
+          let outputPreview = "";
+          const resultMaxLen = tr.result.is_error ? maxMessageLength : maxToolPreview;
+          if (tr.result.is_error) {
+            outputPreview = typeof tr.result.content === "string"
+              ? tr.result.content.slice(0, resultMaxLen)
+              : JSON.stringify(tr.result.content).slice(0, resultMaxLen);
+          } else {
+            outputPreview = typeof tr.result.content === "string"
+              ? tr.result.content.slice(0, resultMaxLen)
+              : JSON.stringify(tr.result.content).slice(0, resultMaxLen);
           }
+          setMessages(prev => [...prev, {
+            id: genId(),
+            role: "system",
+            content: outputPreview,
+            toolName: "tool",
+            isError: tr.result.is_error,
+            type: "tool_result",
+          }]);
         },
-        onMetrics: async (metrics) => {
-          const apiTokens = metrics.usage.input_tokens + metrics.usage.output_tokens;
-          if (apiTokens > 0) {
-            setTokenCount(apiTokens);
-          }
-          await sessionStore.saveMetrics(metrics);
+        onMetrics: async (m) => {
+          const tokens = m.usage.input_tokens + m.usage.output_tokens;
+          if (tokens > 0) setTokenCount(tokens);
+          await sessionStore.saveMetrics(m);
         },
       });
 
-      // Update API messages (MessageStore will convert to UI messages)
-      // Note: result.messages already includes newUserMsg, so we don't add it again
-      // Only add the NEW messages from the result (skip ones we already have)
-      addApiMessages(result.messages.slice(apiMessages.length));
-      setTotalCost((prev) => prev + result.totalCost);
+      setApiMessages(result.messages);
+      setTokenCount(estimateMessagesTokens(result.messages));
 
-      // Estimate tokens from final messages
-      const estimatedTokens = estimateMessagesTokens(result.messages);
-      setTokenCount(estimatedTokens);
-
-      // Save to session
-      const lastUserMsg = result.messages[result.messages.length - 2];
-      const lastAssistantMsg = result.messages[result.messages.length - 1];
-      if (lastUserMsg) await sessionStore.saveMessage(lastUserMsg);
-      if (lastAssistantMsg) await sessionStore.saveMessage(lastAssistantMsg);
-
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      addSystem(`Error: ${errorMessage}`, "error");
+      const lastAssistant = result.messages.filter(m => m.role === "assistant").pop();
+      if (lastAssistant) {
+        setMessages(prev => [...prev, {
+          id: genId(),
+          role: "assistant",
+          content: apiToText(lastAssistant),
+        }]);
+        await sessionStore.saveMessage(lastAssistant);
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      setMessages(prev => [...prev, { id: genId(), role: "system", content: `Error: ${errorMessage}` }]);
     } finally {
       setIsLoading(false);
       isProcessingRef.current = false;
       setStreamingText("");
     }
-  }, [apiMessages, apiKey, model, maxTokens, systemPrompt, tools, permissionMode, workingDirectory, hookManager, sessionId, sessionStore, addMessage, addSystem, addApiMessages, setTokenCount]);
+  }, [apiMessages, apiKey, model, maxTokens, systemPrompt, tools, permissionMode, workingDirectory, hookManager, sessionId, sessionStore]);
 
   // Handle commands
-  const handleCommandWrapper = useCallback(async (cmd: string) => {
-    // Import command context dynamically to avoid circular deps
-    const { setMessages: setExternalMessages, processedCountRef } = {
-      setMessages: () => {}, // MessageStore handles this now
-      processedCountRef: { current: apiMessages.length },
-    };
+  const handleCommand = useCallback(async (cmd: string) => {
+    const parts = cmd.slice(1).split(" ");
+    const command = parts[0]?.toLowerCase();
+    const args = parts.slice(1).join(" ");
 
-    await handleCommand(cmd, {
-      sessionId,
-      setSessionId,
-      model,
-      setModel,
-      apiMessages,
-      setApiMessages: (msgs) => addApiMessages(msgs.slice(apiMessages.length)),
-      setMessages: setExternalMessages,
-      processedCountRef,
-      totalCost,
-      setTotalCost,
-      totalTokens: tokenCount,
-      setTotalTokens: setTokenCount,
-      permissionMode,
-      tools,
-      workingDirectory,
-      sessionStore,
-      addSystemMessage: (content: string, subType?: MessageSubType, toolName?: string, isError?: boolean) => {
-        addSystem(content, subType, toolName, isError);
-      },
-      messagesLength: messages.length,
-      onExit,
-      exit,
-      sessionSelectMode,
-      setSessionSelectMode,
-      setSelectableSessions,
-      helpMode,
-      setHelpMode,
-      helpSection,
-      setHelpSection,
-    });
-  }, [sessionId, setSessionId, model, apiMessages, addApiMessages, totalCost, tokenCount, setTokenCount, permissionMode, tools, workingDirectory, sessionStore, addSystem, messages.length, onExit, exit, sessionSelectMode, helpMode, helpSection]);
+    switch (command) {
+      case "help":
+        setMessages(prev => [...prev, { id: genId(), role: "system", content: HELP_TEXT }]);
+        break;
 
-  // Handle input with native terminal input
-  useNativeInput({
-    isActive: true,
-    onKey: (event) => {
-      // Scroll handling
-      if (KeyEvents.isPageUp(event)) {
-        setScrollOffset((prev) => prev + 5);
-        return;
-      }
+      case "clear":
+        setMessages([]);
+        setApiMessages([]);
+        setTokenCount(0);
+        break;
 
-      if (KeyEvents.isPageDown(event)) {
-        setScrollOffset((prev) => Math.max(0, prev - 5));
-        return;
-      }
-
-      if (KeyEvents.isShiftUp(event)) {
-        setScrollOffset((prev) => prev + 1);
-        return;
-      }
-
-      if (KeyEvents.isShiftDown(event)) {
-        setScrollOffset((prev) => Math.max(0, prev - 1));
-        return;
-      }
-
-      // Ctrl+C to exit
-      if (KeyEvents.isCtrlC(event)) {
-        onExit();
+      case "exit":
+      case "quit":
+        onExit?.();
         exit();
-        return;
+        break;
+
+      case "compact":
+        setMessages([]);
+        setApiMessages([]);
+        setTokenCount(1);
+        break;
+
+      case "sessions": {
+        const sessions = await sessionStore.listSessions();
+        setMessages(prev => [...prev, {
+          id: genId(),
+          role: "system",
+          content: sessions.map((s, i) => `${i + 1}. ${s.metadata?.preview || ""} (${s.messageCount} msgs)`).join("\n") || "No sessions",
+        }]);
+        break;
       }
 
-      if (isLoading) return;
-
-      // Help mode navigation
-      if (helpMode) {
-        const HELP_SECTIONS_COUNT = 5;
-
-        if (event.code === "escape" || event.code === "q") {
-          setHelpMode(false);
-          return;
-        }
-
-        if (event.code === "tab" || KeyEvents.isRight(event)) {
-          setHelpSection((prev) => (prev + 1) % HELP_SECTIONS_COUNT);
-          return;
-        }
-
-        if (KeyEvents.isLeft(event)) {
-          setHelpSection((prev) => (prev - 1 + HELP_SECTIONS_COUNT) % HELP_SECTIONS_COUNT);
-          return;
-        }
-
-        return;
-      }
-
-      // Session selection mode
-      if (sessionSelectMode) {
-        const num = parseInt(event.code, 10);
-        if (!isNaN(num) && num >= 1 && num <= selectableSessions.length) {
-          const selectedSession = selectableSessions[num - 1];
-          if (selectedSession) {
-            setSessionSelectMode(false);
-            setSelectableSessions([]);
-            handleCommandWrapper(`/resume ${selectedSession.id}`);
+      case "resume": {
+        if (args) {
+          const session = await sessionStore.resumeSession(args);
+          if (session) {
+            setMessages([]);
+            setApiMessages(session.messages);
+            setSessionId(session.metadata.id);
           }
-        } else if (KeyEvents.isEnter(event) || (event.code && isNaN(num))) {
-          setSessionSelectMode(false);
-          setSelectableSessions([]);
-          addSystem("Session selection cancelled.");
         }
-        return;
+        break;
       }
 
-      // Submit on Enter
-      if (KeyEvents.isEnter(event)) {
-        // Prevent duplicate submissions while processing
-        if (isProcessingRef.current) return;
+      default:
+        setMessages(prev => [...prev, { id: genId(), role: "system", content: `Unknown command: /${command}` }]);
+    }
+  }, [onExit, exit, sessionStore, setSessionId]);
 
-        const currentInput = inputRef.current;
-        if (currentInput.trim()) {
-          // Capture value BEFORE clearing
-          const valueToSubmit = currentInput;
+  // Keyboard input using Ink's useInput
+  useInput((input: string, key: Key) => {
+    // Exit on Ctrl+C
+    if (key.ctrl && input === "c") {
+      onExit?.();
+      exit();
+      return;
+    }
 
-          // Clear input IMMEDIATELY to prevent duplicate submissions
-          // This must happen before any async operations
-          inputRef.current = "";
-          setGlobalInput("", 0);
+    if (isLoading) return;
 
-          // Add user message to UI
-          addMessage({ role: "user", content: valueToSubmit });
+    // Submit on Enter
+    if (key.return) {
+      const value = inputValue.trim();
+      if (!value) return;
 
-          // Clear cursor and history state
-          setCursorPos(0);
-          setHistoryIndex(-1);
-          setSavedInput("");
+      // Clear immediately
+      setInputValue("");
+      setCursorPos(0);
+      historyIdxRef.current = -1;
 
-          // Update history
-          if (!valueToSubmit.startsWith("/") && valueToSubmit !== inputHistory[0]) {
-            setInputHistory((prev) => [valueToSubmit, ...prev].slice(0, 100));
-          }
+      // Add to history
+      if (!value.startsWith("/") && value !== historyRef.current[0]) {
+        historyRef.current = [value, ...historyRef.current].slice(0, 100);
+      }
 
-          // Process after UI updates
-          setTimeout(() => {
-            if (valueToSubmit.startsWith("/")) {
-              handleCommandWrapper(valueToSubmit);
-            } else {
-              processMessage(valueToSubmit, true); // true = message already added
-            }
-          }, 50);
+      // Process
+      setTimeout(() => {
+        if (value.startsWith("/")) {
+          handleCommand(value);
+        } else {
+          processMessage(value);
         }
-        return;
-      }
+      }, 0);
+      return;
+    }
 
-      // History navigation
-      if (KeyEvents.isUp(event)) {
-        if (inputHistory.length > 0) {
-          if (historyIndex === -1) {
-            setSavedInput(inputRef.current);
-          }
-          const newIndex = Math.min(historyIndex + 1, inputHistory.length - 1);
-          setHistoryIndex(newIndex);
-          setInputValue(inputHistory[newIndex] ?? "");
-          setCursorPos((inputHistory[newIndex] ?? "").length);
+    // Chat history scroll (Shift+Up/Down or Page Up/Down)
+    if ((key.upArrow && key.shift) || (key.pageUp)) {
+      const maxOffset = Math.max(0, messages.length - visibleMessageCount);
+      setScrollOffset(prev => Math.min(prev + visibleMessageCount, maxOffset));
+      return;
+    }
+
+    if ((key.downArrow && key.shift) || (key.pageDown)) {
+      setScrollOffset(prev => Math.max(prev - visibleMessageCount, 0));
+      return;
+    }
+
+    // Jump to top/bottom (Shift+Home/End)
+    if (key.shift && input === "\x1b[H") { // Home
+      const maxOffset = Math.max(0, messages.length - visibleMessageCount);
+      setScrollOffset(maxOffset);
+      return;
+    }
+    if (key.shift && input === "\x1b[F") { // End
+      setScrollOffset(0);
+      return;
+    }
+
+    // Input history up (without shift)
+    if (key.upArrow && !key.shift) {
+      if (historyRef.current.length > 0) {
+        if (historyIdxRef.current === -1) {
+          savedInputRef.current = inputValue;
         }
-        return;
+        const newIdx = Math.min(historyIdxRef.current + 1, historyRef.current.length - 1);
+        historyIdxRef.current = newIdx;
+        setInputValue(historyRef.current[newIdx] || "");
+        setCursorPos((historyRef.current[newIdx] || "").length);
       }
+      return;
+    }
 
-      if (KeyEvents.isDown(event)) {
-        if (historyIndex > 0) {
-          const newIndex = historyIndex - 1;
-          setHistoryIndex(newIndex);
-          setInputValue(inputHistory[newIndex] ?? "");
-          setCursorPos((inputHistory[newIndex] ?? "").length);
-        } else if (historyIndex === 0) {
-          setHistoryIndex(-1);
-          setInputValue(savedInput);
-          setCursorPos(savedInput.length);
-        }
-        return;
+    if (key.downArrow && !key.shift) {
+      if (historyIdxRef.current > 0) {
+        const newIdx = historyIdxRef.current - 1;
+        historyIdxRef.current = newIdx;
+        setInputValue(historyRef.current[newIdx] || "");
+        setCursorPos((historyRef.current[newIdx] || "").length);
+      } else if (historyIdxRef.current === 0) {
+        historyIdxRef.current = -1;
+        setInputValue(savedInputRef.current);
+        setCursorPos(savedInputRef.current.length);
       }
+      return;
+    }
 
-      // Text editing
-      if (KeyEvents.isBackspace(event)) {
-        const currentInput = inputRef.current;
-        const currentCursor = cursorRef.current;
-        if (currentCursor > 0) {
-          const newVal = currentInput.slice(0, currentCursor - 1) + currentInput.slice(currentCursor);
-          setInputValue(newVal);
-          setCursorPos((p) => p - 1);
-        }
-        return;
+    // Backspace
+    if (key.backspace || key.delete) {
+      if (cursorPos > 0) {
+        setInputValue(prev => prev.slice(0, cursorPos - 1) + prev.slice(cursorPos));
+        setCursorPos(p => p - 1);
       }
+      return;
+    }
 
-      if (KeyEvents.isDelete(event)) {
-        const currentInput = inputRef.current;
-        const currentCursor = cursorRef.current;
-        if (currentCursor < currentInput.length) {
-          const newVal = currentInput.slice(0, currentCursor) + currentInput.slice(currentCursor + 1);
-          setInputValue(newVal);
-        }
-        return;
-      }
+    // Arrow keys
+    if (key.leftArrow) {
+      setCursorPos(p => Math.max(0, p - 1));
+      return;
+    }
 
-      if (KeyEvents.isLeft(event)) {
-        setCursorPos((p) => Math.max(0, p - 1));
-        return;
-      }
+    if (key.rightArrow) {
+      setCursorPos(p => Math.min(inputValue.length, p + 1));
+      return;
+    }
 
-      if (KeyEvents.isRight(event)) {
-        setCursorPos((p) => Math.min(inputRef.current.length, p + 1));
-        return;
-      }
+    // Home/End (Ctrl+A / Ctrl+E)
+    if (key.ctrl && input === "a") {
+      setCursorPos(0);
+      return;
+    }
 
-      if (KeyEvents.isHome(event) || KeyEvents.isCtrlA(event)) {
-        setCursorPos(0);
-        return;
-      }
+    if (key.ctrl && input === "e") {
+      setCursorPos(inputValue.length);
+      return;
+    }
 
-      if (KeyEvents.isEnd(event) || KeyEvents.isCtrlE(event)) {
-        setCursorPos(inputRef.current.length);
-        return;
+    // Regular character
+    if (input && !key.ctrl && !key.meta) {
+      if (historyIdxRef.current !== -1) {
+        historyIdxRef.current = -1;
+        savedInputRef.current = "";
       }
+      setInputValue(prev => prev.slice(0, cursorPos) + input + prev.slice(cursorPos));
+      setCursorPos(p => p + input.length);
+    }
+  }, { isActive: !isLoading });
 
-      // Regular character
-      if (KeyEvents.isPrintable(event)) {
-        if (historyIndex !== -1) {
-          setHistoryIndex(-1);
-          setSavedInput("");
-        }
-        const currentInput = inputRef.current;
-        const currentCursor = cursorRef.current;
-        setInputValue(currentInput.slice(0, currentCursor) + event.code + currentInput.slice(currentCursor));
-        setCursorPos((p) => p + 1);
-      }
-    },
-  });
+  // Context info
+  const contextInfo = calculateContextInfo(tokenCount, model);
+
+  // Calculate scroll bounds
+  const maxScrollOffset = Math.max(0, messages.length - visibleMessageCount);
+  const clampedScrollOffset = Math.min(scrollOffset, maxScrollOffset);
+
+  // Render messages based on terminal height and scroll position
+  // scrollOffset=0 means show latest (bottom), higher means scrolled up
+  const startIndex = Math.max(0, messages.length - visibleMessageCount - clampedScrollOffset);
+  const endIndex = messages.length - clampedScrollOffset;
+  const visibleMessages = messages.slice(startIndex, endIndex);
+  const canScrollUp = clampedScrollOffset < maxScrollOffset;
+  const canScrollDown = clampedScrollOffset > 0;
 
   return (
-    <InputProvider initialBlocked={isLoading}>
-      <Box flexDirection="column" width="100%">
-        <MessageArea
-          messages={messages}
-          isLoading={isLoading}
-          spinnerFrame={spinnerFrame}
-          height={messageHeight}
-          scrollOffset={scrollOffset}
-          contextWarning={contextWarning}
-          streamingText={streamingText}
-        />
+    <Box flexDirection="column" height={terminalHeight} width={terminalWidth}>
+      {/* Messages */}
+      <Box flexDirection="column" flexGrow={1} overflow="hidden">
+        {contextInfo.isLow && (
+          <Text color={contextInfo.isCritical ? "red" : "yellow"} bold>
+            Context: {contextInfo.percentRemaining.toFixed(0)}% remaining
+          </Text>
+        )}
 
-        <Text dimColor>
-          {isLoading ? spinnerFrame : ""} Context: {tokenCount} tokens | {permissionMode}
-        </Text>
+        {visibleMessages.length === 0 && !isLoading && !streamingText && (
+          <Text dimColor>
+            Welcome to Coder v{VERSION}. Type your message or /help for commands.
+          </Text>
+        )}
 
-        <InputField
-          placeholder="Type your message... (/help for commands)"
-          isActive={!isLoading}
-        />
+        {visibleMessages.map(msg => {
+          // Tool call
+          if (msg.type === "tool_call") {
+            return (
+              <Box key={msg.id} flexDirection="column">
+                <Text bold color="yellow">▶ {msg.toolName}</Text>
+                {msg.content && (
+                  <Text dimColor color="gray">  {msg.content}</Text>
+                )}
+              </Box>
+            );
+          }
+          // Tool result
+          if (msg.type === "tool_result") {
+            return (
+              <Box key={msg.id} flexDirection="column">
+                <Text bold color={msg.isError ? "red" : "green"}>
+                  {msg.isError ? "✗" : "✓"} {msg.toolName}
+                </Text>
+                {msg.content && (
+                  <Text dimColor color={msg.isError ? "red" : "green"}>  {msg.content}</Text>
+                )}
+              </Box>
+            );
+          }
+          // Regular message
+          return (
+            <Text key={msg.id}>
+              {msg.role === "user" ? (
+                <Text bold color="cyan">You: </Text>
+              ) : msg.role === "assistant" ? (
+                <Text bold color="magenta">Claude: </Text>
+              ) : (
+                <Text bold color="yellow">System: </Text>
+              )}
+              <Text dimColor={msg.role === "system"}>{msg.content.slice(0, maxMessageLength)}{msg.content.length > maxMessageLength ? "..." : ""}</Text>
+            </Text>
+          );
+        })}
+
+        {streamingText && (
+          <Text>
+            <Text bold color="magenta">Claude: </Text>
+            <Text dimColor>{streamingText.slice(-maxMessageLength)}</Text>
+          </Text>
+        )}
+
+        {isLoading && !streamingText && (
+          <Text color="cyan">{spinnerFrames[spinnerFrame]} Processing...</Text>
+        )}
       </Box>
-    </InputProvider>
+
+      {/* Status bar */}
+      <Text dimColor>
+        {isLoading ? spinnerFrames[spinnerFrame] + " " : ""}
+        Context: {tokenCount} tokens | {permissionMode}
+        {canScrollUp && " | ↑more"}
+        {canScrollDown && " | ↓more"}
+        {clampedScrollOffset > 0 && ` | ${clampedScrollOffset}/${maxScrollOffset} scrolled`}
+      </Text>
+
+      {/* Input */}
+      <Text>
+        <Text bold color={isLoading ? "gray" : "cyan"}>You: </Text>
+        {inputValue.length > 0 ? (
+          <>
+            {inputValue.slice(0, cursorPos)}
+            <Text backgroundColor="cyan" color="black">
+              {cursorPos < inputValue.length ? inputValue[cursorPos] : " "}
+            </Text>
+            {inputValue.slice(cursorPos + 1)}
+          </>
+        ) : (
+          <Text dimColor>Type your message... (/help for commands)</Text>
+        )}
+      </Text>
+    </Box>
   );
 }
 
-/**
- * Main Interactive TUI Component with providers
- */
-function InteractiveTUI(props: InteractiveTUIProps) {
-  return (
-    <MessageStoreProvider initialMessages={props.initialMessages}>
-      <InteractiveTUIInner {...props} />
-    </MessageStoreProvider>
+// ============================================
+// RENDER FUNCTION
+// ============================================
+
+export function createInteractiveTUI(
+  initialProps: InteractiveTUIProps
+): InteractiveTUIHandle {
+  let currentProps = { ...initialProps };
+  let rerenderFn: ((node: React.ReactNode) => void) | null = null;
+  let unmountFn: (() => void) | null = null;
+  let waitFn: (() => Promise<void>) | null = null;
+
+  const { rerender, unmount, waitUntilExit } = render(
+    <InteractiveTUI {...currentProps} />,
+    { exitOnCtrlC: false }
   );
+
+  rerenderFn = rerender;
+  unmountFn = unmount;
+  waitFn = waitUntilExit;
+
+  return {
+    rerender: (newProps) => {
+      currentProps = { ...currentProps, ...newProps };
+      rerenderFn?.(<InteractiveTUI {...currentProps} />);
+    },
+    unmount: () => unmountFn?.(),
+    waitUntilExit: () => waitFn?.() || Promise.resolve(),
+  };
 }
 
 export default InteractiveTUI;

@@ -24,7 +24,7 @@
   },
   "scripts": {
     "build": "bun run build:native && bun run build:ts && bun run build:types && bun run link",
-    "build:ts": "bun build ./packages/src/index.ts ./packages/src/interfaces/ui/terminal/cli/index.ts --outdir ./dist --target bun",
+    "build:ts": "bun build ./packages/src/index.ts ./packages/src/interfaces/ui/terminal/cli/index.ts --outdir ./dist --target bun --external sharp",
     "build:types": "tsc --emitDeclarationOnly --declaration --outDir dist",
     "build:native": "cd packages/rust && cargo build --release --target-dir ./target && cd ../.. && bun run build:napi-artifacts",
     "build:napi-artifacts": "napi build --platform --release --target-dir packages/rust/target --manifest-path packages/rust/Cargo.toml --output-dir native --js-package-name @ebowwa/coder-native --const-enum --strip --dts index.d.ts",

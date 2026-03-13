@@ -53,28 +53,6 @@ export {
   type ContextInfo,
 } from "./terminal/shared/status-line.js";
 
-// TUI Footer (from tui)
-export {
-  TUIFooter,
-  getTUIFooter,
-  enableTUIFooter,
-  disableTUIFooter,
-  renderTUIFooter,
-  clearTUIFooter,
-  ANSI,
-  type TUIFooterOptions,
-  type TUIFooterState,
-} from "./terminal/tui/tui-footer.js";
-
-// TUI App (Ink-based, from tui)
-export {
-  createTUIApp,
-  type TUIAppProps,
-  type TUIAppHandle,
-  type Message as TUIMessage,
-} from "./terminal/tui/tui-app.js";
-export { default as TUIApp } from "./terminal/tui/tui-app.js";
-
 // ============================================
 // PROGRESS CALLBACK TYPES
 // ============================================

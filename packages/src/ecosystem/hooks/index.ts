@@ -322,6 +322,9 @@ export const hookEventDocs: Record<HookEvent, string> = {
   Notification: "When a notification is sent.",
   ConfigChange: "When configuration changes.",
   WorktreeCreate: "When a git worktree is created.",
+  PrePrompt: "Before prompt is sent to the model. Can modify system/user prompts.",
+  PostPrompt: "After model response. Can process or modify response.",
+  TeammateIdle: "When a teammate goes idle (no activity for 60+ seconds).",
 };
 
 /**

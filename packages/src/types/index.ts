@@ -295,7 +295,10 @@ export type HookEvent =
   | "SessionEnd"
   | "Notification"
   | "ConfigChange"
-  | "WorktreeCreate";
+  | "WorktreeCreate"
+  | "PrePrompt"
+  | "PostPrompt"
+  | "TeammateIdle";
 
 export interface HookDefinition {
   event: HookEvent;
