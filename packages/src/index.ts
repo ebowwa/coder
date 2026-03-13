@@ -106,6 +106,7 @@ export * from "./native/index.js";
 // Image processing
 export {
   isSharpAvailable,
+  checkSharpAvailability,
   IMAGE_EXTENSIONS,
   BINARY_EXCLUSIONS,
   MAX_IMAGE_TOKENS,

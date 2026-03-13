@@ -34,6 +34,22 @@ export function isSharpAvailable(): boolean {
   return _sharpAvailable === true;
 }
 
+/**
+ * Check if sharp is available (async version that actually tests loading)
+ */
+export async function checkSharpAvailability(): Promise<boolean> {
+  if (_sharpAvailable !== null) {
+    return _sharpAvailable;
+  }
+
+  try {
+    await getSharp();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // ============================================
 // CONSTANTS
 // ============================================
