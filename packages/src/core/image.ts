@@ -2,8 +2,37 @@
  * Image Processing Module
  */
 
-import sharp from "sharp";
 import type { MediaType, ImageBlock } from "../types/index.js";
+
+// Lazy-load sharp to handle environments where it's not available
+type SharpModule = typeof import("sharp");
+
+let _sharp: SharpModule | null = null;
+let _sharpAvailable: boolean | null = null;
+
+async function getSharp(): Promise<SharpModule> {
+  if (_sharp !== null) return _sharp;
+
+  if (_sharpAvailable === false) {
+    throw new Error("sharp module not available - image processing disabled");
+  }
+
+  try {
+    // Dynamic import returns module with default export
+    const module = await import("sharp");
+    _sharp = module.default || module;
+    _sharpAvailable = true;
+    return _sharp;
+  } catch (e) {
+    _sharpAvailable = false;
+    _sharp = null;
+    throw new Error("sharp module not available - image processing disabled");
+  }
+}
+
+export function isSharpAvailable(): boolean {
+  return _sharpAvailable === true;
+}
 
 // ============================================
 // CONSTANTS
@@ -157,7 +186,8 @@ export async function readImageFile(
   }
 
   // 3. Process with sharp library
-  let image = sharp(bytes);
+  const sharpLib = await getSharp();
+  let image = sharpLib(bytes);
   const metadata = await image.metadata();
 
   const dimensions = {
@@ -173,7 +203,7 @@ export async function readImageFile(
     const newWidth = Math.round((metadata.width || 1) * scale);
     const newHeight = Math.round((metadata.height || 1) * scale);
 
-    image = sharp(bytes).resize(newWidth, newHeight, {
+    image = sharpLib(bytes).resize(newWidth, newHeight, {
       fit: "inside",
       withoutEnlargement: true,
     });
@@ -207,7 +237,7 @@ export async function readImageFile(
       const resizedBase64 = resizedBuffer.toString("base64");
 
       // Get final dimensions
-      const finalMeta = await sharp(resizedBuffer).metadata();
+      const finalMeta = await sharpLib(resizedBuffer).metadata();
 
       return {
         type: "image",
@@ -223,7 +253,7 @@ export async function readImageFile(
       };
     } catch (resizeErr) {
       // Final fallback: aggressive resize with sharp
-      const smallImage = await sharp(bytes)
+      const smallImage = await sharpLib(bytes)
         .resize(FALLBACK_MAX_DIMENSION, FALLBACK_MAX_DIMENSION, {
           fit: "inside",
           withoutEnlargement: true,
@@ -231,7 +261,7 @@ export async function readImageFile(
         .jpeg({ quality: FALLBACK_JPEG_QUALITY })
         .toBuffer();
 
-      const finalMeta = await sharp(smallImage).metadata();
+      const finalMeta = await sharpLib(smallImage).metadata();
 
       return {
         type: "image",
@@ -276,11 +306,13 @@ async function resizeForTokenLimit(
   bytes: Buffer,
   maxTokens: number
 ): Promise<Buffer> {
+  const sharpLib = await getSharp();
+
   // Target ~80% of max tokens for safety margin
   const targetBase64Length = Math.floor((maxTokens * 0.8) / 0.125);
   const targetBufferSize = Math.floor(targetBase64Length * 0.75); // base64 is ~4/3 of binary
 
-  const image = sharp(bytes);
+  const image = sharpLib(bytes);
   const metadata = await image.metadata();
 
   // Calculate scale factor needed
@@ -294,7 +326,7 @@ async function resizeForTokenLimit(
   const newHeight = Math.round((metadata.height || 1) * scaleFactor);
 
   // Resize and convert to JPEG
-  return sharp(bytes)
+  return sharpLib(bytes)
     .resize(newWidth, newHeight, {
       fit: "inside",
       withoutEnlargement: true,
