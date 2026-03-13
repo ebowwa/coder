@@ -182,7 +182,7 @@ export function suppressConsole(options: SuppressOptions = {}): void {
   // Apply suppression to specified methods
   for (const method of methodsToSuppress) {
     if (method in originalConsole) {
-      (console as Record<string, unknown>)[method] = createNoOp(method);
+      (console as unknown as Record<string, unknown>)[method] = createNoOp(method);
     }
   }
 
@@ -196,7 +196,7 @@ export function suppressConsole(options: SuppressOptions = {}): void {
 export function restoreConsole(): void {
   // Restore all methods
   for (const method of Object.keys(originalConsole) as ConsoleMethod[]) {
-    (console as Record<string, unknown>)[method] = originalConsole[method];
+    (console as unknown as Record<string, unknown>)[method] = originalConsole[method];
   }
 
   // Clear file writer
