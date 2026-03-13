@@ -10,7 +10,29 @@ export type {
 } from "./types.js";
 
 // Console utilities
-export { suppressConsole, restoreConsole, withSuppressedConsole } from "./console.js";
+export {
+  // Core suppression
+  suppressConsole,
+  restoreConsole,
+  withSuppressedConsole,
+  withSuppressedConsoleSync,
+  // State
+  isConsoleSuppressed,
+  getSuppressOptions,
+  // Buffering
+  getBufferedMessages,
+  getBufferedByMethod,
+  clearBuffer,
+  replayBuffer,
+  // Convenience
+  suppressAllConsole,
+  suppressVerboseConsole,
+  suppressAndBuffer,
+  // Types
+  type ConsoleMethod,
+  type BufferedMessage,
+  type SuppressOptions,
+} from "./console.js";
 
 // Spinner utilities
 export {
