@@ -6,7 +6,7 @@
       "name": "@ebowwa/coder",
       "dependencies": {
         "@anthropic-ai/sdk": "^0.39.0",
-        "@ebowwa/bun-native-page": "^0.2.4",
+        "@ebowwa/bun-native-page": "0.2.5",
         "@ebowwa/coder-native": "^0.2.1",
         "@ebowwa/quant-rust": "^0.2.2",
         "@modelcontextprotocol/sdk": "^1.10.0",
@@ -52,7 +52,7 @@
 
     "@anthropic-ai/sdk": ["@anthropic-ai/sdk@0.39.0", "", { "dependencies": { "@types/node": "^18.11.18", "@types/node-fetch": "^2.6.4", "abort-controller": "^3.0.0", "agentkeepalive": "^4.2.1", "form-data-encoder": "1.7.2", "formdata-node": "^4.3.2", "node-fetch": "^2.6.7" } }, "sha512-eMyDIPRZbt1CCLErRCi3exlAvNkBtRe+kW5vvJyef93PmNr/clstYgHhtvmkxN82nlKgzyGPCyGxrm0JQ1ZIdg=="],
 
-    "@ebowwa/bun-native-page": ["@ebowwa/bun-native-page@0.2.4", "", { "dependencies": { "@ebowwa/bun-native-page": "0.2.3" } }, "sha512-PS2isFbdDq8u8O2ZDJvKQM4unS9PZRWTHFMevYsgBcpgb+Am6etyCySljCtdb4FxeYdC+LxMQG+utEgQcq9sMg=="],
+    "@ebowwa/bun-native-page": ["@ebowwa/bun-native-page@0.2.5", "", { "dependencies": { "@ebowwa/bun-native-page": "0.2.4" } }, "sha512-+SLlVSGBc8ganW9wbwvGqtGpi7gygg7Xyr4OjcazkaqXT6Q4B6dGaXzNpEmn30DgM+VdAf2sNLVNfqRg4k+v5w=="],
 
     "@ebowwa/coder-native": ["@ebowwa/coder-native@0.2.1", "", {}, "sha512-wmWK1B37bMolH5U+44OD5asDqkLd2+L2i2OlzirwCKmBtsai3pLog62u7Tg8CU6v/Q7ZjiBzerFiSNMkIYedhQ=="],
 
@@ -1046,7 +1046,7 @@
 
     "@anthropic-ai/sdk/@types/node": ["@types/node@18.19.130", "", { "dependencies": { "undici-types": "~5.26.4" } }, "sha512-GRaXQx6jGfL8sKfaIDD6OupbIHBr9jv7Jnaml9tB7l4v068PAOXqfcujMMo5PhbIs6ggR1XODELqahT2R8v0fg=="],
 
-    "@ebowwa/bun-native-page/@ebowwa/bun-native-page": ["@ebowwa/bun-native-page@0.2.3", "", {}, "sha512-B/wKs2f6MGYu5hD8IgkDGnDWKSfpyKiynRXhyLplwBA6OHsRvIEsLER5ZBxzO/9I9OeAcElsWscp39nUWw4i6A=="],
+    "@ebowwa/bun-native-page/@ebowwa/bun-native-page": ["@ebowwa/bun-native-page@0.2.4", "", { "dependencies": { "@ebowwa/bun-native-page": "0.2.3" } }, "sha512-PS2isFbdDq8u8O2ZDJvKQM4unS9PZRWTHFMevYsgBcpgb+Am6etyCySljCtdb4FxeYdC+LxMQG+utEgQcq9sMg=="],
 
     "@inquirer/core/signal-exit": ["signal-exit@4.1.0", "", {}, "sha512-bzyZ1e88w9O1iNJbKnOlvYTrWPDl46O1bG0D3XInv+9tkPrxrN8jUUTiFlDkkmKWgn1M6CfIA13SuGqOa9Korw=="],
 
@@ -1113,6 +1113,8 @@
     "yargs/string-width": ["string-width@4.2.3", "", { "dependencies": { "emoji-regex": "^8.0.0", "is-fullwidth-code-point": "^3.0.0", "strip-ansi": "^6.0.1" } }, "sha512-wKyQRQpjJ0sIp62ErSZdGsjMJWsap5oRNihHhu6G7JVO/9jIB6UyevL+tXuOqrng8j/cxKTWyWUwvSTriiZz/g=="],
 
     "@anthropic-ai/sdk/@types/node/undici-types": ["undici-types@5.26.5", "", {}, "sha512-JlCMO+ehdEIKqlFxk6IfVoAUVmgz7cU7zD/h9XZ0qzeosSHmUJVOzSQvvYSYWXkFXC+IfLKSIffhv0sVZup6pA=="],
+
+    "@ebowwa/bun-native-page/@ebowwa/bun-native-page/@ebowwa/bun-native-page": ["@ebowwa/bun-native-page@0.2.3", "", {}, "sha512-B/wKs2f6MGYu5hD8IgkDGnDWKSfpyKiynRXhyLplwBA6OHsRvIEsLER5ZBxzO/9I9OeAcElsWscp39nUWw4i6A=="],
 
     "cliui/string-width/emoji-regex": ["emoji-regex@8.0.0", "", {}, "sha512-MSjYzcWNOA0ewAHpz0MxpYFvwg6yjy1NG3xteoqz644VCo/RPgnr1/GGt+ic3iJTzQ8Eu3TdM14SawnVUmGE6A=="],
 
