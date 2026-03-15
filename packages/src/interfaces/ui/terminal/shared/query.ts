@@ -4,7 +4,7 @@
  */
 
 import type { Message, ToolDefinition, ExtendedThinkingConfig, GitStatus } from "../../../../schemas/index.js";
-import { agentLoop, formatCost, formatCostBrief } from "../../../../core/agent-loop.js";
+import { agentLoop, formatCost, formatCostBrief, createResultConditionsConfig, type ResultConditionsConfig } from "../../../../core/agent-loop.js";
 import { HookManager } from "../../../../ecosystem/hooks/index.js";
 import { SessionStore } from "../../../../core/session-store.js";
 import { createStreamHighlighter } from "../../../../core/stream-highlighter.js";
@@ -98,6 +98,12 @@ export async function runSingleQuery(options: QueryOptions): Promise<void> {
       extendedThinking: extendedThinkingConfig,
       hookManager,
       sessionId,
+      stopSequences: args.stopSequences,
+      resultConditions: args.resultConditions
+        ? createResultConditionsConfig(args.resultConditions, {
+            stopOnUnhandledError: args.stopOnUnhandledError,
+          })
+        : undefined,
       onText: (text) => {
         const highlighted = highlighter.process(text);
         if (highlighted) {

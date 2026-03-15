@@ -122,6 +122,9 @@ export class LoopState {
   totalTokensCompacted = 0;
   cacheMetrics: CacheMetrics;
 
+  // Result-based loop control
+  retryCount = 0;
+
   // Dynamic configuration from template
   readonly template: TeammateTemplate | null;
   readonly loopBehavior: LoopBehavior;

@@ -67,6 +67,18 @@ export {
   fromMarkers,
 } from "./stop-sequences.js";
 
+// Re-export result conditions system (verified loop control - fully dynamic)
+export {
+  type ResultCondition,
+  type ResultConditionsConfig,
+  type ConditionCheckResult,
+  type ConditionAction,
+  checkResultConditions,
+  checkAllResults,
+  createConfig as createResultConditionsConfig,
+  EXAMPLE_CONDITIONS,
+} from "./result-conditions.js";
+
 /**
  * Main agent loop - processes messages in turns until completion
  */
@@ -99,6 +111,7 @@ export async function agentLoop(
     signal,
     stopSequences,
     stopSequenceConfig,
+    resultConditions,
   } = options;
 
   // Initialize state
@@ -146,6 +159,7 @@ export async function agentLoop(
       onToolResult,
       stopSequences,
       stopSequenceConfig,
+      resultConditions,
     };
 
     // Execute a single turn
