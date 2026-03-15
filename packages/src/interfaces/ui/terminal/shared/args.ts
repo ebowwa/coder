@@ -52,6 +52,9 @@ export interface CLIArgs {
   /** Enable worktree isolation */
   useWorktree?: boolean;
 
+  /** Custom stop sequences that will cause generation to stop */
+  stopSequences?: string[];
+
   // MCP server presets (from templates)
   /** Preset MCP servers from templates */
   presetMcpServers?: Record<string, MCPServerConfig>;
@@ -161,6 +164,9 @@ export function parseArgs(): CLIArgs {
       case "--use-worktree":
         result.useWorktree = true;
         break;
+      case "--stop-sequences":
+        result.stopSequences = (args[++i] ?? "").split(",").map(s => s.trim()).filter(Boolean);
+        break;
       case "--help":
       case "-h":
         printHelp();
@@ -220,6 +226,7 @@ Templates & Agents (Claude Code parity):
   --allowed-tools <tools>       Comma-separated list of allowed tools
   --disallowed-tools <tools>    Comma-separated list of disallowed tools
   --use-worktree                Enable git worktree isolation for safe parallel work
+  --stop-sequences <seq>        Comma-separated stop sequences (e.g., "PUSHED_GIT,COMPLETED")
 
 Query:
   -q, --query <query>           Single query to execute

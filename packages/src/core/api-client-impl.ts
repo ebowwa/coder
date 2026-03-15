@@ -245,6 +245,11 @@ export async function createMessageStream(
     }
   }
 
+  // Add stop sequences if provided
+  if (options.stopSequences && options.stopSequences.length > 0) {
+    request.stop_sequences = options.stopSequences;
+  }
+
   // Determine API endpoint (support custom base URL for GLM, etc.)
   const baseUrl = options.baseUrl || process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com";
   const apiEndpoint = apiFormat === "openai"

@@ -413,7 +413,7 @@ export class NativeTUI {
           content: [{ type: "text" as const, text: m.content }],
         })), newUserMsg];
 
-      await agentLoop(messagesForApi, {
+      const result = await agentLoop(messagesForApi, {
         apiKey: this.props.apiKey,
         model: this.state.model,
         maxTokens: this.props.maxTokens,
@@ -425,8 +425,13 @@ export class NativeTUI {
         extendedThinking: undefined,
         hookManager: this.props.hookManager,
         sessionId: this.props.sessionId,
+        stopSequences: this.props.stopSequences,
         onText: (text) => {
-          // Could update streaming text here
+          // Update streaming text - add partial response
+          this.addMessage({
+            role: "assistant",
+            content: text,
+          });
         },
         onToolUse: (tu) => {
           const preview = typeof tu.input === "object"
@@ -456,6 +461,24 @@ export class NativeTUI {
           if (tokens > 0) this.state.tokenCount = tokens;
         },
       });
+
+      // Add the final assistant response if we have one
+      const lastAssistant = result.messages.filter(m => m.role === "assistant").pop();
+      if (lastAssistant) {
+        const text = typeof lastAssistant.content === "string"
+          ? lastAssistant.content
+          : Array.isArray(lastAssistant.content)
+            ? lastAssistant.content
+                .filter((b): b is { type: "text"; text: string } => b.type === "text")
+                .map(b => b.text)
+                .join("")
+            : "";
+        if (text) {
+          // Remove any partial streaming messages and add the final one
+          this.messages = this.messages.filter(m => m.role !== "assistant" || m.timestamp < Date.now() - 1000);
+          this.addMessage({ role: "assistant", content: text });
+        }
+      }
 
     } catch (err) {
       this.addMessage({

@@ -57,6 +57,16 @@ export {
   templateManager,
 } from "../../ecosystem/presets/index.js";
 
+// Re-export stop sequences system (user-controlled, no auto-detection)
+export {
+  type StopSequenceConfig,
+  type StopSequenceContext,
+  type StopSequenceOptions,
+  getStopSequences,
+  createConfig,
+  fromMarkers,
+} from "./stop-sequences.js";
+
 /**
  * Main agent loop - processes messages in turns until completion
  */
@@ -87,6 +97,8 @@ export async function agentLoop(
     onReminder,
     onPermissionRequest,
     signal,
+    stopSequences,
+    stopSequenceConfig,
   } = options;
 
   // Initialize state
@@ -132,6 +144,8 @@ export async function agentLoop(
       permissionManager,
       onMetrics,
       onToolResult,
+      stopSequences,
+      stopSequenceConfig,
     };
 
     // Execute a single turn

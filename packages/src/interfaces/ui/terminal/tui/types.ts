@@ -60,6 +60,8 @@ export interface InteractiveTUIProps {
   initialMessages: ApiMessage[];
   workingDirectory: string;
   onExit: () => void;
+  /** Custom stop sequences that will cause the model to stop generating */
+  stopSequences?: string[];
 }
 
 /**

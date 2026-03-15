@@ -212,6 +212,7 @@ async function runInteractiveMode(
     setSessionId,
     initialMessages: messages,
     workingDirectory: process.cwd(),
+    stopSequences: args.stopSequences,
     onExit: () => {
       console.log("\n\x1b[90mGoodbye!\x1b[0m");
     },

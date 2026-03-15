@@ -18,6 +18,11 @@ import type { LoopState } from "./loop-state.js";
 import { buildAPIMessages } from "./message-builder.js";
 import { handleProactiveCompaction, handleReactiveCompaction, DEFAULT_PROACTIVE_OPTIONS, DEFAULT_REACTIVE_OPTIONS } from "./compaction.js";
 import { executeTools, type ToolExecutionOptions } from "./tool-executor.js";
+import {
+  getStopSequences,
+  type StopSequenceConfig,
+  type StopSequenceOptions,
+} from "./stop-sequences.js";
 
 /**
  * Options for turn execution
@@ -45,6 +50,10 @@ export interface TurnExecutorOptions {
   permissionManager: PermissionManager;
   onMetrics?: (metrics: import("../../schemas/index.js").QueryMetrics) => void;
   onToolResult?: (result: { id: string; result: import("../../schemas/index.js").ToolResult }) => void;
+  /** Stop sequences - user/AI decides */
+  stopSequences?: string[];
+  /** Stop sequence config with optional reason */
+  stopSequenceConfig?: StopSequenceConfig;
 }
 
 /**
@@ -88,6 +97,8 @@ export async function executeTurn(
     permissionMode,
     permissionManager,
     onToolResult,
+    stopSequences: userStopSequences,
+    stopSequenceConfig,
   } = options;
 
   // Increment turn counter
@@ -118,6 +129,14 @@ export async function executeTurn(
   // Build API messages with system reminders
   const apiMessages = buildAPIMessages(state.messages, systemPrompt, reminder);
 
+  // Get stop sequences - user-controlled, no auto-detection
+  const stopSequences = getStopSequences({
+    sequences: userStopSequences,
+    config: stopSequenceConfig,
+    includeSafety: true,
+    maxSequences: 10,
+  });
+
   // Create streaming request
   const streamResult = await createMessageStream(apiMessages, {
     apiKey,
@@ -136,6 +155,7 @@ export async function executeTurn(
     onThinking,
     onToolUse,
     signal,
+    stopSequences,
   });
 
   const { message, usage, cacheMetrics, costUSD, durationMs, ttftMs } = streamResult;

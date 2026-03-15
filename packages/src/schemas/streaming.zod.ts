@@ -35,6 +35,8 @@ export const StreamOptionsSchema = z.object({
   thinking: ThinkingConfigSchema.optional(),
   /** Extended thinking config (effort levels) */
   extendedThinking: ExtendedThinkingConfigSchema.optional(),
+  /** Custom stop sequences that will cause the model to stop generating */
+  stopSequences: z.array(z.string()).optional(),
   onToken: z.custom<(text: string) => void>().optional(),
   onThinking: z.custom<(thinking: string) => void>().optional(),
   /** Called when redacted thinking is received (data is base64) */

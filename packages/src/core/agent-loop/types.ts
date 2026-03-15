@@ -22,6 +22,10 @@ import type {
 import type { SystemReminderConfig } from "../system-reminders.js";
 import type { HookManager } from "../../ecosystem/hooks/index.js";
 import type { PermissionRequest, PermissionResult, PermissionManager } from "../permissions.js";
+import type { StopSequenceConfig, StopSequenceContext, StopSequenceOptions } from "./stop-sequences.js";
+
+// Re-export for convenience
+export type { StopSequenceConfig, StopSequenceContext, StopSequenceOptions } from "./stop-sequences.js";
 
 /**
  * Callback types for agent loop events
@@ -51,13 +55,14 @@ export interface AgentLoopOptions extends AgentLoopCallbacks {
   cacheConfig?: CacheConfig;
   thinking?: ThinkingConfig;
   extendedThinking?: ExtendedThinkingConfig;
-  extendedThinkingEnabled?: boolean;
-  extendedThinkingEffort?: "low" | "medium" | "high" | "max";
-  extendedThinkingInterleaved?: boolean;
   hookManager?: HookManager;
   sessionId?: string;
   onPermissionRequest?: (request: PermissionRequest) => Promise<PermissionResult>;
   signal?: AbortSignal;
+  /** Stop sequences - user/AI decides what to use */
+  stopSequences?: string[];
+  /** Stop sequence config with optional reason */
+  stopSequenceConfig?: StopSequenceConfig;
 }
 
 /**
@@ -111,6 +116,8 @@ export interface TurnOptions {
   onThinking?: (thinking: string) => void;
   onToolUse?: (toolUse: { id: string; name: string; input: unknown }) => void;
   onReminder?: (reminder: string) => void;
+  /** Custom stop sequences that will cause the model to stop generating */
+  stopSequences?: string[];
 }
 
 /**
