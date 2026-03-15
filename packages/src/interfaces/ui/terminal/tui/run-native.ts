@@ -17,7 +17,6 @@ import {
   renderMessage,
   renderStatusBar,
   renderSeparator,
-  type TuiStyle,
 } from "./tui-renderer.js";
 
 import { calculateContextInfo, VERSION, getModelDisplayName, formatTokenCount } from "../shared/status-line.js";
@@ -118,7 +117,12 @@ export class NativeTUI {
   private terminalWidth: number;
   private terminalHeight: number;
   private spinnerInterval: ReturnType<typeof setInterval> | null = null;
-  private isRunning = false;
+  private _isRunning = false;
+
+  /** Check if TUI is currently running */
+  get isRunning(): boolean {
+    return this._isRunning;
+  }
   private state: TUIState;
   private streamingMessageId: string | null = null;
 
@@ -163,12 +167,12 @@ export class NativeTUI {
     // Handle input
     process.stdin.on("data", (data: string) => this.handleInput(data));
 
-    this.isRunning = true;
+    this._isRunning = true;
     this.render();
   }
 
   stop(): void {
-    this.isRunning = false;
+    this._isRunning = false;
 
     if (this.spinnerInterval) {
       clearInterval(this.spinnerInterval);
@@ -538,7 +542,7 @@ export class NativeTUI {
   // ============================================
 
   private render(): void {
-    if (!this.isRunning) return;
+    if (!this._isRunning) return;
 
     const width = this.terminalWidth;
     const height = this.terminalHeight;
@@ -608,9 +612,8 @@ export class NativeTUI {
       const afterCursor = this.state.inputValue.slice(this.state.cursorPos + 1);
 
       output += beforeCursor;
-      // Cursor highlight style: Cyan background, Black foreground
-      const cursorStyle: TuiStyle = { fg: "Black", bg: "Cyan" };
-      output += Terminal.styledText(atCursor, cursorStyle);
+      // Cursor highlight: use reverse video (works with native module)
+      output += "\x1b[7m" + atCursor + "\x1b[0m";
       output += afterCursor;
     } else {
       output += Terminal.styledText("Type... (/help)", Styles.muted());
@@ -639,13 +642,29 @@ export async function runNativeTUI(
   process.on("SIGINT", exitHandler);
   process.on("SIGTERM", exitHandler);
 
+  // Keep process alive with a ref'd interval
+  // This prevents the event loop from becoming empty and triggering beforeExit
+  const keepAlive = setInterval(() => {}, 1000);
+
   await tui.start();
 
-  // Keep process alive
+  // Keep process alive until TUI is stopped
   return new Promise((resolve) => {
-    process.on("beforeExit", () => {
+    const cleanup = () => {
+      clearInterval(keepAlive);
       tui.stop();
       resolve();
-    });
+    };
+
+    process.on("beforeExit", cleanup);
+
+    // Also cleanup when the TUI itself stops
+    const checkStopped = setInterval(() => {
+      if (!tui.isRunning) {
+        clearInterval(checkStopped);
+        cleanup();
+      }
+    }, 100);
+    checkStopped.unref(); // Don't let this interval keep process alive
   });
 }

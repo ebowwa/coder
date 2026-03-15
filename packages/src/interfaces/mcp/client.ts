@@ -119,7 +119,7 @@ export class MCPClientImpl {
             capabilities: {},
             clientInfo: {
               name: "coder",
-              version: "0.1.0",
+              version: VERSION,
             },
           },
         }),
@@ -213,7 +213,7 @@ export class MCPClientImpl {
       },
       clientInfo: {
         name: "coder",
-        version: "0.1.0",
+        version: VERSION,
       },
     });
 

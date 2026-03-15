@@ -6,6 +6,9 @@
 // Types (from Zod schemas - single source of truth)
 export * from "./schemas/index.js";
 
+// Version
+export { VERSION, BUILD_TIME, getVersion, getBuildTime } from "./core/version.js";
+
 // Core
 export {
   createMessageStream,
