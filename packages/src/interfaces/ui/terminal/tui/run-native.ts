@@ -406,7 +406,7 @@ export class NativeTUI {
       this.addMessage({
         role: "system",
         content: `Warning: Invalid result conditions: ${err instanceof Error ? err.message : String(err)}`,
-        type: "error",
+        isError: true,
       });
       return undefined;
     }
@@ -544,9 +544,8 @@ export class NativeTUI {
     const height = this.terminalHeight;
     const viewportHeight = height - 4;
 
-    // Clear and move to top
-    process.stdout.write(Terminal.clearScreen());
-    process.stdout.write(Terminal.moveCursor(1, 1));
+    // Build output buffer (use process.stdout.write consistently - console.log escapes ANSI)
+    let output = Terminal.clearScreen() + Terminal.moveCursor(1, 1);
 
     // Get visible messages
     const visibleMessages = this.messages.slice(
@@ -557,16 +556,16 @@ export class NativeTUI {
     // Render messages
     for (const msg of visibleMessages) {
       if (msg.type === "tool_call") {
-        console.log(`\x1b[33m▶ ${msg.toolName}\x1b[0m`);
+        output += `\x1b[33m▶ ${msg.toolName}\x1b[0m\n`;
         if (msg.content) {
-          console.log(`\x1b[90m  ${msg.content}\x1b[0m`);
+          output += `\x1b[90m  ${msg.content}\x1b[0m\n`;
         }
       } else if (msg.type === "tool_result") {
         const icon = msg.isError ? "✗" : "✓";
         const color = msg.isError ? "\x1b[31m" : "\x1b[32m";
-        console.log(`${color}${icon} ${msg.toolName}\x1b[0m`);
+        output += `${color}${icon} ${msg.toolName}\x1b[0m\n`;
         if (msg.content) {
-          console.log(`\x1b[90m  ${msg.content}\x1b[0m`);
+          output += `\x1b[90m  ${msg.content}\x1b[0m\n`;
         }
       } else {
         // Use native renderMessage with full width for proper wrapping
@@ -575,18 +574,18 @@ export class NativeTUI {
           content: msg.content,
           width,
         });
-        console.log(rendered);
+        output += rendered + "\n";
       }
     }
 
     // Loading indicator
     if (this.state.isLoading) {
-      console.log(`\x1b[36m${SPINNER_FRAMES[this.state.spinnerFrame]} Processing...\x1b[0m`);
+      output += `\x1b[36m${SPINNER_FRAMES[this.state.spinnerFrame]} Processing...\x1b[0m\n`;
     }
 
     // Empty state
     if (visibleMessages.length === 0 && !this.state.isLoading) {
-      console.log(`\x1b[90mWelcome to Coder v${VERSION} (Native TUI). Type /help for commands.\x1b[0m`);
+      output += `\x1b[90mWelcome to Coder v${VERSION} (Native TUI). Type /help for commands.\x1b[0m\n`;
     }
 
     // Status bar
@@ -598,22 +597,25 @@ export class NativeTUI {
 
     // Native status bar
     const statusBarLine = renderStatusBar(statusLeft, statusRight, width);
-    console.log(statusBarLine);
+    output += statusBarLine + "\n";
 
     // Input line
-    process.stdout.write("\x1b[1;36mYou:\x1b[0m ");
+    output += "\x1b[1;36mYou:\x1b[0m ";
 
     if (this.state.inputValue.length > 0) {
       const beforeCursor = this.state.inputValue.slice(0, this.state.cursorPos);
       const atCursor = this.state.inputValue[this.state.cursorPos] || " ";
       const afterCursor = this.state.inputValue.slice(this.state.cursorPos + 1);
 
-      process.stdout.write(beforeCursor);
-      process.stdout.write("\x1b[46m\x1b[30m" + atCursor + "\x1b[0m");
-      process.stdout.write(afterCursor);
+      output += beforeCursor;
+      output += "\x1b[46m\x1b[30m" + atCursor + "\x1b[0m";
+      output += afterCursor;
     } else {
-      process.stdout.write("\x1b[90mType... (/help)\x1b[0m");
+      output += "\x1b[90mType... (/help)\x1b[0m";
     }
+
+    // Write all output at once
+    process.stdout.write(output);
   }
 }
 
