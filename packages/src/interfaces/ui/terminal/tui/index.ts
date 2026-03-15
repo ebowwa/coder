@@ -10,29 +10,7 @@ export type {
 } from "./types.js";
 
 // Console utilities
-export {
-  // Core suppression
-  suppressConsole,
-  restoreConsole,
-  withSuppressedConsole,
-  withSuppressedConsoleSync,
-  // State
-  isConsoleSuppressed,
-  getSuppressOptions,
-  // Buffering
-  getBufferedMessages,
-  getBufferedByMethod,
-  clearBuffer,
-  replayBuffer,
-  // Convenience
-  suppressAllConsole,
-  suppressVerboseConsole,
-  suppressAndBuffer,
-  // Types
-  type ConsoleMethod,
-  type BufferedMessage,
-  type SuppressOptions,
-} from "./console.js";
+export { suppressConsole, restoreConsole, withSuppressedConsole } from "./console.js";
 
 // Spinner utilities
 export {
@@ -56,5 +34,13 @@ export {
   type InteractiveTUIHandle,
 } from "./InteractiveTUI.js";
 
-// Runner
-export { runInteractiveTUI } from "./run.js";
+// Scrollable TUI component
+export {
+  default as ScrollableTUI,
+  type ScrollableTUIProps,
+} from "./ScrollableTUI.js";
+
+// Runners
+export { runInteractiveTUI, runScrollableTUI } from "./run.js";
+export { runInkTUI } from "./run-ink.js";
+export { runNativeTUI, NativeTUI } from "./run-native.js";

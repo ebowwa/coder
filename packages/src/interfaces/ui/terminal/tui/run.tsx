@@ -1,31 +1,26 @@
 /**
  * TUI Entry Point
- * Renders and runs the simplified TUI
+ * Renders and runs the TUI
  *
- * IMPORTANT: Ink manages terminal state (raw mode, stdin).
+ * Three modes available:
+ * - native (default): Full Rust TUI rendering (best performance)
+ * - scrollable: Ink with scrollable viewport
+ * - ink: Pure Ink rendering (no scrollback, but reactive UI)
  *
- * Features:
- * - Console suppression to prevent TUI corruption
- * - Optional buffering for debugging (set DEBUG_TUI_BUFFER=true)
- * - Optional file logging (set DEBUG_TUI_LOG=/path/to/file)
+ * Set TUI_MODE=native|scrollable|ink to switch modes.
  */
 
-import React from "react";
-import { render } from "ink";
-import InteractiveTUI, { type InteractiveTUIProps } from "./InteractiveTUI.js";
-import {
-  suppressConsole,
-  restoreConsole,
-  replayBuffer,
-  type SuppressOptions,
-} from "./console.js";
+import type { InteractiveTUIProps } from "./InteractiveTUI.js";
+import type { SuppressOptions } from "./console.js";
+import { runScrollableTUI } from "./run-scrollable.js";
 
-// Debug options from environment
-const DEBUG_TUI_BUFFER = process.env.DEBUG_TUI_BUFFER === "true";
-const DEBUG_TUI_LOG = process.env.DEBUG_TUI_LOG;
+// Re-export the scrollable runner
+export { runScrollableTUI };
 
 /**
  * Run the interactive TUI
+ *
+ * Uses native mode by default for best performance.
  *
  * @param options - TUI configuration
  * @param suppressOptions - Console suppression options
@@ -34,39 +29,22 @@ export async function runInteractiveTUI(
   options: InteractiveTUIProps,
   suppressOptions?: SuppressOptions
 ): Promise<void> {
-  // Build suppression options
-  const opts: SuppressOptions = {
-    // Buffer if explicitly requested or if we need to replay
-    buffer: DEBUG_TUI_BUFFER || suppressOptions?.buffer || false,
-    // File logging if specified
-    logFile: DEBUG_TUI_LOG || suppressOptions?.logFile,
-    // Override methods if specified
-    ...suppressOptions,
-  };
+  // Use native mode by default for best performance
+  // Set TUI_MODE=scrollable for Ink-based scrolling
+  // Set TUI_MODE=ink for pure Ink mode (no scrollback)
+  const mode = process.env.TUI_MODE || "native";
 
-  // Suppress console output to prevent TUI corruption
-  suppressConsole(opts);
-
-  try {
-    const { unmount, waitUntilExit } = render(
-      <InteractiveTUI {...options} />,
-      {
-        exitOnCtrlC: false,
-        stdin: process.stdin,
-        stdout: process.stdout,
-        stderr: process.stderr,
-      }
-    );
-
-    await waitUntilExit();
-    unmount();
-  } finally {
-    // Restore console output
-    restoreConsole();
-
-    // If buffering was enabled, replay messages for debugging
-    if (opts.buffer) {
-      replayBuffer();
-    }
+  if (mode === "native") {
+    // Full native Rust TUI rendering
+    const { runNativeTUI } = await import("./run-native.js");
+    return runNativeTUI(options);
   }
+
+  if (mode === "ink") {
+    // Dynamic import to avoid circular deps
+    const { runInkTUI } = await import("./run-ink.js");
+    return runInkTUI(options, suppressOptions);
+  }
+
+  return runScrollableTUI(options, suppressOptions);
 }
