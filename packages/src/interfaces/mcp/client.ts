@@ -14,6 +14,7 @@ import type {
 } from "../../schemas/index.js";
 import { spawn, type ChildProcess } from "child_process";
 import WebSocket from "ws";
+import { VERSION } from "../../core/version.js";
 
 export interface MCPClientOptions {
   name: string;

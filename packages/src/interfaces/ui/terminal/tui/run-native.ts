@@ -556,16 +556,16 @@ export class NativeTUI {
     // Render messages
     for (const msg of visibleMessages) {
       if (msg.type === "tool_call") {
-        output += `\x1b[33m▶ ${msg.toolName}\x1b[0m\n`;
+        output += Terminal.styledText(`▶ ${msg.toolName}`, Styles.tool()) + "\n";
         if (msg.content) {
-          output += `\x1b[90m  ${msg.content}\x1b[0m\n`;
+          output += Terminal.styledText(`  ${msg.content}`, Styles.muted()) + "\n";
         }
       } else if (msg.type === "tool_result") {
         const icon = msg.isError ? "✗" : "✓";
-        const color = msg.isError ? "\x1b[31m" : "\x1b[32m";
-        output += `${color}${icon} ${msg.toolName}\x1b[0m\n`;
+        const style = msg.isError ? Styles.error() : Styles.success();
+        output += Terminal.styledText(`${icon} ${msg.toolName}`, style) + "\n";
         if (msg.content) {
-          output += `\x1b[90m  ${msg.content}\x1b[0m\n`;
+          output += Terminal.styledText(`  ${msg.content}`, Styles.muted()) + "\n";
         }
       } else {
         // Use native renderMessage with full width for proper wrapping
@@ -580,12 +580,12 @@ export class NativeTUI {
 
     // Loading indicator
     if (this.state.isLoading) {
-      output += `\x1b[36m${SPINNER_FRAMES[this.state.spinnerFrame]} Processing...\x1b[0m\n`;
+      output += Terminal.styledText(`${SPINNER_FRAMES[this.state.spinnerFrame]} Processing...`, Styles.highlight()) + "\n";
     }
 
     // Empty state
     if (visibleMessages.length === 0 && !this.state.isLoading) {
-      output += `\x1b[90mWelcome to Coder v${VERSION} (Native TUI). Type /help for commands.\x1b[0m\n`;
+      output += Terminal.styledText(`Welcome to Coder v${VERSION} (Native TUI). Type /help for commands.`, Styles.muted()) + "\n";
     }
 
     // Status bar
@@ -600,7 +600,7 @@ export class NativeTUI {
     output += statusBarLine + "\n";
 
     // Input line
-    output += "\x1b[1;36mYou:\x1b[0m ";
+    output += Terminal.styledText("You: ", Styles.user());
 
     if (this.state.inputValue.length > 0) {
       const beforeCursor = this.state.inputValue.slice(0, this.state.cursorPos);
@@ -608,10 +608,12 @@ export class NativeTUI {
       const afterCursor = this.state.inputValue.slice(this.state.cursorPos + 1);
 
       output += beforeCursor;
-      output += "\x1b[46m\x1b[30m" + atCursor + "\x1b[0m";
+      // Cursor highlight style: Cyan background, Black foreground
+      const cursorStyle: TuiStyle = { fg: "Black", bg: "Cyan" };
+      output += Terminal.styledText(atCursor, cursorStyle);
       output += afterCursor;
     } else {
-      output += "\x1b[90mType... (/help)\x1b[0m";
+      output += Terminal.styledText("Type... (/help)", Styles.muted());
     }
 
     // Write all output at once

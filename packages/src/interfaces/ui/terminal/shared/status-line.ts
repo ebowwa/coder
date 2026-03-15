@@ -15,13 +15,10 @@ import {
   getModelDisplayName as getModelDisplayNameBase,
   MODEL_DISPLAY_NAMES,
 } from "../../../../core/models.js";
+import { VERSION, BUILD_TIME } from "../../../../core/version.js";
 
-// ============================================
-// VERSION INFO
-// ============================================
-
-export const VERSION = "0.2.0";
-export const BUILD_TIME = new Date().toISOString();
+// Re-export VERSION and BUILD_TIME for consumers
+export { VERSION, BUILD_TIME };
 
 // ============================================
 // TYPES
