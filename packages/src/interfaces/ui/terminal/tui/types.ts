@@ -62,6 +62,10 @@ export interface InteractiveTUIProps {
   onExit: () => void;
   /** Custom stop sequences that will cause the model to stop generating */
   stopSequences?: string[];
+  /** Result conditions as JSON string (parsed at runtime) */
+  resultConditions?: string;
+  /** Stop loop on unhandled tool errors */
+  stopOnUnhandledError?: boolean;
 }
 
 /**

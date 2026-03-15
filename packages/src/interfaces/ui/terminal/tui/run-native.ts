@@ -23,7 +23,7 @@ import {
 import { calculateContextInfo, VERSION, getModelDisplayName, formatTokenCount } from "../shared/status-line.js";
 import { formatCost } from "../../../../core/agent-loop/formatters.js";
 import { spinnerFrames } from "./spinner.js";
-import { agentLoop } from "../../../../core/agent-loop.js";
+import { agentLoop, createResultConditionsConfig, type ResultConditionsConfig } from "../../../../core/agent-loop.js";
 import { getGitStatus } from "../../../../core/git-status.js";
 
 // ============================================
@@ -86,8 +86,9 @@ function estimateMessagesTokens(messages: ApiMessage[]): number {
 }
 
 function truncateContent(content: string, maxLength: number): string {
-  if (content.length <= maxLength) return content;
-  return content.slice(0, maxLength - 3) + "...";
+  // For TUI, we want wrapping not truncation
+  // Return content as-is and let the native renderer handle wrapping
+  return content;
 }
 
 // ============================================
@@ -119,6 +120,7 @@ export class NativeTUI {
   private spinnerInterval: ReturnType<typeof setInterval> | null = null;
   private isRunning = false;
   private state: TUIState;
+  private streamingMessageId: string | null = null;
 
   constructor(props: InteractiveTUIProps) {
     this.props = props;
@@ -163,12 +165,6 @@ export class NativeTUI {
 
     this.isRunning = true;
     this.render();
-
-    // Welcome message
-    this.addMessage({
-      role: "system",
-      content: `Welcome to Coder v${VERSION} (Native TUI). Type /help for commands.`,
-    });
   }
 
   stop(): void {
@@ -396,6 +392,26 @@ export class NativeTUI {
   // MESSAGE PROCESSING
   // ============================================
 
+  /**
+   * Parse result conditions from JSON string
+   */
+  private parseResultConditions(): ResultConditionsConfig | undefined {
+    if (!this.props.resultConditions) return undefined;
+
+    try {
+      return createResultConditionsConfig(this.props.resultConditions, {
+        stopOnUnhandledError: this.props.stopOnUnhandledError,
+      });
+    } catch (err) {
+      this.addMessage({
+        role: "system",
+        content: `Warning: Invalid result conditions: ${err instanceof Error ? err.message : String(err)}`,
+        type: "error",
+      });
+      return undefined;
+    }
+  }
+
   private async processMessage(input: string): Promise<void> {
     this.addMessage({ role: "user", content: input });
     this.setLoading(true);
@@ -426,12 +442,30 @@ export class NativeTUI {
         hookManager: this.props.hookManager,
         sessionId: this.props.sessionId,
         stopSequences: this.props.stopSequences,
+        resultConditions: this.parseResultConditions(),
         onText: (text) => {
-          // Update streaming text - add partial response
-          this.addMessage({
+          // Update or create streaming message
+          if (this.streamingMessageId) {
+            const msg = this.messages.find(m => m.id === this.streamingMessageId);
+            if (msg) {
+              msg.content = text;
+              this.render();
+              return;
+            }
+          }
+          // Create new streaming message
+          const id = genId();
+          this.streamingMessageId = id;
+          this.messages.push({
+            id,
             role: "assistant",
             content: text,
+            timestamp: Date.now(),
           });
+          const viewportHeight = this.terminalHeight - 4;
+          const maxOffset = Math.max(0, this.messages.length - viewportHeight);
+          this.state.scrollOffset = maxOffset;
+          this.render();
         },
         onToolUse: (tu) => {
           const preview = typeof tu.input === "object"
@@ -474,9 +508,18 @@ export class NativeTUI {
                 .join("")
             : "";
         if (text) {
-          // Remove any partial streaming messages and add the final one
-          this.messages = this.messages.filter(m => m.role !== "assistant" || m.timestamp < Date.now() - 1000);
-          this.addMessage({ role: "assistant", content: text });
+          // Update the streaming message with final content
+          if (this.streamingMessageId) {
+            const msg = this.messages.find(m => m.id === this.streamingMessageId);
+            if (msg) {
+              msg.content = text;
+            }
+            this.streamingMessageId = null;
+          } else {
+            // No streaming message, add new one
+            this.addMessage({ role: "assistant", content: text });
+          }
+          this.render();
         }
       }
 
@@ -516,20 +559,20 @@ export class NativeTUI {
       if (msg.type === "tool_call") {
         console.log(`\x1b[33m▶ ${msg.toolName}\x1b[0m`);
         if (msg.content) {
-          console.log(`\x1b[90m  ${truncateContent(msg.content, width - 4)}\x1b[0m`);
+          console.log(`\x1b[90m  ${msg.content}\x1b[0m`);
         }
       } else if (msg.type === "tool_result") {
         const icon = msg.isError ? "✗" : "✓";
         const color = msg.isError ? "\x1b[31m" : "\x1b[32m";
         console.log(`${color}${icon} ${msg.toolName}\x1b[0m`);
         if (msg.content) {
-          console.log(`\x1b[90m  ${truncateContent(msg.content, width - 4)}\x1b[0m`);
+          console.log(`\x1b[90m  ${msg.content}\x1b[0m`);
         }
       } else {
-        // Use native renderMessage
+        // Use native renderMessage with full width for proper wrapping
         const rendered = renderMessage({
           role: msg.role as "user" | "assistant" | "system" | "tool" | "error",
-          content: truncateContent(msg.content, width - 20),
+          content: msg.content,
           width,
         });
         console.log(rendered);

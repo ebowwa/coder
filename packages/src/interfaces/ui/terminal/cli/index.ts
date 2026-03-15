@@ -213,6 +213,8 @@ async function runInteractiveMode(
     initialMessages: messages,
     workingDirectory: process.cwd(),
     stopSequences: args.stopSequences,
+    resultConditions: args.resultConditions,
+    stopOnUnhandledError: args.stopOnUnhandledError,
     onExit: () => {
       console.log("\n\x1b[90mGoodbye!\x1b[0m");
     },

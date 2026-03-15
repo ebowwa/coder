@@ -1,0 +1,44 @@
+$ cd packages/rust && cargo build --release --target-dir ./target && cd ../.. && bun run build:napi-artifacts
+$ cd packages/rust && cargo build --release --target-dir ./target && cd ../.. && bun run build:napi-artifacts
+   Compiling claude-code-native v0.1.0 (/Users/ebowwa/Desktop/codespaces/packages/src/coder/packages/rust)
+   Compiling claude-code-native v0.1.0 (/Users/ebowwa/Desktop/codespaces/packages/src/coder/packages/rust)
+error[E0507]: cannot move out of `prefix_style`, a captured variable in an `FnMut` closure
+  --> src/tui/buffer.rs:68:70
+   |
+59 | pub fn tui_render_message(prefix: String, content: String, prefix_style: Option<TuiStyle>, width: Option<u32>) -> String {
+   |                                                            ------------ captured outer variable
+...
+65 |         .map(|line| {
+   |              ------ captured by this `FnMut` closure
+...
+68 |                     TuiTextSegment { content: prefix.clone(), style: prefix_style },
+   |                                                                      ^^^^^^^^^^^^ move occurs because `prefix_style` has type `std::option::Option<TuiStyle>`, which does not implement the `Copy` trait
+   |
+help: consider cloning the value if the performance cost is acceptable
+   |
+68 |                     TuiTextSegment { content: prefix.clone(), style: prefix_style.clone() },
+   |                                                                                  ++++++++
+
+error[E0507]: cannot move out of `prefix_style`, a captured variable in an `FnMut` closure
+  --> src/tui/buffer.rs:68:70
+   |
+59 | pub fn tui_render_message(prefix: String, content: String, prefix_style: Option<TuiStyle>, width: Option<u32>) -> String {
+   |                                                            ------------ captured outer variable
+...
+65 |         .map(|line| {
+   |              ------ captured by this `FnMut` closure
+...
+68 |                     TuiTextSegment { content: prefix.clone(), style: prefix_style },
+   |                                                                      ^^^^^^^^^^^^ move occurs because `prefix_style` has type `std::option::Option<TuiStyle>`, which does not implement the `Copy` trait
+   |
+help: consider cloning the value if the performance cost is acceptable
+   |
+68 |                     TuiTextSegment { content: prefix.clone(), style: prefix_style.clone() },
+   |                                                                                  ++++++++
+
+For more information about this error, try `rustc --explain E0507`.
+For more information about this error, try `rustc --explain E0507`.
+error: could not compile `claude-code-native` (lib) due to 1 previous error
+error: could not compile `claude-code-native` (lib) due to 1 previous error
+error: script "build:native" exited with code 101
+error: script "build:native" exited with code 101

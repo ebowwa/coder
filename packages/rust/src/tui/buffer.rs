@@ -36,7 +36,6 @@ pub fn tui_render_line(line: TuiTextLine, width: Option<u32>) -> String {
 #[napi]
 pub fn tui_render_block(block: TuiTextBlock, width: Option<u32>) -> String {
     let width = width.unwrap_or(80) as u16;
-    let height = block.lines.len() as u16;
 
     // Convert to ratatui Lines
     let lines: Vec<Line> = block.lines.iter().map(|line| {
@@ -47,23 +46,50 @@ pub fn tui_render_block(block: TuiTextBlock, width: Option<u32>) -> String {
         Line::from(spans)
     }).collect();
 
-    // Create buffer and render
-    let area = Rect::new(0, 0, width, height.max(1));
+    // Calculate required height by estimating line count after wrapping
+    // Each line can wrap to multiple lines based on width
+    let mut estimated_height = 0u16;
+    for line in &lines {
+        let line_width: usize = line.spans.iter().map(|s| s.content.chars().count()).sum();
+        let wrapped_lines = if width > 0 {
+            ((line_width as u16 + width - 1) / width).max(1)
+        } else {
+            1
+        };
+        estimated_height += wrapped_lines;
+    }
+
+    // Create paragraph with word wrap
+    let paragraph = Paragraph::new(lines).wrap(ratatui::widgets::Wrap { trim: false });
+
+    // Create buffer with estimated height (add buffer for safety)
+    let height = estimated_height.max(block.lines.len() as u16).max(1);
+    let area = Rect::new(0, 0, width, height);
     let mut buffer = Buffer::empty(area);
-    Paragraph::new(lines).render(area, &mut buffer);
+    paragraph.render(area, &mut buffer);
     buffer_to_ansi(&buffer)
 }
 
 /// Render a simple message with prefix (like "You: hello")
 #[napi]
 pub fn tui_render_message(prefix: String, content: String, prefix_style: Option<TuiStyle>, width: Option<u32>) -> String {
-    let line = TuiTextLine {
-        segments: vec![
-            TuiTextSegment { content: prefix, style: prefix_style },
-            TuiTextSegment { content, style: None },
-        ],
-    };
-    tui_render_line(line, width)
+    // Handle multi-line content by using block rendering
+    let width = width.unwrap_or(80) as u16;
+
+ // Split content into lines for proper wrapping
+    let lines: Vec<TuiTextLine> = content.lines()
+        .map(|line| {
+            TuiTextLine {
+                segments: vec![
+                    TuiTextSegment { content: prefix.clone(), style: prefix_style.as_ref().cloned() },
+                    TuiTextSegment { content: line.to_string(), style: None },
+                ],
+            }
+        })
+        .collect();
+
+    let block = TuiTextBlock { lines };
+    tui_render_block(block, Some(width as u32))
 }
 
 /// Render a status bar line
@@ -206,8 +232,8 @@ fn convert_color(color: TuiColor, rgb: Option<&TuiRgb>, index: Option<u8>) -> Co
 fn buffer_to_ansi(buffer: &Buffer) -> String {
     let mut output = String::new();
     let area = buffer.area;
-
     let mut current_style: Option<Style> = None;
+    let mut current_symbols = String::new();
 
     for y in 0..area.height {
         // Move to start of line
@@ -218,19 +244,31 @@ fn buffer_to_ansi(buffer: &Buffer) -> String {
         for x in 0..area.width {
             let cell = &buffer[(x, y)];
             let cell_style = cell.style();
+            let symbol = cell.symbol();
 
-            // Update style if changed
+            // If style changed, flush accumulated symbols and update style
             if current_style != Some(cell_style) {
+                // Flush any accumulated symbols first
+                if !current_symbols.is_empty() {
+                    output.push_str(&current_symbols);
+                    current_symbols.clear();
+                }
+                // Then update style
                 output.push_str(&style_to_ansi(cell_style));
                 current_style = Some(cell_style);
             }
 
-            // Write symbol (use space if empty)
-            if cell.symbol().is_empty() {
-                output.push(' ');
+            // Accumulate symbols (use space if empty)
+            if symbol.is_empty() {
+                current_symbols.push(' ');
             } else {
-                output.push_str(cell.symbol());
+                current_symbols.push_str(symbol);
             }
+        }
+
+        // Flush remaining symbols
+        if !current_symbols.is_empty() {
+            output.push_str(&current_symbols);
         }
 
         // Reset style at end of line

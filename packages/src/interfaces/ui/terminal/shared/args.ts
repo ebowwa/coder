@@ -54,6 +54,10 @@ export interface CLIArgs {
 
   /** Custom stop sequences that will cause generation to stop */
   stopSequences?: string[];
+  /** Result conditions as JSON string or path to JSON file */
+  resultConditions?: string;
+  /** Stop on unhandled tool errors */
+  stopOnUnhandledError?: boolean;
 
   // MCP server presets (from templates)
   /** Preset MCP servers from templates */
@@ -167,6 +171,12 @@ export function parseArgs(): CLIArgs {
       case "--stop-sequences":
         result.stopSequences = (args[++i] ?? "").split(",").map(s => s.trim()).filter(Boolean);
         break;
+      case "--result-conditions":
+        result.resultConditions = args[++i];
+        break;
+      case "--stop-on-error":
+        result.stopOnUnhandledError = true;
+        break;
       case "--help":
       case "-h":
         printHelp();
@@ -227,6 +237,10 @@ Templates & Agents (Claude Code parity):
   --disallowed-tools <tools>    Comma-separated list of disallowed tools
   --use-worktree                Enable git worktree isolation for safe parallel work
   --stop-sequences <seq>        Comma-separated stop sequences (e.g., "PUSHED_GIT,COMPLETED")
+  --result-conditions <json>    Result conditions as JSON or JSON file path
+                                Single: '{"id":"x","action":"stop_success","tools":["Bash"],"successPattern":"pushed"}'
+                                Multiple: '[{"id":"push","action":"stop_success","successPattern":"pushed"}]'
+  --stop-on-error               Stop loop on unhandled tool errors
 
 Query:
   -q, --query <query>           Single query to execute

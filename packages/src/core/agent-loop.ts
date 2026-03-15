@@ -10,9 +10,22 @@
  * - compaction.ts - Context compaction
  * - message-builder.ts - API message construction
  * - formatters.ts - Display utilities
+ * - result-conditions.ts - Verified loop control (Ralph Loop pattern)
  */
 
 // Re-export everything from the modular structure
 export { agentLoop } from "./agent-loop/index.js";
 export type { AgentLoopOptions, AgentLoopResult } from "./agent-loop/types.js";
 export { formatCost, formatMetrics, formatCostBrief, formatCacheMetrics } from "./agent-loop/formatters.js";
+
+// Re-export result conditions system (verified loop control - fully dynamic)
+export {
+  type ResultCondition,
+  type ResultConditionsConfig,
+  type ConditionCheckResult,
+  type ConditionAction,
+  checkResultConditions,
+  checkAllResults,
+  createConfig as createResultConditionsConfig,
+  EXAMPLE_CONDITIONS,
+} from "./agent-loop/result-conditions.js";

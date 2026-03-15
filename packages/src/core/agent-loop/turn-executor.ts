@@ -23,6 +23,16 @@ import {
   type StopSequenceConfig,
   type StopSequenceOptions,
 } from "./stop-sequences.js";
+import {
+  checkAllResults,
+  type ResultConditionsConfig,
+  type ResultCondition,
+} from "./result-conditions.js";
+import {
+  checkAllResults,
+  type ResultConditionsConfig,
+  type ResultCondition,
+} from "./result-conditions.js";
 
 /**
  * Options for turn execution
@@ -54,6 +64,8 @@ export interface TurnExecutorOptions {
   stopSequences?: string[];
   /** Stop sequence config with optional reason */
   stopSequenceConfig?: StopSequenceConfig;
+  /** Result-based loop control - checks actual tool results */
+  resultConditions?: ResultConditionsConfig;
 }
 
 /**
@@ -231,6 +243,39 @@ export async function executeTurn(
   };
 
   const toolResults = await executeTools(toolUseBlocks, toolExecutionOptions);
+
+  // Check result conditions if configured (verified loop control)
+  if (options.resultConditions) {
+    const resultsToCheck = toolResults.map((tr) => ({
+      toolName: toolUseBlocks.find((b) => b.id === tr.tool_use_id)?.name ?? "unknown",
+      result: tr,
+    }));
+
+    const conditionResult = checkAllResults(
+      resultsToCheck,
+      options.resultConditions,
+      state.retryCount ?? 0
+    );
+
+    // Update retry count if needed
+    if (conditionResult.retryIncrement) {
+      state.retryCount = (state.retryCount ?? 0) + conditionResult.retryIncrement;
+    }
+
+    // If condition says stop, respect it
+    if (!conditionResult.shouldContinue) {
+      state.addUserMessage(toolResults);
+      console.log(
+        `[ResultCondition] Loop stopped: ${conditionResult.stopReason}` +
+          (conditionResult.condition ? ` (${conditionResult.condition.id})` : "")
+      );
+      return {
+        shouldContinue: false,
+        stopReason: "end_turn",
+        metrics: queryMetrics,
+      };
+    }
+  }
 
   // Add tool results as user message
   state.addUserMessage(toolResults);
