@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ebowwa.github.io/coder/schemas/SlashCommand.json",
+  "$ref": "#/definitions/SlashCommand",
+  "definitions": {
+    "SlashCommand": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^\\/"
+        },
+        "description": {
+          "type": "string"
+        },
+        "skill": {
+          "type": "boolean"
+        },
+        "aliases": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "permissions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "hidden": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "description"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "title": "SlashCommand Schema"
+}

@@ -2,7 +2,11 @@
  * UI Components for Coder CLI
  */
 
-// Spinner
+// ============================================
+// SPINNER
+// ============================================
+
+// Spinner (main implementation)
 export {
   Spinner,
   getSpinner,
@@ -18,6 +22,19 @@ export {
   type SpinnerState,
 } from "./spinner.js";
 
+// Spinner frames from TUI
+export {
+  spinnerFrames,
+  dotSpinnerFrames,
+  asciiSpinnerFrames,
+  arrowSpinnerFrames,
+  simpleDotFrames,
+} from "./terminal/tui/spinner.js";
+
+// ============================================
+// LOADING STATE
+// ============================================
+
 // Loading State (from shared)
 export {
   LoadingState,
@@ -31,6 +48,10 @@ export {
   type LoadingStateData,
   type LoadingStateEvents,
 } from "./terminal/shared/loading-state.js";
+
+// ============================================
+// STATUS LINE
+// ============================================
 
 // Status Line (from shared)
 export {
@@ -52,6 +73,80 @@ export {
   type StatusLineOptions,
   type ContextInfo,
 } from "./terminal/shared/status-line.js";
+
+// ============================================
+// UTILITIES
+// ============================================
+
+export {
+  genId,
+  resetMessageId,
+} from "./utils/id.js";
+
+export {
+  estimateTokens,
+  estimateMessagesTokens,
+} from "./utils/tokens.js";
+
+export {
+  apiToText,
+  formatElapsedTime,
+  formatLoadingMessage,
+  formatBytes,
+} from "./utils/format.js";
+
+// ============================================
+// COMPONENTS
+// ============================================
+
+export {
+  ToolDisplay,
+  MessageList,
+  InputField,
+  useInputWithHistory,
+} from "./components/index.js";
+
+// ============================================
+// NATIVE TUI RENDERER
+// ============================================
+
+// Native TUI rendering bridge (Rust-backed)
+export {
+  // Colors
+  Colors,
+  // Styles
+  Styles,
+  StyleBuilder,
+  // Text
+  Text,
+  // Borders & Padding
+  Borders,
+  Padding,
+  // Drawing
+  Draw,
+  // Rendering
+  Render,
+  // Terminal Control
+  Terminal,
+  // High-level functions
+  renderMessage,
+  renderStatusBar,
+  renderSeparator,
+  styledLine,
+  // Screen manager
+  TuiScreen,
+  // Types
+  type TuiStyle,
+  type TuiColor,
+  type TuiRgb,
+  type TuiModifiers,
+  type TuiTextSegment,
+  type TuiTextLine,
+  type TuiTextBlock,
+  type TuiBorders,
+  type TuiPadding,
+  type MessageOptions,
+} from "./terminal/tui/tui-renderer.js";
 
 // ============================================
 // PROGRESS CALLBACK TYPES
@@ -78,62 +173,12 @@ export type ProgressCallback = (update: ProgressUpdate) => void;
  */
 export function createProgressCallback(
   toolName: string,
-  onProgress?: (message: string) => void
-): ProgressCallback {
+  onProgress?: ((message: string) => void) | undefined
+): ProgressCallback | undefined {
   return (update: ProgressUpdate) => {
     if (onProgress) {
       const message = update.message || `${update.toolName}: ${update.status}`;
       onProgress(message);
     }
   };
-}
-
-// ============================================
-// UTILITY FUNCTIONS
-// ============================================
-
-/**
- * Format elapsed time for display
- */
-export function formatElapsedTime(ms: number): string {
-  if (ms < 1000) {
-    return `${ms}ms`;
-  }
-
-  const seconds = Math.floor(ms / 1000);
-  if (seconds < 60) {
-    return `${seconds}s`;
-  }
-
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-
-  if (minutes < 60) {
-    return `${minutes}m${remainingSeconds}s`;
-  }
-
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-  return `${hours}h${remainingMinutes}m`;
-}
-
-/**
- * Format a loading message with optional phase
- */
-export function formatLoadingMessage(
-  phase: string,
-  message?: string,
-  elapsedTime?: number
-): string {
-  let result = phase;
-
-  if (message) {
-    result = `${result}: ${message}`;
-  }
-
-  if (elapsedTime !== undefined && elapsedTime > 0) {
-    result = `${result} [${formatElapsedTime(elapsedTime)}]`;
-  }
-
-  return result;
 }

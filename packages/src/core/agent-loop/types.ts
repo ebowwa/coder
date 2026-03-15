@@ -1,10 +1,11 @@
 /**
- * Agent Loop Types - All type definitions for the agent loop system
+ * Agent Loop Types - Extended types for agent loop system
+ * Base types are from schemas, extended with runtime-only types
  */
 
+// Import types used in interfaces
 import type {
   Message,
-  StopReason,
   ToolDefinition,
   ToolResult,
   QueryMetrics,
@@ -14,7 +15,10 @@ import type {
   CacheMetrics,
   ThinkingConfig,
   ExtendedThinkingConfig,
-} from "../../types/index.js";
+  ToolUseBlock,
+  APIResponse,
+  UsageMetrics,
+} from "../../schemas/index.js";
 import type { SystemReminderConfig } from "../system-reminders.js";
 import type { HookManager } from "../../ecosystem/hooks/index.js";
 import type { PermissionRequest, PermissionResult, PermissionManager } from "../permissions.js";
@@ -45,23 +49,14 @@ export interface AgentLoopOptions extends AgentLoopCallbacks {
   gitStatus?: GitStatus | null;
   reminderConfig?: Partial<SystemReminderConfig>;
   cacheConfig?: CacheConfig;
-  /** Legacy thinking config (budget_tokens) */
   thinking?: ThinkingConfig;
-  /** Extended thinking config with effort levels */
   extendedThinking?: ExtendedThinkingConfig;
-  /** Enable extended thinking mode */
   extendedThinkingEnabled?: boolean;
-  /** Effort level for extended thinking */
   extendedThinkingEffort?: "low" | "medium" | "high" | "max";
-  /** Enable interleaved thinking */
   extendedThinkingInterleaved?: boolean;
-  /** Hook manager for lifecycle events */
   hookManager?: HookManager;
-  /** Session ID for hooks */
   sessionId?: string;
-  /** Permission request callback */
   onPermissionRequest?: (request: PermissionRequest) => Promise<PermissionResult>;
-  /** Abort signal */
   signal?: AbortSignal;
 }
 
@@ -84,7 +79,7 @@ export interface AgentLoopResult {
 export interface LoopState {
   messages: Message[];
   metrics: QueryMetrics[];
-  allToolsUsed: import("../../types/index.js").ToolUseBlock[];
+  allToolsUsed: ToolUseBlock[];
   totalCost: number;
   totalDuration: number;
   turnNumber: number;
@@ -122,9 +117,9 @@ export interface TurnOptions {
  * Result of a single turn
  */
 export interface TurnResult {
-  message: import("../../types/index.js").APIResponse;
-  usage: import("../../types/index.js").UsageMetrics;
-  cacheMetrics: import("../../types/index.js").CacheMetrics;
+  message: APIResponse;
+  usage: UsageMetrics;
+  cacheMetrics: CacheMetrics;
   costUSD: number;
   durationMs: number;
   ttftMs: number;
@@ -140,7 +135,7 @@ export interface ToolExecutionOptions {
   hookManager?: HookManager;
   sessionId?: string;
   signal?: AbortSignal;
-  permissionManager: import("../permissions.js").PermissionManager;
+  permissionManager: PermissionManager;
   onToolResult?: (result: { id: string; result: ToolResult }) => void;
 }
 

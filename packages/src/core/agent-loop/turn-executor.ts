@@ -8,7 +8,8 @@ import type {
   ToolUseBlock,
   StopReason,
   PermissionMode,
-} from "../../types/index.js";
+  JSONSchema,
+} from "../../schemas/index.js";
 import { createMessageStream } from "../api-client.js";
 import { buildCombinedReminder } from "../system-reminders.js";
 import type { PermissionManager } from "../permissions.js";
@@ -27,11 +28,11 @@ export interface TurnExecutorOptions {
   maxTokens: number;
   systemPrompt: string;
   tools: ToolDefinition[];
-  cacheConfig: import("../../types/index.js").CacheConfig;
-  thinking?: import("../../types/index.js").ThinkingConfig;
-  extendedThinking?: import("../../types/index.js").ExtendedThinkingConfig;
+  cacheConfig: import("../../schemas/index.js").CacheConfig;
+  thinking?: import("../../schemas/index.js").ThinkingConfig;
+  extendedThinking?: import("../../schemas/index.js").ExtendedThinkingConfig;
   workingDirectory: string;
-  gitStatus: import("../../types/index.js").GitStatus | null;
+  gitStatus: import("../../schemas/index.js").GitStatus | null;
   reminderConfig: import("../system-reminders.js").SystemReminderConfig;
   hookManager?: HookManager;
   sessionId?: string;
@@ -42,8 +43,8 @@ export interface TurnExecutorOptions {
   onReminder?: (reminder: string) => void;
   permissionMode: PermissionMode;
   permissionManager: PermissionManager;
-  onMetrics?: (metrics: import("../../types/index.js").QueryMetrics) => void;
-  onToolResult?: (result: { id: string; result: import("../../types/index.js").ToolResult }) => void;
+  onMetrics?: (metrics: import("../../schemas/index.js").QueryMetrics) => void;
+  onToolResult?: (result: { id: string; result: import("../../schemas/index.js").ToolResult }) => void;
 }
 
 /**
@@ -55,7 +56,7 @@ export interface ExecuteTurnResult {
   /** Stop reason if the loop should stop */
   stopReason?: StopReason;
   /** The metrics from this turn (if any) */
-  metrics?: import("../../types/index.js").QueryMetrics;
+  metrics?: import("../../schemas/index.js").QueryMetrics;
 }
 
 /**
@@ -129,7 +130,7 @@ export async function executeTurn(
     tools: tools.map((t): APITool => ({
       name: t.name,
       description: t.description,
-      input_schema: t.input_schema,
+      input_schema: t.input_schema as JSONSchema,
     })),
     onToken: onText,
     onThinking,

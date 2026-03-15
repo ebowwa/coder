@@ -2,7 +2,7 @@
  * Formatters - Cost and metrics display utilities
  */
 
-import type { QueryMetrics, CacheMetrics } from "../../types/index.js";
+import type { QueryMetrics, CacheMetrics } from "../../schemas/index.js";
 
 /**
  * Format cost for display

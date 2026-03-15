@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ebowwa.github.io/coder/schemas/ModelTier.json",
+  "$ref": "#/definitions/ModelTier",
+  "definitions": {
+    "ModelTier": {
+      "type": "string",
+      "enum": [
+        "haiku",
+        "sonnet",
+        "opus"
+      ]
+    }
+  },
+  "title": "ModelTier Schema"
+}

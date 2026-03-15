@@ -63,6 +63,15 @@ walkdir = "2"
 notify = { version = "6", features = ["macos_kqueue"] }
 crossbeam-channel = "0.5"
 
+# Parallel processing
+rayon = "1"
+
+# Serialization for index persistence
+bincode = "1"
+
+# Content type detection
+content_inspector = "0.2"
+
 # Cognitive Security
 ed25519-dalek = { version = "2", features = ["rand_core"] }
 rand = "0.8"

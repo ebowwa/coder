@@ -11,7 +11,7 @@ import type {
   ContentBlock,
   ToolUseBlock,
   ToolResultBlock,
-} from "../../types/index.js";
+} from "../../schemas/index.js";
 import type {
   SessionMetadata,
   SessionMessage,

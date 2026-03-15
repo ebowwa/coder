@@ -3,46 +3,30 @@
  */
 
 import * as readline from "readline";
+import type {
+  PermissionMode,
+  PermissionRequest,
+  PermissionResult,
+  PermissionCacheEntry,
+  PermissionCache,
+  PermissionPromptDecision,
+  RiskLevel,
+} from "../schemas/index.js";
 
-// ============================================
-// TYPES
-// ============================================
+// Re-export types for backward compatibility
+export type {
+  PermissionMode,
+  PermissionRequest,
+  PermissionResult,
+  PermissionCacheEntry,
+  PermissionCache,
+  PermissionPromptDecision,
+} from "../schemas/index.js";
 
-export type PermissionMode =
-  | "default"
-  | "acceptEdits"
-  | "bypassPermissions"
-  | "dontAsk"
-  | "interactive"
-  | "plan";
+// Local alias for backward compatibility (matches PermissionPromptDecision in schemas)
+export type PermissionDecision = PermissionPromptDecision;
 
-export type PermissionDecision =
-  | "allow"
-  | "deny"
-  | "allowAlways"
-  | "denyAlways";
-
-export interface PermissionRequest {
-  toolName: string;
-  toolInput: Record<string, unknown>;
-  riskLevel: "low" | "medium" | "high" | "critical";
-  description: string;
-  file?: string;
-  command?: string;
-}
-
-export interface PermissionResult {
-  decision: PermissionDecision;
-  reason?: string;
-}
-
-export interface PermissionCache {
-  [key: string]: {
-    decision: PermissionDecision;
-    timestamp: number;
-  };
-}
-
+// Callback type
 export type PermissionPromptCallback = (
   request: PermissionRequest
 ) => Promise<PermissionResult>;

@@ -3,8 +3,8 @@
  * Main entry point
  */
 
-// Types
-export * from "./types/index.js";
+// Types (from Zod schemas - single source of truth)
+export * from "./schemas/index.js";
 
 // Core
 export {
@@ -65,6 +65,9 @@ export * from "./ecosystem/hooks/index.js";
 // Skills
 export * from "./ecosystem/skills/index.js";
 
+// Presets
+export * from "./ecosystem/presets/index.js";
+
 // Teammates
 export * from "./teammates/index.js";
 
@@ -100,8 +103,38 @@ export {
   formatLoadingMessage,
 } from "./interfaces/ui/index.js";
 
-// Native module (Rust)
-export * from "./native/index.js";
+// Native module (Rust) - export functions and types not in schemas
+export {
+  native,
+  isNativeAvailable,
+  highlight_code,
+  highlight_markdown,
+  list_highlight_languages,
+  highlight_diff,
+  calculate_diff,
+  validate_multi_edits,
+  preview_multi_edits,
+  apply_multi_edits,
+  grep_search,
+  grep_count,
+  grep_files,
+  // Quant functions
+  quant,
+  quantVersion,
+  isQuantAvailable,
+  createOHLCV,
+  createAMM,
+  ammCalculateCost,
+  ammPriceImpact,
+  lmsrPrice,
+  lmsrCost,
+  detectArbitrage,
+  convertOdds,
+  // Types from native module (not duplicated in schemas)
+  type TerminalHandle,
+  type NativeTuiHandle,
+  type NativeModule,
+} from "./native/index.js";
 
 // Image processing
 export {

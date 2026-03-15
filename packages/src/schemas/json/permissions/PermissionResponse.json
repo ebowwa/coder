@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ebowwa.github.io/coder/schemas/PermissionResponse.json",
+  "$ref": "#/definitions/PermissionResponse",
+  "definitions": {
+    "PermissionResponse": {
+      "type": "object",
+      "properties": {
+        "requestId": {
+          "type": "string"
+        },
+        "decision": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "deny",
+            "ask"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        },
+        "modifiedInput": {
+          "type": "object",
+          "additionalProperties": {}
+        },
+        "remember": {
+          "type": "boolean"
+        },
+        "rememberDuration": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "requestId",
+        "decision"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "title": "PermissionResponse Schema"
+}

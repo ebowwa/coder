@@ -5,7 +5,7 @@
  * No manual calls needed - hooks intercept all operations.
  */
 
-import type { HookInput, HookOutput } from "../../types/index.js";
+import type { HookInput, HookOutput } from "../../schemas/index.js";
 import {
   classifyData,
   classifyOperation,

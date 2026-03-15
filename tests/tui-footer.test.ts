@@ -12,7 +12,7 @@ import {
   ANSI,
   type TUIFooterOptions,
 } from "../packages/src/interfaces/ui/terminal/tui/tui-footer.js";
-import type { PermissionMode } from "../packages/src/types/index.js";
+import type { PermissionMode } from "../packages/src/schemas/index.js";
 
 describe("TUI Footer", () => {
   describe("ANSI Escape Codes", () => {

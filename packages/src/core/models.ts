@@ -12,6 +12,8 @@ export interface ModelDefinition {
   id: string;
   /** Short display name (e.g., "Opus 4.6") */
   name: string;
+  /** Display name - alias for name (for schema compatibility) */
+  displayName: string;
   /** Full display name (e.g., "Claude Opus 4.6") - for /models command */
   fullName: string;
   /** Context window in tokens */
@@ -31,6 +33,8 @@ export interface ModelDefinition {
   provider: "anthropic" | "zhipu" | "openai" | "other";
   /** Whether model supports vision/images */
   supportsVision: boolean;
+  /** Model tier (haiku, sonnet, opus) */
+  tier: "haiku" | "sonnet" | "opus";
 }
 
 /**
@@ -41,6 +45,7 @@ export const MODELS: Record<string, ModelDefinition> = {
   "claude-opus-4-6": {
     id: "claude-opus-4-6",
     name: "Opus 4.6",
+    displayName: "Opus 4.6",
     fullName: "Claude Opus 4.6",
     contextWindow: 200_000,
     maxOutput: 32_000,
@@ -48,10 +53,12 @@ export const MODELS: Record<string, ModelDefinition> = {
     supportsThinking: true,
     provider: "anthropic",
     supportsVision: true,
+    tier: "opus",
   },
   "claude-sonnet-4-6": {
     id: "claude-sonnet-4-6",
     name: "Sonnet 4.6",
+    displayName: "Sonnet 4.6",
     fullName: "Claude Sonnet 4.6",
     contextWindow: 200_000,
     maxOutput: 16_000,
@@ -59,10 +66,12 @@ export const MODELS: Record<string, ModelDefinition> = {
     supportsThinking: true,
     provider: "anthropic",
     supportsVision: true,
+    tier: "sonnet",
   },
   "claude-haiku-4-5": {
     id: "claude-haiku-4-5",
     name: "Haiku 4.5",
+    displayName: "Haiku 4.5",
     fullName: "Claude Haiku 4.5",
     contextWindow: 200_000,
     maxOutput: 8_000,
@@ -70,10 +79,12 @@ export const MODELS: Record<string, ModelDefinition> = {
     supportsThinking: true,
     provider: "anthropic",
     supportsVision: true,
+    tier: "haiku",
   },
   "claude-haiku-4-5-20251001": {
     id: "claude-haiku-4-5-20251001",
     name: "Haiku 4.5",
+    displayName: "Haiku 4.5",
     fullName: "Claude Haiku 4.5",
     contextWindow: 200_000,
     maxOutput: 8_000,
@@ -81,12 +92,14 @@ export const MODELS: Record<string, ModelDefinition> = {
     supportsThinking: true,
     provider: "anthropic",
     supportsVision: true,
+    tier: "haiku",
   },
 
   // Claude 4.x Series (Legacy naming)
   "claude-opus-4-5": {
     id: "claude-opus-4-5",
     name: "Opus 4.5",
+    displayName: "Opus 4.5",
     fullName: "Claude Opus 4.5",
     contextWindow: 200_000,
     maxOutput: 32_000,
@@ -94,10 +107,12 @@ export const MODELS: Record<string, ModelDefinition> = {
     supportsThinking: true,
     provider: "anthropic",
     supportsVision: true,
+    tier: "opus",
   },
   "claude-sonnet-4-5": {
     id: "claude-sonnet-4-5",
     name: "Sonnet 4.5",
+    displayName: "Sonnet 4.5",
     fullName: "Claude Sonnet 4.5",
     contextWindow: 200_000,
     maxOutput: 16_000,
@@ -105,12 +120,14 @@ export const MODELS: Record<string, ModelDefinition> = {
     supportsThinking: true,
     provider: "anthropic",
     supportsVision: true,
+    tier: "sonnet",
   },
 
   // Claude 3.x Series (Legacy)
   "claude-3-5-sonnet": {
     id: "claude-3-5-sonnet",
     name: "Sonnet 3.5",
+    displayName: "Sonnet 3.5",
     fullName: "Claude 3.5 Sonnet",
     contextWindow: 200_000,
     maxOutput: 8_192,
@@ -118,10 +135,12 @@ export const MODELS: Record<string, ModelDefinition> = {
     supportsThinking: false,
     provider: "anthropic",
     supportsVision: true,
+    tier: "sonnet",
   },
   "claude-3-5-haiku": {
     id: "claude-3-5-haiku",
     name: "Haiku 3.5",
+    displayName: "Haiku 3.5",
     fullName: "Claude 3.5 Haiku",
     contextWindow: 200_000,
     maxOutput: 8_192,
@@ -129,10 +148,12 @@ export const MODELS: Record<string, ModelDefinition> = {
     supportsThinking: false,
     provider: "anthropic",
     supportsVision: true,
+    tier: "haiku",
   },
   "claude-3-opus": {
     id: "claude-3-opus",
     name: "Opus 3",
+    displayName: "Opus 3",
     fullName: "Claude 3 Opus",
     contextWindow: 200_000,
     maxOutput: 4_096,
@@ -140,10 +161,12 @@ export const MODELS: Record<string, ModelDefinition> = {
     supportsThinking: false,
     provider: "anthropic",
     supportsVision: true,
+    tier: "opus",
   },
   "claude-3-sonnet": {
     id: "claude-3-sonnet",
     name: "Sonnet 3",
+    displayName: "Sonnet 3",
     fullName: "Claude 3 Sonnet",
     contextWindow: 200_000,
     maxOutput: 4_096,
@@ -151,10 +174,12 @@ export const MODELS: Record<string, ModelDefinition> = {
     supportsThinking: false,
     provider: "anthropic",
     supportsVision: true,
+    tier: "sonnet",
   },
   "claude-3-haiku": {
     id: "claude-3-haiku",
     name: "Haiku 3",
+    displayName: "Haiku 3",
     fullName: "Claude 3 Haiku",
     contextWindow: 200_000,
     maxOutput: 4_096,
@@ -162,12 +187,14 @@ export const MODELS: Record<string, ModelDefinition> = {
     supportsThinking: false,
     provider: "anthropic",
     supportsVision: true,
+    tier: "haiku",
   },
 
   // GLM Series (Zhipu AI)
   "glm-5": {
     id: "glm-5",
     name: "GLM-5",
+    displayName: "GLM-5",
     fullName: "GLM-5",
     contextWindow: 200_000,
     maxOutput: 128_000,
@@ -175,10 +202,12 @@ export const MODELS: Record<string, ModelDefinition> = {
     supportsThinking: true,
     provider: "zhipu",
     supportsVision: true,
+    tier: "sonnet", // GLM-5 is roughly sonnet-tier
   },
   "glm-4.5-air": {
     id: "glm-4.5-air",
     name: "GLM-4.5 Air",
+    displayName: "GLM-4.5 Air",
     fullName: "GLM-4.5 Air",
     contextWindow: 128_000,
     maxOutput: 4_096,
@@ -186,6 +215,7 @@ export const MODELS: Record<string, ModelDefinition> = {
     supportsThinking: false,
     provider: "zhipu",
     supportsVision: false,
+    tier: "haiku", // GLM-4.5 Air is haiku-tier (fast/cheap)
   },
 };
 

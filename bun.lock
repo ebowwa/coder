@@ -6,6 +6,7 @@
       "name": "claude-code-remake",
       "dependencies": {
         "@anthropic-ai/sdk": "^0.39.0",
+        "@ebowwa/bun-native-page": "^0.2.0",
         "@ebowwa/coder-native": "^0.2.1",
         "@ebowwa/quant-rust": "^0.2.2",
         "@modelcontextprotocol/sdk": "^1.10.0",
@@ -40,6 +41,7 @@
         "happy-dom": "^20.7.0",
         "typescript": "^5.9.3",
         "vitest": "^4.0.18",
+        "zod-to-json-schema": "^3.25.1",
       },
     },
   },
@@ -49,6 +51,8 @@
     "@alcalzone/ansi-tokenize": ["@alcalzone/ansi-tokenize@0.1.3", "", { "dependencies": { "ansi-styles": "^6.2.1", "is-fullwidth-code-point": "^4.0.0" } }, "sha512-3yWxPTq3UQ/FY9p1ErPxIyfT64elWaMvM9lIHnaqpyft63tkxodF5aUElYHrdisWve5cETkh1+KBw1yJuW0aRw=="],
 
     "@anthropic-ai/sdk": ["@anthropic-ai/sdk@0.39.0", "", { "dependencies": { "@types/node": "^18.11.18", "@types/node-fetch": "^2.6.4", "abort-controller": "^3.0.0", "agentkeepalive": "^4.2.1", "form-data-encoder": "1.7.2", "formdata-node": "^4.3.2", "node-fetch": "^2.6.7" } }, "sha512-eMyDIPRZbt1CCLErRCi3exlAvNkBtRe+kW5vvJyef93PmNr/clstYgHhtvmkxN82nlKgzyGPCyGxrm0JQ1ZIdg=="],
+
+    "@ebowwa/bun-native-page": ["@ebowwa/bun-native-page@0.2.0", "", {}, "sha512-kfrvBH39iZ43hU7rd5SAQozRI6c5zw70D93BdNdyZJ6HmW5sqNwKjIrZ+dK3i/WDxUrmUlhDBo9IHGRNDqFoWw=="],
 
     "@ebowwa/coder-native": ["@ebowwa/coder-native@0.2.1", "", {}, "sha512-wmWK1B37bMolH5U+44OD5asDqkLd2+L2i2OlzirwCKmBtsai3pLog62u7Tg8CU6v/Q7ZjiBzerFiSNMkIYedhQ=="],
 

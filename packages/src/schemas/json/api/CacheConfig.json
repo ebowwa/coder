@@ -1,0 +1,39 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ebowwa.github.io/coder/schemas/CacheConfig.json",
+  "$ref": "#/definitions/CacheConfig",
+  "definitions": {
+    "CacheConfig": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "ttl": {
+          "type": "string",
+          "enum": [
+            "1h",
+            "5m"
+          ]
+        },
+        "minTokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cacheSystemPrompt": {
+          "type": "boolean"
+        },
+        "minTokensForCache": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "enabled",
+        "minTokens"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "title": "CacheConfig Schema"
+}

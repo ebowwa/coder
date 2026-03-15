@@ -236,6 +236,84 @@ export interface NativeTuiHandle {
   addToHistory(input: string): void;
 }
 
+// ===== TUI Primitive Types =====
+
+/** RGB color components */
+export interface TuiRgb {
+  r: number;
+  g: number;
+  b: number;
+}
+
+/** Color value - can be a named color, RGB, or indexed */
+export type TuiColor =
+  | "Reset" | "Black" | "Red" | "Green" | "Yellow" | "Blue"
+  | "Magenta" | "Cyan" | "White"
+  | "BrightBlack" | "BrightRed" | "BrightGreen" | "BrightYellow"
+  | "BrightBlue" | "BrightMagenta" | "BrightCyan" | "BrightWhite"
+  | "Rgb" | "Indexed";
+
+/** Text modifiers */
+export interface TuiModifiers {
+  bold: boolean;
+  dim: boolean;
+  italic: boolean;
+  underline: boolean;
+  strikethrough: boolean;
+  reverse: boolean;
+  hidden: boolean;
+}
+
+/** Complete style (fg, bg, modifiers) */
+export interface TuiStyle {
+  fg?: TuiColor;
+  bg?: TuiColor;
+  modifiers?: TuiModifiers;
+  /** RGB values when fg is Rgb */
+  fg_rgb?: TuiRgb;
+  /** RGB values when bg is Rgb */
+  bg_rgb?: TuiRgb;
+  /** Index when fg is Indexed */
+  fg_index?: number;
+  /** Index when bg is Indexed */
+  bg_index?: number;
+}
+
+/** A styled text segment */
+export interface TuiTextSegment {
+  content: string;
+  style?: TuiStyle;
+}
+
+/** A line of styled text */
+export interface TuiTextLine {
+  segments: TuiTextSegment[];
+}
+
+/** A block of text */
+export interface TuiTextBlock {
+  lines: TuiTextLine[];
+}
+
+/** Border type */
+export type TuiBorderType = "Plain" | "Rounded" | "Double" | "Thick";
+
+/** Which sides to render borders on */
+export interface TuiBorders {
+  top: boolean;
+  right: boolean;
+  bottom: boolean;
+  left: boolean;
+}
+
+/** Box padding */
+export interface TuiPadding {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+}
+
 export interface NativeModule {
   /** Syntax highlight code with ANSI escape codes */
   highlight_code: (code: string, language: string) => HighlightResult;
@@ -535,6 +613,158 @@ export interface NativeModule {
 
   /** Check if native TUI is available */
   is_native_tui_available: () => boolean;
+
+  // ===== TUI Style Functions =====
+
+  /** Create default style */
+  tui_style_default: () => TuiStyle;
+
+  /** Create style with foreground color */
+  tui_style_fg: (color: TuiColor) => TuiStyle;
+
+  /** Create style with background color */
+  tui_style_bg: (color: TuiColor) => TuiStyle;
+
+  /** Create style with RGB foreground */
+  tui_style_rgb_fg: (r: number, g: number, b: number) => TuiStyle;
+
+  /** Create style with RGB background */
+  tui_style_rgb_bg: (r: number, g: number, b: number) => TuiStyle;
+
+  /** Create bold style */
+  tui_style_bold: () => TuiStyle;
+
+  /** Create dim style */
+  tui_style_dim: () => TuiStyle;
+
+  /** Create user message style (cyan + bold) */
+  tui_style_user: () => TuiStyle;
+
+  /** Create assistant message style (magenta + bold) */
+  tui_style_assistant: () => TuiStyle;
+
+  /** Create system message style (yellow + bold) */
+  tui_style_system: () => TuiStyle;
+
+  /** Create error style (red) */
+  tui_style_error: () => TuiStyle;
+
+  /** Create success style (green) */
+  tui_style_success: () => TuiStyle;
+
+  /** Create tool style (yellow) */
+  tui_style_tool: () => TuiStyle;
+
+  /** Create highlight style (bright cyan + bold) */
+  tui_style_highlight: () => TuiStyle;
+
+  /** Create muted style (bright black) */
+  tui_style_muted: () => TuiStyle;
+
+  // ===== TUI Text Functions =====
+
+  /** Create a text segment */
+  tui_text_segment: (content: string, style?: TuiStyle) => TuiTextSegment;
+
+  /** Create a plain text line */
+  tui_text_line_plain: (content: string) => TuiTextLine;
+
+  /** Create a styled text line */
+  tui_text_line_styled: (content: string, style: TuiStyle) => TuiTextLine;
+
+  /** Create a text line from segments */
+  tui_text_line: (segments: TuiTextSegment[]) => TuiTextLine;
+
+  /** Create a text block from lines */
+  tui_text_block: (lines: TuiTextLine[]) => TuiTextBlock;
+
+  /** Create a plain text block */
+  tui_text_block_plain: (content: string) => TuiTextBlock;
+
+  // ===== TUI Box Functions =====
+
+  /** Create borders on all sides */
+  tui_borders_all: () => TuiBorders;
+
+  /** Create no borders */
+  tui_borders_none: () => TuiBorders;
+
+  /** Create horizontal borders */
+  tui_borders_horizontal: () => TuiBorders;
+
+  /** Create vertical borders */
+  tui_borders_vertical: () => TuiBorders;
+
+  /** Create top border only */
+  tui_borders_top: () => TuiBorders;
+
+  /** Create bottom border only */
+  tui_borders_bottom: () => TuiBorders;
+
+  /** Create uniform padding */
+  tui_padding_uniform: (value: number) => TuiPadding;
+
+  /** Create horizontal padding */
+  tui_padding_horizontal: (value: number) => TuiPadding;
+
+  /** Create vertical padding */
+  tui_padding_vertical: (value: number) => TuiPadding;
+
+  /** Draw a horizontal line */
+  tui_draw_horizontal_line: (width: number, style?: TuiStyle) => string;
+
+  /** Draw a vertical line */
+  tui_draw_vertical_line: (height: number, style?: TuiStyle) => string;
+
+  /** Draw a box border */
+  tui_draw_box_border: (width: number, height: number, title?: string, style?: TuiStyle) => string;
+
+  /** Draw a box with content */
+  tui_draw_box: (width: number, height: number, title: string | null, content: string, style?: TuiStyle) => string;
+
+  /** Draw a separator line */
+  tui_draw_separator: (width: number, style?: TuiStyle) => string;
+
+  /** Draw a double separator line */
+  tui_draw_double_separator: (width: number, style?: TuiStyle) => string;
+
+  // ===== TUI Buffer Functions =====
+
+  /** Render a text line to ANSI */
+  tui_render_line: (line: TuiTextLine, width?: number) => string;
+
+  /** Render a text block to ANSI */
+  tui_render_block: (block: TuiTextBlock, width?: number) => string;
+
+  /** Render a message with prefix */
+  tui_render_message: (prefix: string, content: string, prefixStyle?: TuiStyle, width?: number) => string;
+
+  /** Render a status bar */
+  tui_render_status_bar: (left: string, right: string, style?: TuiStyle, width?: number) => string;
+
+  /** Clear screen ANSI sequence */
+  tui_clear_screen: () => string;
+
+  /** Hide cursor ANSI sequence */
+  tui_hide_cursor: () => string;
+
+  /** Show cursor ANSI sequence */
+  tui_show_cursor: () => string;
+
+  /** Move cursor ANSI sequence */
+  tui_move_cursor: (row: number, col: number) => string;
+
+  /** Enter alternate screen ANSI sequence */
+  tui_enter_alt_screen: () => string;
+
+  /** Exit alternate screen ANSI sequence */
+  tui_exit_alt_screen: () => string;
+
+  /** Reset style ANSI sequence */
+  tui_reset_style: () => string;
+
+  /** Apply style to text */
+  tui_styled_text: (content: string, style: TuiStyle) => string;
 }
 
 let nativeModule: NativeModule | null = null;
@@ -699,6 +929,62 @@ export function loadNative(): NativeModule {
             // Native TUI
             create_tui: native.createTui || native.create_tui,
             is_native_tui_available: () => typeof (native.createTui || native.create_tui) === 'function',
+
+            // TUI Style Functions
+            tui_style_default: native.tuiStyleDefault || native.tui_style_default,
+            tui_style_fg: native.tuiStyleFg || native.tui_style_fg,
+            tui_style_bg: native.tuiStyleBg || native.tui_style_bg,
+            tui_style_rgb_fg: native.tuiStyleRgbFg || native.tui_style_rgb_fg,
+            tui_style_rgb_bg: native.tuiStyleRgbBg || native.tui_style_rgb_bg,
+            tui_style_bold: native.tuiStyleBold || native.tui_style_bold,
+            tui_style_dim: native.tuiStyleDim || native.tui_style_dim,
+            tui_style_user: native.tuiStyleUser || native.tui_style_user,
+            tui_style_assistant: native.tuiStyleAssistant || native.tui_style_assistant,
+            tui_style_system: native.tuiStyleSystem || native.tui_style_system,
+            tui_style_error: native.tuiStyleError || native.tui_style_error,
+            tui_style_success: native.tuiStyleSuccess || native.tui_style_success,
+            tui_style_tool: native.tuiStyleTool || native.tui_style_tool,
+            tui_style_highlight: native.tuiStyleHighlight || native.tui_style_highlight,
+            tui_style_muted: native.tuiStyleMuted || native.tui_style_muted,
+
+            // TUI Text Functions
+            tui_text_segment: native.tuiTextSegment || native.tui_text_segment,
+            tui_text_line_plain: native.tuiTextLinePlain || native.tui_text_line_plain,
+            tui_text_line_styled: native.tuiTextLineStyled || native.tui_text_line_styled,
+            tui_text_line: native.tuiTextLine || native.tui_text_line,
+            tui_text_block: native.tuiTextBlock || native.tui_text_block,
+            tui_text_block_plain: native.tuiTextBlockPlain || native.tui_text_block_plain,
+
+            // TUI Box Functions
+            tui_borders_all: native.tuiBordersAll || native.tui_borders_all,
+            tui_borders_none: native.tuiBordersNone || native.tui_borders_none,
+            tui_borders_horizontal: native.tuiBordersHorizontal || native.tui_borders_horizontal,
+            tui_borders_vertical: native.tuiBordersVertical || native.tui_borders_vertical,
+            tui_borders_top: native.tuiBordersTop || native.tui_borders_top,
+            tui_borders_bottom: native.tuiBordersBottom || native.tui_borders_bottom,
+            tui_padding_uniform: native.tuiPaddingUniform || native.tui_padding_uniform,
+            tui_padding_horizontal: native.tuiPaddingHorizontal || native.tui_padding_horizontal,
+            tui_padding_vertical: native.tuiPaddingVertical || native.tui_padding_vertical,
+            tui_draw_horizontal_line: native.tuiDrawHorizontalLine || native.tui_draw_horizontal_line,
+            tui_draw_vertical_line: native.tuiDrawVerticalLine || native.tui_draw_vertical_line,
+            tui_draw_box_border: native.tuiDrawBoxBorder || native.tui_draw_box_border,
+            tui_draw_box: native.tuiDrawBox || native.tui_draw_box,
+            tui_draw_separator: native.tuiDrawSeparator || native.tui_draw_separator,
+            tui_draw_double_separator: native.tuiDrawDoubleSeparator || native.tui_draw_double_separator,
+
+            // TUI Buffer Functions
+            tui_render_line: native.tuiRenderLine || native.tui_render_line,
+            tui_render_block: native.tuiRenderBlock || native.tui_render_block,
+            tui_render_message: native.tuiRenderMessage || native.tui_render_message,
+            tui_render_status_bar: native.tuiRenderStatusBar || native.tui_render_status_bar,
+            tui_clear_screen: native.tuiClearScreen || native.tui_clear_screen,
+            tui_hide_cursor: native.tuiHideCursor || native.tui_hide_cursor,
+            tui_show_cursor: native.tuiShowCursor || native.tui_show_cursor,
+            tui_move_cursor: native.tuiMoveCursor || native.tui_move_cursor,
+            tui_enter_alt_screen: native.tuiEnterAltScreen || native.tui_enter_alt_screen,
+            tui_exit_alt_screen: native.tuiExitAltScreen || native.tui_exit_alt_screen,
+            tui_reset_style: native.tuiResetStyle || native.tui_reset_style,
+            tui_styled_text: native.tuiStyledText || native.tui_styled_text,
           };
           return nativeModule;
         }
@@ -2136,6 +2422,134 @@ function getFallbackModule(): NativeModule {
       throw new Error("Native TUI not available in fallback mode. Build the Rust native module.");
     },
     is_native_tui_available: () => false,
+
+    // TUI Style Functions (JS fallbacks)
+    tui_style_default: (): TuiStyle => ({}),
+    tui_style_fg: (color: TuiColor): TuiStyle => ({ fg: color }),
+    tui_style_bg: (color: TuiColor): TuiStyle => ({ bg: color }),
+    tui_style_rgb_fg: (r: number, g: number, b: number): TuiStyle => ({
+      fg: "Rgb",
+      fg_rgb: { r, g, b }
+    }),
+    tui_style_rgb_bg: (r: number, g: number, b: number): TuiStyle => ({
+      bg: "Rgb",
+      bg_rgb: { r, g, b }
+    }),
+    tui_style_bold: (): TuiStyle => ({
+      modifiers: { bold: true, dim: false, italic: false, underline: false, strikethrough: false, reverse: false, hidden: false }
+    }),
+    tui_style_dim: (): TuiStyle => ({
+      modifiers: { bold: false, dim: true, italic: false, underline: false, strikethrough: false, reverse: false, hidden: false }
+    }),
+    tui_style_user: (): TuiStyle => ({
+      fg: "Cyan",
+      modifiers: { bold: true, dim: false, italic: false, underline: false, strikethrough: false, reverse: false, hidden: false }
+    }),
+    tui_style_assistant: (): TuiStyle => ({
+      fg: "Magenta",
+      modifiers: { bold: true, dim: false, italic: false, underline: false, strikethrough: false, reverse: false, hidden: false }
+    }),
+    tui_style_system: (): TuiStyle => ({
+      fg: "Yellow",
+      modifiers: { bold: true, dim: false, italic: false, underline: false, strikethrough: false, reverse: false, hidden: false }
+    }),
+    tui_style_error: (): TuiStyle => ({ fg: "Red" }),
+    tui_style_success: (): TuiStyle => ({ fg: "Green" }),
+    tui_style_tool: (): TuiStyle => ({ fg: "Yellow" }),
+    tui_style_highlight: (): TuiStyle => ({
+      fg: "BrightCyan",
+      modifiers: { bold: true, dim: false, italic: false, underline: false, strikethrough: false, reverse: false, hidden: false }
+    }),
+    tui_style_muted: (): TuiStyle => ({ fg: "BrightBlack" }),
+
+    // TUI Text Functions (JS fallbacks)
+    tui_text_segment: (content: string, style?: TuiStyle): TuiTextSegment => ({ content, style }),
+    tui_text_line_plain: (content: string): TuiTextLine => ({
+      segments: [{ content, style: undefined }]
+    }),
+    tui_text_line_styled: (content: string, style: TuiStyle): TuiTextLine => ({
+      segments: [{ content, style }]
+    }),
+    tui_text_line: (segments: TuiTextSegment[]): TuiTextLine => ({ segments }),
+    tui_text_block: (lines: TuiTextLine[]): TuiTextBlock => ({ lines }),
+    tui_text_block_plain: (content: string): TuiTextBlock => ({
+      lines: content.split('\n').map(line => ({ segments: [{ content: line, style: undefined }] }))
+    }),
+
+    // TUI Box Functions (JS fallbacks)
+    tui_borders_all: (): TuiBorders => ({ top: true, right: true, bottom: true, left: true }),
+    tui_borders_none: (): TuiBorders => ({ top: false, right: false, bottom: false, left: false }),
+    tui_borders_horizontal: (): TuiBorders => ({ top: true, right: false, bottom: true, left: false }),
+    tui_borders_vertical: (): TuiBorders => ({ top: false, right: true, bottom: false, left: true }),
+    tui_borders_top: (): TuiBorders => ({ top: true, right: false, bottom: false, left: false }),
+    tui_borders_bottom: (): TuiBorders => ({ top: false, right: false, bottom: true, left: false }),
+    tui_padding_uniform: (value: number): TuiPadding => ({ left: value, right: value, top: value, bottom: value }),
+    tui_padding_horizontal: (value: number): TuiPadding => ({ left: value, right: value, top: 0, bottom: 0 }),
+    tui_padding_vertical: (value: number): TuiPadding => ({ left: 0, right: 0, top: value, bottom: value }),
+    tui_draw_horizontal_line: (width: number, _style?: TuiStyle): string => "─".repeat(width),
+    tui_draw_vertical_line: (height: number, _style?: TuiStyle): string => "│\n".repeat(height - 1) + "│",
+    tui_draw_box_border: (width: number, height: number, title?: string, _style?: TuiStyle): string => {
+      const innerWidth = Math.max(0, width - 2);
+      const titleStr = title || "";
+      const titleDisplay = titleStr
+        ? `─ ${titleStr} ${"─".repeat(Math.max(0, innerWidth - titleStr.length - 3))}`
+        : "─".repeat(innerWidth);
+      const lines = [`┌${titleDisplay}┐`];
+      for (let i = 1; i < height - 1; i++) {
+        lines.push(`│${" ".repeat(innerWidth)}│`);
+      }
+      if (height > 1) {
+        lines.push(`└${"─".repeat(innerWidth)}┘`);
+      }
+      return lines.join("\n");
+    },
+    tui_draw_box: (width: number, height: number, title: string | null, content: string, _style?: TuiStyle): string => {
+      const innerWidth = Math.max(0, width - 2);
+      const titleDisplay = title ? `─ ${title} ${"─".repeat(Math.max(0, innerWidth - title.length - 3))}` : "─".repeat(innerWidth);
+      const lines = [`┌${titleDisplay}┐`];
+      const contentLines = content.split('\n');
+      const contentHeight = Math.max(0, height - 2);
+      for (let i = 0; i < contentHeight; i++) {
+        const lineContent = contentLines[i] || "";
+        const padded = lineContent.padEnd(innerWidth).slice(0, innerWidth);
+        lines.push(`│${padded}│`);
+      }
+      if (height > 1) {
+        lines.push(`└${"─".repeat(innerWidth)}┘`);
+      }
+      return lines.join("\n");
+    },
+    tui_draw_separator: (width: number, _style?: TuiStyle): string => "─".repeat(width),
+    tui_draw_double_separator: (width: number, _style?: TuiStyle): string => "═".repeat(width),
+
+    // TUI Buffer Functions (JS fallbacks with basic ANSI)
+    tui_render_line: (line: TuiTextLine, width?: number): string => {
+      const text = line.segments.map(s => s.content).join('');
+      return width ? text.padEnd(width).slice(0, width) : text;
+    },
+    tui_render_block: (block: TuiTextBlock, width?: number): string => {
+      return block.lines.map(line => {
+        const text = line.segments.map(s => s.content).join('');
+        return width ? text.padEnd(width).slice(0, width) : text;
+      }).join('\n');
+    },
+    tui_render_message: (prefix: string, content: string, _prefixStyle?: TuiStyle, width?: number): string => {
+      const fullContent = `${prefix}${content}`;
+      return width ? fullContent.padEnd(width).slice(0, width) : fullContent;
+    },
+    tui_render_status_bar: (left: string, right: string, _style?: TuiStyle, width?: number): string => {
+      const w = width || 80;
+      const padding = Math.max(0, w - left.length - right.length);
+      return `${left}${" ".repeat(padding)}${right}`.slice(0, w);
+    },
+    tui_clear_screen: () => "\x1b[2J\x1b[H",
+    tui_hide_cursor: () => "\x1b[?25l",
+    tui_show_cursor: () => "\x1b[?25h",
+    tui_move_cursor: (row: number, col: number) => `\x1b[${row};${col}H`,
+    tui_enter_alt_screen: () => "\x1b[?1049h",
+    tui_exit_alt_screen: () => "\x1b[?1049l",
+    tui_reset_style: () => "\x1b[0m",
+    tui_styled_text: (content: string, _style: TuiStyle) => content,
   };
 }
 
@@ -2360,11 +2774,11 @@ interface QuantModule {
   // Odds
   quant_convert_odds: (value: number, fromType: number) => string;
 
-  // Statistics
-  quant_mean: (ptr: number, len: number) => number;
-  quant_std_dev: (ptr: number, len: number) => number;
-  quant_variance: (ptr: number, len: number) => number;
-  quant_correlation: (ptrX: number, ptrY: number, len: number) => number;
+  // Statistics (ptr can be Float64Array or raw pointer number)
+  quant_mean: (ptr: Float64Array | number, len: number) => number;
+  quant_std_dev: (ptr: Float64Array | number, len: number) => number;
+  quant_variance: (ptr: Float64Array | number, len: number) => number;
+  quant_correlation: (ptrX: Float64Array | number, ptrY: Float64Array | number, len: number) => number;
 
   // Memory
   quant_free_string: (ptr: number) => void;
@@ -2387,19 +2801,27 @@ function loadQuant(): QuantModule | null {
     ? "libquant_rust.so"
     : "quant_rust.dll";
 
+  const platformArch = `${process.platform}-${process.arch}`;
+
   const possiblePaths = [
-    // From npm package
-    join(__dirname, "..", "..", "node_modules", "@ebowwa", "quant-rust", "native", `${process.platform}-${process.arch}`, libName),
-    // From npm package (alternate)
-    join(__dirname, "..", "..", "..", "@ebowwa", "quant-rust", "native", `${process.platform}-${process.arch}`, libName),
-    // Development build
-    join(__dirname, "..", "..", "node_modules", "@ebowwa", "quant-rust", "target", "release", libName),
+    // Coder package node_modules (3 levels up from packages/src/native to coder root)
+    join(__dirname, "..", "..", "..", "node_modules", "@ebowwa", "quant-rust", "native", platformArch, libName),
+    // Bundled dist location
+    join(__dirname, "native", platformArch, libName),
+    // Monorepo root node_modules (5 levels up)
+    join(__dirname, "..", "..", "..", "..", "..", "node_modules", "@ebowwa", "quant-rust", "native", platformArch, libName),
+    // Development build in target
+    join(__dirname, "..", "..", "..", "node_modules", "@ebowwa", "quant-rust", "target", "release", libName),
   ];
 
   for (const libPath of possiblePaths) {
     try {
       const { existsSync } = require("fs");
-      if (!existsSync(libPath)) continue;
+      const exists = existsSync(libPath);
+      if (process.env.DEBUG_QUANT) {
+        console.log(`[quant] Checking: ${libPath} → ${exists ? 'EXISTS' : 'not found'}`);
+      }
+      if (!exists) continue;
 
       const { dlopen, FFIType, ptr } = require("bun:ffi");
 
@@ -2437,17 +2859,14 @@ export const quant = loadQuant();
 
 // ===== Quant Helper Functions =====
 
+import { acquireFloat64Buffer, acquireDualFloat64Buffers } from "./ffi-pool.js";
+export { getPoolStats, warmupPools, destroyPools } from "./ffi-pool.js";
+
 function parseQuantJson<T>(response: string | null): T {
   if (!response) {
     throw new Error(quant?.quant_last_error() || "Unknown quant error");
   }
   return JSON.parse(response) as T;
-}
-
-function toFloat64Ptr(data: number[]): { buffer: Float64Array; ptr: number } {
-  const { ptr } = require("bun:ffi");
-  const buffer = new Float64Array(data);
-  return { buffer, ptr: ptr(buffer) };
 }
 
 // ===== Quant Export Functions =====
@@ -2642,8 +3061,12 @@ export function quantMean(data: number[]): number {
     warnQuantFallback();
     return data.reduce((a, b) => a + b, 0) / data.length;
   }
-  const { ptr } = toFloat64Ptr(data);
-  return quant.quant_mean(ptr, data.length);
+  const { array, release } = acquireFloat64Buffer(data);
+  try {
+    return quant.quant_mean(array, data.length);
+  } finally {
+    release();
+  }
 }
 
 export function quantStdDev(data: number[]): number {
@@ -2653,8 +3076,12 @@ export function quantStdDev(data: number[]): number {
     const m = data.reduce((a, b) => a + b, 0) / data.length;
     return Math.sqrt(data.reduce((sum, x) => sum + (x - m) ** 2, 0) / data.length);
   }
-  const { ptr } = toFloat64Ptr(data);
-  return quant.quant_std_dev(ptr, data.length);
+  const { array, release } = acquireFloat64Buffer(data);
+  try {
+    return quant.quant_std_dev(array, data.length);
+  } finally {
+    release();
+  }
 }
 
 export function quantVariance(data: number[]): number {
@@ -2664,8 +3091,12 @@ export function quantVariance(data: number[]): number {
     const m = data.reduce((a, b) => a + b, 0) / data.length;
     return data.reduce((sum, x) => sum + (x - m) ** 2, 0) / data.length;
   }
-  const { ptr } = toFloat64Ptr(data);
-  return quant.quant_variance(ptr, data.length);
+  const { array, release } = acquireFloat64Buffer(data);
+  try {
+    return quant.quant_variance(array, data.length);
+  } finally {
+    release();
+  }
 }
 
 export function quantCorrelation(x: number[], y: number[]): number {
@@ -2680,8 +3111,89 @@ export function quantCorrelation(x: number[], y: number[]): number {
     const vy = y.reduce((s, yi) => s + (yi - my) ** 2, 0) / n;
     return cov / Math.sqrt(vx * vy);
   }
-  const { ptr: ptrX } = toFloat64Ptr(x);
-  const { ptr: ptrY } = toFloat64Ptr(y);
-  return quant.quant_correlation(ptrX, ptrY, x.length);
+  const { arrayX, arrayY, release } = acquireDualFloat64Buffers(x, y);
+  try {
+    return quant.quant_correlation(arrayX, arrayY, x.length);
+  } finally {
+    release();
+  }
 }
+
+// ===== TUI Primitive Convenience Functions =====
+
+// Style creation helpers
+export const tui = {
+  // Styles
+  style: {
+    default: () => native.tui_style_default(),
+    fg: (color: TuiColor) => native.tui_style_fg(color),
+    bg: (color: TuiColor) => native.tui_style_bg(color),
+    rgbFg: (r: number, g: number, b: number) => native.tui_style_rgb_fg(r, g, b),
+    rgbBg: (r: number, g: number, b: number) => native.tui_style_rgb_bg(r, g, b),
+    bold: () => native.tui_style_bold(),
+    dim: () => native.tui_style_dim(),
+    user: () => native.tui_style_user(),
+    assistant: () => native.tui_style_assistant(),
+    system: () => native.tui_style_system(),
+    error: () => native.tui_style_error(),
+    success: () => native.tui_style_success(),
+    tool: () => native.tui_style_tool(),
+    highlight: () => native.tui_style_highlight(),
+    muted: () => native.tui_style_muted(),
+  },
+
+  // Text creation
+  text: {
+    segment: (content: string, style?: TuiStyle) => native.tui_text_segment(content, style),
+    linePlain: (content: string) => native.tui_text_line_plain(content),
+    lineStyled: (content: string, style: TuiStyle) => native.tui_text_line_styled(content, style),
+    line: (segments: TuiTextSegment[]) => native.tui_text_line(segments),
+    block: (lines: TuiTextLine[]) => native.tui_text_block(lines),
+    blockPlain: (content: string) => native.tui_text_block_plain(content),
+  },
+
+  // Box creation
+  box: {
+    bordersAll: () => native.tui_borders_all(),
+    bordersNone: () => native.tui_borders_none(),
+    bordersHorizontal: () => native.tui_borders_horizontal(),
+    bordersVertical: () => native.tui_borders_vertical(),
+    bordersTop: () => native.tui_borders_top(),
+    bordersBottom: () => native.tui_borders_bottom(),
+    paddingUniform: (value: number) => native.tui_padding_uniform(value),
+    paddingHorizontal: (value: number) => native.tui_padding_horizontal(value),
+    paddingVertical: (value: number) => native.tui_padding_vertical(value),
+    drawHorizontalLine: (width: number, style?: TuiStyle) => native.tui_draw_horizontal_line(width, style),
+    drawVerticalLine: (height: number, style?: TuiStyle) => native.tui_draw_vertical_line(height, style),
+    drawBorder: (width: number, height: number, title?: string, style?: TuiStyle) =>
+      native.tui_draw_box_border(width, height, title, style),
+    draw: (width: number, height: number, title: string | null, content: string, style?: TuiStyle) =>
+      native.tui_draw_box(width, height, title, content, style),
+    drawSeparator: (width: number, style?: TuiStyle) => native.tui_draw_separator(width, style),
+    drawDoubleSeparator: (width: number, style?: TuiStyle) => native.tui_draw_double_separator(width, style),
+  },
+
+  // Rendering
+  render: {
+    line: (line: TuiTextLine, width?: number) => native.tui_render_line(line, width),
+    block: (block: TuiTextBlock, width?: number) => native.tui_render_block(block, width),
+    message: (prefix: string, content: string, prefixStyle?: TuiStyle, width?: number) =>
+      native.tui_render_message(prefix, content, prefixStyle, width),
+    statusBar: (left: string, right: string, style?: TuiStyle, width?: number) =>
+      native.tui_render_status_bar(left, right, style, width),
+  },
+
+  // Terminal control
+  control: {
+    clearScreen: () => native.tui_clear_screen(),
+    hideCursor: () => native.tui_hide_cursor(),
+    showCursor: () => native.tui_show_cursor(),
+    moveCursor: (row: number, col: number) => native.tui_move_cursor(row, col),
+    enterAltScreen: () => native.tui_enter_alt_screen(),
+    exitAltScreen: () => native.tui_exit_alt_screen(),
+    resetStyle: () => native.tui_reset_style(),
+    styledText: (content: string, style: TuiStyle) => native.tui_styled_text(content, style),
+  },
+};
+
 

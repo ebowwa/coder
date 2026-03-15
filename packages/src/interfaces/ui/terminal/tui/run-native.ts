@@ -405,10 +405,13 @@ export class NativeTUI {
         role: "user",
         content: [{ type: "text", text: input }],
       };
-      const messagesForApi = [...this.messages.map(m => ({
-        role: m.role,
-        content: [{ type: "text" as const, text: m.content }],
-      })), newUserMsg];
+      // Filter to only user/assistant messages (API doesn't accept system in messages array)
+      const messagesForApi = [...this.messages
+        .filter(m => m.role === "user" || m.role === "assistant")
+        .map(m => ({
+          role: m.role as "user" | "assistant",
+          content: [{ type: "text" as const, text: m.content }],
+        })), newUserMsg];
 
       await agentLoop(messagesForApi, {
         apiKey: this.props.apiKey,

@@ -3,7 +3,7 @@
  * Uses Bun subprocess to run git commands
  */
 
-import type { GitStatus } from "../types/index.js";
+import type { GitStatus } from "../schemas/index.js";
 
 /**
  * Run a git command and return its output
@@ -198,6 +198,14 @@ export async function getGitStatus(
       getFileStatus(workingDirectory),
     ]);
 
+    // Calculate clean and detached status
+    const hasChanges = fileStatus.staged.length > 0 ||
+      fileStatus.unstaged.length > 0 ||
+      fileStatus.untracked.length > 0 ||
+      fileStatus.conflicted.length > 0;
+    const isClean = !hasChanges && aheadBehind.ahead === 0 && aheadBehind.behind === 0;
+    const isDetached = branch === "HEAD" || /^[a-f0-9]+$/.test(branch);
+
     return {
       branch,
       ahead: aheadBehind.ahead,
@@ -206,6 +214,8 @@ export async function getGitStatus(
       unstaged: fileStatus.unstaged,
       untracked: fileStatus.untracked,
       conflicted: fileStatus.conflicted,
+      clean: isClean,
+      detached: isDetached,
     };
   } catch (error) {
     // Log error for debugging but return null gracefully

@@ -5,46 +5,17 @@
 
 import { randomUUID } from "crypto";
 import { execSync } from "child_process";
-import type { Message } from "../types/index.js";
+import type {
+  Message,
+  FileSnapshot,
+  GitState,
+  Checkpoint,
+  CheckpointStore,
+  CheckpointMetadata,
+} from "../schemas/index.js";
 
-export interface FileSnapshot {
-  path: string;
-  content: string;
-  hash: string;
-}
-
-export interface GitState {
-  branch: string;
-  ahead: number;
-  behind: number;
-  staged: string[];
-  unstaged: string[];
-  untracked: string[];
-  stash?: string;
-}
-
-export interface Checkpoint {
-  id: string;
-  sessionId: string;
-  timestamp: number;
-  label: string;
-  description?: string;
-  messages: Message[];
-  files: FileSnapshot[];
-  gitState?: GitState;
-  metadata: {
-    model?: string;
-    workingDirectory?: string;
-    totalCost: number;
-    messageCount: number;
-    fileCount: number;
-  };
-}
-
-export interface CheckpointStore {
-  checkpoints: Map<string, Checkpoint>;
-  sessionFile: string;
-}
+// Re-export types for backward compatibility
+export type { FileSnapshot, GitState, Checkpoint, CheckpointStore } from "../schemas/index.js";
 
 const CHECKPOINTS_DIR = process.env.CLAUDE_CHECKPOINTS_DIR || `${process.env.HOME}/.claude/checkpoints`;
 

@@ -5,7 +5,23 @@
  * This module provides token estimation, summarization, and compaction utilities.
  */
 
-import type { Message, ContentBlock, ToolUseBlock, ToolResultBlock } from "../types/index.js";
+import type {
+  Message,
+  ContentBlock,
+  ToolUseBlock,
+  ToolResultBlock,
+  LLMSummarizationOptions,
+  CompactionOptions,
+  CompactionResult,
+} from "../schemas/index.js";
+
+// Re-export types for backward compatibility
+export type {
+  LLMSummarizationOptions,
+  CompactionOptions,
+  CompactionResult,
+} from "../schemas/index.js";
+
 import { SUMMARIZATION_MODEL } from "./models.js";
 
 // ============================================
@@ -101,7 +117,7 @@ function estimateBlockTokens(block: ContentBlock): number {
       if (typeof block.content === "string") {
         return estimateTokens(block.content) + 10;
       }
-      return block.content.reduce((sum, b) => sum + estimateBlockTokens(b), 0) + 10;
+      return (block.content as ContentBlock[]).reduce((sum: number, b: ContentBlock) => sum + estimateBlockTokens(b), 0) + 10;
     case "thinking":
       return estimateTokens(block.thinking);
     default:
@@ -117,10 +133,17 @@ function estimateMessageTokens(message: Message): number {
   const roleOverhead = 4;
 
   // Sum all content blocks
-  const contentTokens = message.content.reduce(
-    (sum, block) => sum + estimateBlockTokens(block),
-    0
-  );
+  let contentTokens: number;
+  if (Array.isArray(message.content)) {
+    contentTokens = message.content.reduce(
+      (sum, block) => sum + estimateBlockTokens(block),
+      0
+    );
+  } else if (typeof message.content === "string") {
+    contentTokens = estimateTokens(message.content);
+  } else {
+    contentTokens = 0;
+  }
 
   return roleOverhead + contentTokens;
 }
@@ -143,6 +166,16 @@ export function estimateMessagesTokens(messages: Message[]): number {
 function extractTextFromMessage(message: Message): string {
   const parts: string[] = [];
 
+  // Handle string content (simple message)
+  if (typeof message.content === "string") {
+    return message.content;
+  }
+
+  // Handle array content blocks
+  if (!Array.isArray(message.content)) {
+    return "";
+  }
+
   for (const block of message.content) {
     switch (block.type) {
       case "text":
@@ -154,7 +187,7 @@ function extractTextFromMessage(message: Message): string {
       case "tool_result":
         const content = typeof block.content === "string"
           ? block.content
-          : block.content.map(b => b.type === "text" ? b.text : "[content]").join("");
+          : (block.content as ContentBlock[]).map(b => b.type === "text" ? b.text : "[content]").join("");
         parts.push(`[Result: ${content.slice(0, 500)}${content.length > 500 ? "..." : ""}]`);
         break;
       case "thinking":
@@ -174,6 +207,14 @@ function extractToolPairs(messages: Message[]): Map<string, { use: ToolUseBlock;
 
   // First pass: collect all tool uses
   for (const message of messages) {
+    // Skip string content (simple messages)
+    if (typeof message.content === "string") {
+      continue;
+    }
+    // Handle array content blocks
+    if (!Array.isArray(message.content)) {
+      continue;
+    }
     for (const block of message.content) {
       if (block.type === "tool_use") {
         toolPairs.set(block.id, { use: block });
@@ -183,6 +224,14 @@ function extractToolPairs(messages: Message[]): Map<string, { use: ToolUseBlock;
 
   // Second pass: match results to uses
   for (const message of messages) {
+    // Skip string content (simple messages)
+    if (typeof message.content === "string") {
+      continue;
+    }
+    // Handle array content blocks
+    if (!Array.isArray(message.content)) {
+      continue;
+    }
     for (const block of message.content) {
       if (block.type === "tool_result") {
         const pair = toolPairs.get(block.tool_use_id);
@@ -225,7 +274,7 @@ export async function summarizeMessages(messages: Message[]): Promise<string> {
 
     // Track tool operations
     for (const block of message.content) {
-      if (block.type === "tool_use") {
+      if (typeof block === "object" && block.type === "tool_use") {
         toolOperations.push(`${block.name}`);
       }
     }
@@ -262,16 +311,7 @@ export async function summarizeMessages(messages: Message[]): Promise<string> {
 // LLM-BASED SUMMARIZATION
 // ============================================
 
-export interface LLMSummarizationOptions {
-  /** API key for the LLM */
-  apiKey?: string;
-  /** Model to use for summarization (default: haiku) */
-  model?: string;
-  /** Base URL for API (for non-Anthropic providers) */
-  baseUrl?: string;
-  /** Timeout in ms (default: 30000) */
-  timeout?: number;
-}
+// LLMSummarizationOptions type is now imported from schemas/index.js
 
 /**
  * Summarize messages using an LLM for better context preservation.
@@ -302,9 +342,9 @@ export async function summarizeWithLLM(
       // Extract tool info
       const tools: string[] = [];
       for (const block of msg.content) {
-        if (block.type === "tool_use") {
+        if (typeof block === "object" && block.type === "tool_use") {
           tools.push(`[TOOL_USE: ${block.name}]`);
-        } else if (block.type === "tool_result") {
+        } else if (typeof block === "object" && block.type === "tool_result") {
           const resultBlock = block as ToolResultBlock;
           const preview = typeof resultBlock.content === "string"
             ? resultBlock.content.slice(0, 200)
@@ -391,33 +431,7 @@ export async function summarizeWithLLM(
 // COMPACTION
 // ============================================
 
-export interface CompactionOptions {
-  /** Number of initial messages to keep unchanged */
-  keepFirst?: number;
-  /** Number of recent messages to keep unchanged */
-  keepLast?: number;
-  /** Whether to preserve tool_use/tool_result pairs */
-  preserveToolPairs?: boolean;
-  /** Use LLM for summarization (default: true if API key available) */
-  useLLMSummarization?: boolean;
-  /** API key for LLM summarization (falls back to env) */
-  apiKey?: string;
-  /** Base URL for API (for non-Anthropic providers like Z.AI) */
-  baseUrl?: string;
-}
-
-export interface CompactionResult {
-  /** The compacted messages */
-  messages: Message[];
-  /** Number of messages removed */
-  messagesRemoved: number;
-  /** Estimated tokens before compaction */
-  tokensBefore: number;
-  /** Estimated tokens after compaction */
-  tokensAfter: number;
-  /** Whether compaction actually occurred */
-  didCompact: boolean;
-}
+// CompactionOptions and CompactionResult types are now imported from schemas/index.js
 
 /**
  * Compact messages to fit within a token limit.

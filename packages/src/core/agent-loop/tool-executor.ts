@@ -1,5 +1,9 @@
 /**
  * Tool Executor - Parallel tool execution with hooks and permissions
+ *
+ * Claude Code Parity Features:
+ * - Tool restrictions: allowedTools/disallowedTools enforcement
+ * - Teammate context: Per-agent tool restrictions from templates
  */
 
 import type {
@@ -8,9 +12,11 @@ import type {
   ToolResultBlock,
   ToolResult,
   PermissionMode,
-} from "../../types/index.js";
+  ToolRestrictions,
+} from "../../schemas/index.js";
 import type { PermissionManager, PermissionResult } from "../permissions.js";
 import type { HookManager } from "../../ecosystem/hooks/index.js";
+
 export interface ToolExecutionOptions {
   tools: ToolDefinition[];
   workingDirectory: string;
@@ -20,6 +26,10 @@ export interface ToolExecutionOptions {
   signal?: AbortSignal;
   permissionManager: import("../permissions.js").PermissionManager;
   onToolResult?: (result: { id: string; result: ToolResult }) => void;
+  /** Tool restrictions from template/agent type (Claude Code parity) */
+  toolRestrictions?: ToolRestrictions;
+  /** Teammate ID for per-agent restrictions */
+  teammateId?: string;
 }
 
 /**
@@ -38,7 +48,7 @@ async function executeSingleTool(
   toolUse: ToolUseBlock,
   options: ToolExecutionOptions
 ): Promise<ToolExecutionResult> {
-  const { tools, workingDirectory, permissionMode, hookManager, sessionId, signal, permissionManager } = options;
+  const { tools, workingDirectory, permissionMode, hookManager, sessionId, signal, permissionManager, toolRestrictions, teammateId } = options;
 
   const tool = tools.find((t) => t.name === toolUse.name);
 
@@ -53,6 +63,40 @@ async function executeSingleTool(
       },
       toolResult: null,
     };
+  }
+
+  // ============================================
+  // TOOL RESTRICTIONS CHECK (Claude Code parity)
+  // ============================================
+
+  // Check disallowedTools first
+  if (toolRestrictions?.disallowedTools?.includes(tool.name)) {
+    return {
+      toolUseId: toolUse.id,
+      result: {
+        type: "tool_result" as const,
+        tool_use_id: toolUse.id,
+        content: `Tool "${tool.name}" is not allowed for this agent type. Disallowed tools: ${toolRestrictions.disallowedTools.join(", ")}`,
+        is_error: true,
+      },
+      toolResult: null,
+    };
+  }
+
+  // Check allowedTools (if set, tool must be in the list)
+  if (toolRestrictions?.allowedTools && toolRestrictions.allowedTools.length > 0) {
+    if (!toolRestrictions.allowedTools.includes(tool.name)) {
+      return {
+        toolUseId: toolUse.id,
+        result: {
+          type: "tool_result" as const,
+          tool_use_id: toolUse.id,
+          content: `Tool "${tool.name}" is not allowed for this agent type. Allowed tools: ${toolRestrictions.allowedTools.join(", ")}`,
+          is_error: true,
+        },
+        toolResult: null,
+      };
+    }
   }
 
   // Check permissions using PermissionManager
@@ -103,6 +147,20 @@ async function executeSingleTool(
 
   // Execute tool
   try {
+    // Check if tool has a handler
+    if (!tool.handler) {
+      return {
+        toolUseId: toolUse.id,
+        result: {
+          type: "tool_result" as const,
+          tool_use_id: toolUse.id,
+          content: `Error: Tool "${tool.name}" has no handler implemented`,
+          is_error: true,
+        },
+        toolResult: null,
+      };
+    }
+
     const handlerResult = await tool.handler(toolUse.input as Record<string, unknown>, {
       workingDirectory,
       permissionMode,

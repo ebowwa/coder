@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ebowwa.github.io/coder/schemas/HookOutput.json",
+  "$ref": "#/definitions/HookOutput",
+  "definitions": {
+    "HookOutput": {
+      "type": "object",
+      "properties": {
+        "decision": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "block",
+            "deny"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        },
+        "modified_input": {
+          "type": "object",
+          "additionalProperties": {}
+        },
+        "errors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "title": "HookOutput Schema"
+}

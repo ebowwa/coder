@@ -46,11 +46,11 @@ const DEBUG_TUI_LOG = process.env.DEBUG_TUI_LOG;
 
 // Use native Rust TUI for terminal control (replaces manual ANSI codes)
 const NativeTerminal = {
-  enterAltScreen: (): void => process.stdout.write(Terminal.enterAltScreen()),
-  exitAltScreen: (): void => process.stdout.write(Terminal.exitAltScreen()),
-  clearScreen: (): void => process.stdout.write(Terminal.clearScreen()),
-  hideCursor: (): void => process.stdout.write(Terminal.hideCursor()),
-  showCursor: (): void => process.stdout.write(Terminal.showCursor()),
+  enterAltScreen: () => { process.stdout.write(Terminal.enterAltScreen()); },
+  exitAltScreen: () => { process.stdout.write(Terminal.exitAltScreen()); },
+  clearScreen: () => { process.stdout.write(Terminal.clearScreen()); },
+  hideCursor: () => { process.stdout.write(Terminal.hideCursor()); },
+  showCursor: () => { process.stdout.write(Terminal.showCursor()); },
 };
 
 // Mouse scroll (still using ANSI codes for now - native doesn't have this yet)

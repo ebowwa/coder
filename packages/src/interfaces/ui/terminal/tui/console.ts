@@ -160,8 +160,9 @@ export function suppressConsole(options: SuppressOptions = {}): void {
     originalConsole.warn("[console.ts] Warning: suppressConsole() called while already suppressed. Call restoreConsole() first.");
   }
 
-  currentOptions = options;
   const methodsToSuppress = options.methods ?? ["log", "error", "warn", "info", "debug", "trace"];
+  // Store resolved options (including defaulted methods)
+  currentOptions = { ...options, methods: methodsToSuppress };
 
   // Setup file writer if logFile specified
   if (options.logFile) {

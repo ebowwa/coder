@@ -1,5 +1,5 @@
 /**
- * InteractiveTUI - Simplified terminal UI
+ * InteractiveTUI - Enhanced terminal UI
  *
  * Principles:
  * 1. Use Ink's useInput directly (no native polling)
@@ -7,19 +7,39 @@
  * 3. No context providers
  * 4. No global state hacks
  * 5. Show tool calls and results in UI
+ * 6. Extended thinking block support
+ * 7. Cost tracking per session
+ * 8. Enhanced slash commands
+ * 9. Hybrid rendering: Ink for UI, native Rust TUI for performance-critical components
  */
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { render, Box, Text, useInput, useApp } from "ink";
 import type { Key } from "ink";
-import type { PermissionMode, Message as ApiMessage, ToolDefinition } from "../../../../types/index.js";
+import type { PermissionMode, Message as ApiMessage, ToolDefinition, QueryMetrics } from "../../../../schemas/index.js";
 import type { HookManager } from "../../../../ecosystem/hooks/index.js";
 import { agentLoop } from "../../../../core/agent-loop.js";
 import { getGitStatus } from "../../../../core/git-status.js";
-import { calculateContextInfo, VERSION } from "../shared/status-line.js";
+import { calculateContextInfo, VERSION, getModelDisplayName, formatTokenCount } from "../shared/status-line.js";
+import { formatCost, formatCostBrief } from "../../../../core/agent-loop/formatters.js";
 import { spinnerFrames } from "./spinner.js";
 import type { SessionStore, ContextInfo } from "./types.js";
 import { useTerminalSize } from "./useTerminalSize.js";
+// Native TUI rendering bridge (Rust-backed)
+import {
+  Terminal,
+  Styles,
+  Render,
+  Draw,
+  renderMessage,
+  renderStatusBar,
+  type TuiStyle,
+  type TuiRgb,
+  type TuiModifiers,
+  type TuiTextSegment,
+  type TuiTextLine,
+  type TuiTextBlock,
+} from "./tui-renderer.js";
 
 // ============================================
 // TYPES
@@ -38,7 +58,64 @@ interface UIMessage {
   /** Whether tool result was an error */
   isError?: boolean;
   /** Message type for styling */
-  type?: "tool_call" | "tool_result" | "text";
+  type?: "tool_call" | "tool_result" | "text" | "thinking";
+  /** Cost of this message (if applicable) */
+  costUSD?: number;
+  /** Token usage for this message */
+  tokens?: number;
+  /** Timestamp */
+  timestamp: number;
+}
+
+/** Session cost tracking */
+interface SessionCost {
+  totalCost: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+}
+
+// ============================================
+// NATIVE TUI STATUS BAR
+// ============================================
+
+/**
+ * Status bar component using native Rust TUI rendering
+ * Provides better performance for frequently-updated status displays
+ */
+interface NativeStatusBarProps {
+  isLoading: boolean;
+  spinnerFrame: number;
+  tokenCount: number;
+  permissionMode: string;
+  model: string;
+  cost: QueryMetrics;
+  width: number;
+}
+
+function NativeStatusBar({
+  isLoading,
+  spinnerFrame,
+  tokenCount,
+  permissionMode,
+  model,
+  cost,
+  width,
+}: NativeStatusBarProps) {
+  const left = isLoading
+    ? `${spinnerFrames[spinnerFrame]} Processing...`
+    : `${getModelDisplayName(model)} | ${permissionMode}`;
+  const right = `${formatTokenCount(tokenCount)} | ${formatCostBrief(cost)}`;
+
+  // Use native Rust TUI rendering for status bar
+  const statusBarAnsi = renderStatusBar(left, right, width);
+
+  return (
+    <Text>
+      {statusBarAnsi}
+    </Text>
+  );
 }
 
 export interface InteractiveTUIProps {
@@ -99,21 +176,98 @@ function apiToText(msg: ApiMessage): string {
     if (b.type === "text") return b.text;
     if (b.type === "tool_use") return `[Tool: ${b.name}]`;
     if (b.type === "tool_result") return b.is_error ? "[Error]" : "[Result]";
+    if (b.type === "thinking") return `[Thinking: ${b.thinking.slice(0, 50)}...]`;
+    if (b.type === "redacted_thinking") return "[Redacted Thinking]";
     return "";
   }).join("\n");
 }
 
+/**
+ * Truncate content intelligently, preserving code blocks
+ */
+function truncateContent(content: string, maxLength: number): string {
+  if (content.length <= maxLength) return content;
+
+  // Check if content has code blocks
+  const codeBlockMatch = content.match(/```[\s\S]*?```/g);
+  if (codeBlockMatch && codeBlockMatch.length > 0) {
+    // Preserve first code block if it fits
+    const firstBlock = codeBlockMatch[0];
+    if (firstBlock.length <= maxLength) {
+      const beforeBlock = content.slice(0, content.indexOf(firstBlock));
+      const afterBlockStart = content.indexOf(firstBlock) + firstBlock.length;
+      const remaining = maxLength - firstBlock.length - beforeBlock.length;
+      const afterBlock = content.slice(afterBlockStart, afterBlockStart + Math.max(0, remaining - 3));
+      return beforeBlock + firstBlock + afterBlock + (afterBlockStart + remaining < content.length ? "..." : "");
+    }
+  }
+
+  // Default truncation
+  return content.slice(0, maxLength - 3) + "...";
+}
+
+/**
+ * Format thinking block for display
+ */
+function formatThinkingBlock(thinking: string, maxWidth: number): string {
+  const lines = thinking.split("\n");
+  const truncated = lines.slice(0, 3).join("\n");
+  if (lines.length > 3 || truncated.length > maxWidth) {
+    return truncateContent(truncated, maxWidth);
+  }
+  return truncated;
+}
+
+/**
+ * Create empty session cost
+ */
+function createEmptySessionCost(): SessionCost {
+  return {
+    totalCost: 0,
+    inputTokens: 0,
+    outputTokens: 0,
+    cacheReadTokens: 0,
+    cacheWriteTokens: 0,
+  };
+}
+
+/**
+ * Update session cost from metrics
+ */
+function updateSessionCost(cost: SessionCost, metrics: QueryMetrics): SessionCost {
+  return {
+    totalCost: cost.totalCost + (metrics.costUSD ?? 0),
+    inputTokens: cost.inputTokens + (metrics.usage?.input_tokens ?? 0),
+    outputTokens: cost.outputTokens + (metrics.usage?.output_tokens ?? 0),
+    cacheReadTokens: cost.cacheReadTokens + (metrics.usage?.cache_read_input_tokens ?? 0),
+    cacheWriteTokens: cost.cacheWriteTokens + (metrics.usage?.cache_creation_input_tokens ?? 0),
+  };
+}
+
 const HELP_TEXT = `
 Commands:
-  /help     - Show this help
-  /clear    - Clear messages
-  /compact  - Compact context
-  /exit     - Exit Coder
-  Ctrl+C    - Exit Coder
+  /help              - Show this help
+  /clear             - Clear messages
+  /compact           - Compact context
+  /cost              - Show session cost breakdown
+  /model [name]      - Show or switch model
+  /status            - Show session status
+  /checkpoint [name] - Save checkpoint
+  /checkpoints       - List checkpoints
+  /undo              - Undo last action
+  /redo              - Redo action
+  /skills [search]   - Search skills marketplace
+  /skills-installed  - List installed skills
+  /exit              - Exit Coder
 
-Navigation:
-  Shift+↑/↓  - Scroll chat history
-  PgUp/PgDn  - Page through messages
+Keyboard Shortcuts:
+  Ctrl+C             - Exit Coder
+  Ctrl+L             - Clear screen
+  Ctrl+U             - Clear input line
+  Ctrl+A             - Move to start of line
+  Ctrl+E             - Move to end of line
+  Up/Down            - History navigation
+  Tab                - Show command completions
 `;
 
 // ============================================
@@ -122,7 +276,7 @@ Navigation:
 
 function InteractiveTUI({
   apiKey,
-  model,
+  model: initialModel,
   permissionMode,
   maxTokens,
   systemPrompt,
@@ -142,8 +296,16 @@ function InteractiveTUI({
   const [cursorPos, setCursorPos] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [streamingText, setStreamingText] = useState("");
+  const [streamingThinking, setStreamingThinking] = useState("");
   const [spinnerFrame, setSpinnerFrame] = useState(0);
   const [tokenCount, setTokenCount] = useState(0);
+
+  // Enhanced state
+  const [model, setModel] = useState(initialModel);
+  const [sessionCost, setSessionCost] = useState<SessionCost>(createEmptySessionCost());
+  const [checkpointHistory, setCheckpointHistory] = useState<Array<{ id: string; label: string; messages: ApiMessage[]; timestamp: number }>>([]);
+  const [checkpointIndex, setCheckpointIndex] = useState(-1);
+  const [showCommandHints, setShowCommandHints] = useState(false);
 
   // Refs for history (no re-renders needed)
   const historyRef = useRef<string[]>([]);
@@ -151,19 +313,19 @@ function InteractiveTUI({
   const savedInputRef = useRef("");
   const isProcessingRef = useRef(false);
 
-  // Scroll state for chat history
-  const [scrollOffset, setScrollOffset] = useState(0); // 0 = bottom, higher = scrolled up
-
   const { exit } = useApp();
 
   // Track terminal dimensions with resize support
-  const { width: terminalWidth, height: terminalHeight } = useTerminalSize();
+  const { width: terminalWidth } = useTerminalSize();
 
   // Dynamic limits based on terminal size
   const maxContentWidth = Math.max(terminalWidth - 20, 40); // Reserve space for labels/padding
-  const visibleMessageCount = Math.max(terminalHeight - 4, 5); // Reserve lines for status/input
   const maxToolPreview = Math.floor(maxContentWidth * 2); // Tool previews can span ~2 lines
   const maxMessageLength = Math.floor(maxContentWidth * 10); // Messages can span ~10 lines
+  const maxThinkingLength = Math.floor(maxContentWidth * 3); // Thinking previews are shorter
+
+  // NOTE: We render ALL messages to enable terminal scrollback.
+  // The terminal's native scroll (mouse wheel, Shift+PageUp/Down) handles history.
 
   // Spinner animation
   useEffect(() => {
@@ -172,18 +334,13 @@ function InteractiveTUI({
     return () => clearInterval(iv);
   }, [isLoading]);
 
-  // Auto-scroll to bottom when new messages arrive
-  useEffect(() => {
-    setScrollOffset(0); // Reset scroll when new messages come in
-  }, [messages.length]);
-
   // Process message
   const processMessage = useCallback(async (input: string) => {
     if (isProcessingRef.current) return;
     isProcessingRef.current = true;
 
     // Add user message
-    setMessages(prev => [...prev, { id: genId(), role: "user", content: input }]);
+    setMessages(prev => [...prev, { id: genId(), role: "user", content: input, timestamp: Date.now() }]);
 
     setIsLoading(true);
     setStreamingText("");
@@ -219,6 +376,7 @@ function InteractiveTUI({
             content: inputPreview,
             toolName: tu.name,
             type: "tool_call",
+            timestamp: Date.now(),
           }]);
         },
         onToolResult: (tr) => {
@@ -241,6 +399,7 @@ function InteractiveTUI({
             toolName: "tool",
             isError: tr.result.is_error,
             type: "tool_result",
+            timestamp: Date.now(),
           }]);
         },
         onMetrics: async (m) => {
@@ -259,12 +418,13 @@ function InteractiveTUI({
           id: genId(),
           role: "assistant",
           content: apiToText(lastAssistant),
+          timestamp: Date.now(),
         }]);
         await sessionStore.saveMessage(lastAssistant);
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
-      setMessages(prev => [...prev, { id: genId(), role: "system", content: `Error: ${errorMessage}` }]);
+      setMessages(prev => [...prev, { id: genId(), role: "system", content: `Error: ${errorMessage}`, timestamp: Date.now() }]);
     } finally {
       setIsLoading(false);
       isProcessingRef.current = false;
@@ -277,10 +437,11 @@ function InteractiveTUI({
     const parts = cmd.slice(1).split(" ");
     const command = parts[0]?.toLowerCase();
     const args = parts.slice(1).join(" ");
+    const now = Date.now();
 
     switch (command) {
       case "help":
-        setMessages(prev => [...prev, { id: genId(), role: "system", content: HELP_TEXT }]);
+        setMessages(prev => [...prev, { id: genId(), role: "system", content: HELP_TEXT, timestamp: now }]);
         break;
 
       case "clear":
@@ -307,6 +468,7 @@ function InteractiveTUI({
           id: genId(),
           role: "system",
           content: sessions.map((s, i) => `${i + 1}. ${s.metadata?.preview || ""} (${s.messageCount} msgs)`).join("\n") || "No sessions",
+          timestamp: now,
         }]);
         break;
       }
@@ -323,10 +485,249 @@ function InteractiveTUI({
         break;
       }
 
+      case "cost": {
+        const costBreakdown = [
+          `Session Cost Summary`,
+          `━━━━━━━━━━━━━━━━━━━━`,
+          `Total Cost: ${formatCost(sessionCost.totalCost)}`,
+          `Input Tokens: ${sessionCost.inputTokens.toLocaleString()}`,
+          `Output Tokens: ${sessionCost.outputTokens.toLocaleString()}`,
+          `Cache Read: ${sessionCost.cacheReadTokens.toLocaleString()} tokens`,
+          `Cache Write: ${sessionCost.cacheWriteTokens.toLocaleString()} tokens`,
+          ``,
+          `Model: ${getModelDisplayName(model)}`,
+          `Context: ${formatTokenCount(tokenCount)}`,
+        ].join("\n");
+        setMessages(prev => [...prev, { id: genId(), role: "system", content: costBreakdown, timestamp: now }]);
+        break;
+      }
+
+      case "status": {
+        // Calculate context info inline since it's defined later in the component
+        const statusContextInfo = calculateContextInfo(tokenCount, model);
+        const statusInfo = [
+          `Session Status`,
+          `━━━━━━━━━━━━━━━━━━━━`,
+          `Session ID: ${sessionId.slice(0, 8)}...`,
+          `Model: ${getModelDisplayName(model)}`,
+          `Permission Mode: ${permissionMode}`,
+          `Context: ${statusContextInfo.percentRemaining.toFixed(1)}% remaining`,
+          `Messages: ${apiMessages.length}`,
+          `Working Dir: ${workingDirectory.split("/").pop()}`,
+          `Total Cost: ${formatCost(sessionCost.totalCost)}`,
+        ].join("\n");
+        setMessages(prev => [...prev, { id: genId(), role: "system", content: statusInfo, timestamp: now }]);
+        break;
+      }
+
+      case "model": {
+        if (args) {
+          // Switch model
+          setModel(args);
+          setMessages(prev => [...prev, {
+            id: genId(),
+            role: "system",
+            content: `Model switched to: ${getModelDisplayName(args)}`,
+            timestamp: now,
+          }]);
+        } else {
+          // Show current model
+          setMessages(prev => [...prev, {
+            id: genId(),
+            role: "system",
+            content: `Current model: ${getModelDisplayName(model)}\n\nAvailable models:\n  - claude-opus-4-6 (Opus 4.6)\n  - claude-sonnet-4-6 (Sonnet 4.6)\n  - claude-haiku-4-5-20251001 (Haiku 4.5)\n  - glm-5 (GLM-5)`,
+            timestamp: now,
+          }]);
+        }
+        break;
+      }
+
+      case "checkpoint": {
+        const label = args || `Checkpoint ${checkpointHistory.length + 1}`;
+        const checkpoint = {
+          id: genId(),
+          label,
+          messages: [...apiMessages],
+          timestamp: Date.now(),
+        };
+        setCheckpointHistory(prev => [...prev.slice(-19), checkpoint]); // Keep last 20
+        setCheckpointIndex(checkpointHistory.length); // Point to new checkpoint
+        setMessages(prev => [...prev, {
+          id: genId(),
+          role: "system",
+          content: `Checkpoint saved: "${label}" (${apiMessages.length} messages)`,
+          timestamp: now,
+        }]);
+        break;
+      }
+
+      case "checkpoints": {
+        if (checkpointHistory.length === 0) {
+          setMessages(prev => [...prev, {
+            id: genId(),
+            role: "system",
+            content: "No checkpoints saved. Use /checkpoint <name> to create one.",
+            timestamp: now,
+          }]);
+        } else {
+          const list = checkpointHistory.map((cp, i) => {
+            const time = new Date(cp.timestamp).toLocaleTimeString();
+            const current = i === checkpointIndex ? " ← current" : "";
+            return `${i + 1}. ${cp.label} (${cp.messages.length} msgs, ${time})${current}`;
+          }).join("\n");
+          setMessages(prev => [...prev, {
+            id: genId(),
+            role: "system",
+            content: `Checkpoints:\n${list}\n\nUse /undo and /redo to navigate.`,
+            timestamp: now,
+          }]);
+        }
+        break;
+      }
+
+      case "undo": {
+        if (checkpointIndex > 0) {
+          const newIndex = checkpointIndex - 1;
+          const checkpoint = checkpointHistory[newIndex];
+          if (checkpoint) {
+            setCheckpointIndex(newIndex);
+            setApiMessages(checkpoint.messages);
+            setTokenCount(estimateMessagesTokens(checkpoint.messages));
+            setMessages(prev => [...prev, {
+              id: genId(),
+              role: "system",
+              content: `Restored: "${checkpoint.label}"`,
+              timestamp: now,
+            }]);
+          }
+        } else {
+          setMessages(prev => [...prev, {
+            id: genId(),
+            role: "system",
+            content: "Nothing to undo. Use /checkpoint to save states first.",
+            timestamp: now,
+          }]);
+        }
+        break;
+      }
+
+      case "redo": {
+        if (checkpointIndex < checkpointHistory.length - 1) {
+          const newIndex = checkpointIndex + 1;
+          const checkpoint = checkpointHistory[newIndex];
+          if (checkpoint) {
+            setCheckpointIndex(newIndex);
+            setApiMessages(checkpoint.messages);
+            setTokenCount(estimateMessagesTokens(checkpoint.messages));
+            setMessages(prev => [...prev, {
+              id: genId(),
+              role: "system",
+              content: `Restored: "${checkpoint.label}"`,
+              timestamp: now,
+            }]);
+          }
+        } else {
+          setMessages(prev => [...prev, {
+            id: genId(),
+            role: "system",
+            content: "Nothing to redo.",
+            timestamp: now,
+          }]);
+        }
+        break;
+      }
+
+      case "skills": {
+        // Skills marketplace search
+        const searchQuery = args || "";
+
+        try {
+          // Dynamically import the skills client
+          const { SkillsClient } = await import("../../../../ecosystem/skills/skills-client.js");
+          const client = new SkillsClient(apiKey);
+
+          setMessages(prev => [...prev, {
+            id: genId(),
+            role: "system",
+            content: searchQuery ? `Searching marketplace for "${searchQuery}"...` : "Loading skills marketplace...",
+            timestamp: now,
+          }]);
+
+          const { skills } = await client.list({ search: searchQuery, limit: 20 });
+
+          if (skills.length === 0) {
+            setMessages(prev => [...prev, {
+              id: genId(),
+              role: "system",
+              content: searchQuery
+                ? `No skills found matching "${searchQuery}"\n\nTry a different search or use /skills to browse all.`
+                : "No skills available in marketplace.",
+              timestamp: now,
+            }]);
+          } else {
+            const skillList = skills.map((s, i) => {
+              const author = s.author ? ` by ${s.author}` : "";
+              return `${i + 1}. \x1b[1m${s.name}\x1b[0m${author}\n   ${s.description}`;
+            }).join("\n\n");
+
+            setMessages(prev => [...prev, {
+              id: genId(),
+              role: "system",
+              content: `Skills Marketplace (${skills.length} results)\n\n${skillList}\n\nUse skills with /<skill-name> or invoke via the Skill tool.`,
+              timestamp: now,
+            }]);
+          }
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          setMessages(prev => [...prev, {
+            id: genId(),
+            role: "system",
+            content: `Failed to search marketplace: ${errorMsg}\n\nCheck your API key and network connection.`,
+            timestamp: now,
+          }]);
+        }
+        break;
+      }
+
+      case "skills-installed": {
+        // List installed/local skills
+        const { SkillManager } = await import("../../../../ecosystem/skills/index.js");
+        const manager = new SkillManager();
+
+        // Load from common locations
+        const home = process.env.HOME || "";
+        manager.loadFromDirectory(`${home}/.claude/skills`, "user");
+        manager.loadFromDirectory(`${workingDirectory}/.claude/skills`, "project");
+
+        const localSkills = manager.getAll();
+
+        if (localSkills.length === 0) {
+          setMessages(prev => [...prev, {
+            id: genId(),
+            role: "system",
+            content: `No local skills installed.\n\nInstall skills by:\n  - Creating .claude/skills/<name>.md\n  - Or use /skills to browse the marketplace`,
+            timestamp: now,
+          }]);
+        } else {
+          const skillList = localSkills.map((s, i) => {
+            const source = s.source === "user" ? "global" : s.source;
+            return `${i + 1}. \x1b[1m${s.name}\x1b[0m (${source})\n   ${s.description || "No description"}`;
+          }).join("\n\n");
+
+          setMessages(prev => [...prev, {
+            id: genId(),
+            role: "system",
+            content: `Installed Skills (${localSkills.length})\n\n${skillList}\n\nUse skills with /<skill-name>`,
+            timestamp: now,
+          }]);
+        }
+        break;
+      }
+
       default:
-        setMessages(prev => [...prev, { id: genId(), role: "system", content: `Unknown command: /${command}` }]);
+        setMessages(prev => [...prev, { id: genId(), role: "system", content: `Unknown command: /${command}\n\nType /help to see available commands.`, timestamp: now }]);
     }
-  }, [onExit, exit, sessionStore, setSessionId]);
+  }, [onExit, exit, sessionStore, setSessionId, sessionCost, model, permissionMode, tokenCount, apiMessages, checkpointHistory, checkpointIndex, workingDirectory, sessionId]);
 
   // Keyboard input using Ink's useInput
   useInput((input: string, key: Key) => {
@@ -365,31 +766,8 @@ function InteractiveTUI({
       return;
     }
 
-    // Chat history scroll (Shift+Up/Down or Page Up/Down)
-    if ((key.upArrow && key.shift) || (key.pageUp)) {
-      const maxOffset = Math.max(0, messages.length - visibleMessageCount);
-      setScrollOffset(prev => Math.min(prev + visibleMessageCount, maxOffset));
-      return;
-    }
-
-    if ((key.downArrow && key.shift) || (key.pageDown)) {
-      setScrollOffset(prev => Math.max(prev - visibleMessageCount, 0));
-      return;
-    }
-
-    // Jump to top/bottom (Shift+Home/End)
-    if (key.shift && input === "\x1b[H") { // Home
-      const maxOffset = Math.max(0, messages.length - visibleMessageCount);
-      setScrollOffset(maxOffset);
-      return;
-    }
-    if (key.shift && input === "\x1b[F") { // End
-      setScrollOffset(0);
-      return;
-    }
-
-    // Input history up (without shift)
-    if (key.upArrow && !key.shift) {
+    // History up
+    if (key.upArrow) {
       if (historyRef.current.length > 0) {
         if (historyIdxRef.current === -1) {
           savedInputRef.current = inputValue;
@@ -402,7 +780,7 @@ function InteractiveTUI({
       return;
     }
 
-    if (key.downArrow && !key.shift) {
+    if (key.downArrow) {
       if (historyIdxRef.current > 0) {
         const newIdx = historyIdxRef.current - 1;
         historyIdxRef.current = newIdx;
@@ -461,35 +839,23 @@ function InteractiveTUI({
   // Context info
   const contextInfo = calculateContextInfo(tokenCount, model);
 
-  // Calculate scroll bounds
-  const maxScrollOffset = Math.max(0, messages.length - visibleMessageCount);
-  const clampedScrollOffset = Math.min(scrollOffset, maxScrollOffset);
-
-  // Render messages based on terminal height and scroll position
-  // scrollOffset=0 means show latest (bottom), higher means scrolled up
-  const startIndex = Math.max(0, messages.length - visibleMessageCount - clampedScrollOffset);
-  const endIndex = messages.length - clampedScrollOffset;
-  const visibleMessages = messages.slice(startIndex, endIndex);
-  const canScrollUp = clampedScrollOffset < maxScrollOffset;
-  const canScrollDown = clampedScrollOffset > 0;
-
   return (
-    <Box flexDirection="column" height={terminalHeight} width={terminalWidth}>
-      {/* Messages */}
-      <Box flexDirection="column" flexGrow={1} overflow="hidden">
+    <Box flexDirection="column" width={terminalWidth}>
+      {/* Messages - render ALL to enable terminal scrollback */}
+      <Box flexDirection="column">
         {contextInfo.isLow && (
           <Text color={contextInfo.isCritical ? "red" : "yellow"} bold>
             Context: {contextInfo.percentRemaining.toFixed(0)}% remaining
           </Text>
         )}
 
-        {visibleMessages.length === 0 && !isLoading && !streamingText && (
+        {messages.length === 0 && !isLoading && !streamingText && (
           <Text dimColor>
             Welcome to Coder v{VERSION}. Type your message or /help for commands.
           </Text>
         )}
 
-        {visibleMessages.map(msg => {
+        {messages.map(msg => {
           // Tool call
           if (msg.type === "tool_call") {
             return (
@@ -543,11 +909,7 @@ function InteractiveTUI({
 
       {/* Status bar */}
       <Text dimColor>
-        {isLoading ? spinnerFrames[spinnerFrame] + " " : ""}
-        Context: {tokenCount} tokens | {permissionMode}
-        {canScrollUp && " | ↑more"}
-        {canScrollDown && " | ↓more"}
-        {clampedScrollOffset > 0 && ` | ${clampedScrollOffset}/${maxScrollOffset} scrolled`}
+        {isLoading ? spinnerFrames[spinnerFrame] + " " : ""}Context: {tokenCount} tokens | {permissionMode}
       </Text>
 
       {/* Input */}
@@ -573,6 +935,18 @@ function InteractiveTUI({
 // RENDER FUNCTION
 // ============================================
 
+/**
+ * Native terminal control using Rust TUI primitives
+ * These replace manual ANSI escape codes with native implementations
+ */
+const NativeTerminal = {
+  enterAltScreen: () => { process.stdout.write(Terminal.enterAltScreen()); },
+  exitAltScreen: () => { process.stdout.write(Terminal.exitAltScreen()); },
+  clearScreen: () => { process.stdout.write(Terminal.clearScreen()); },
+  hideCursor: () => { process.stdout.write(Terminal.hideCursor()); },
+  showCursor: () => { process.stdout.write(Terminal.showCursor()); },
+};
+
 export function createInteractiveTUI(
   initialProps: InteractiveTUIProps
 ): InteractiveTUIHandle {
@@ -581,6 +955,11 @@ export function createInteractiveTUI(
   let unmountFn: (() => void) | null = null;
   let waitFn: (() => Promise<void>) | null = null;
 
+  // Enter alternate screen buffer BEFORE render using native Rust TUI
+  // This isolates TUI from main terminal - no pre-app history visible
+  NativeTerminal.enterAltScreen();
+
+  // Small delay to ensure terminal processes the escape code
   const { rerender, unmount, waitUntilExit } = render(
     <InteractiveTUI {...currentProps} />,
     { exitOnCtrlC: false }
@@ -595,7 +974,11 @@ export function createInteractiveTUI(
       currentProps = { ...currentProps, ...newProps };
       rerenderFn?.(<InteractiveTUI {...currentProps} />);
     },
-    unmount: () => unmountFn?.(),
+    unmount: () => {
+      unmountFn?.();
+      // Exit alternate screen buffer using native Rust TUI - restore original terminal
+      NativeTerminal.exitAltScreen();
+    },
     waitUntilExit: () => waitFn?.() || Promise.resolve(),
   };
 }

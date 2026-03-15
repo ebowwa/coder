@@ -5,12 +5,13 @@
 import type {
   MCPServerConfig,
   MCPTool,
+  MCPInputSchema,
   JSONRPCRequest,
   JSONRPCResponse,
   JSONRPCNotification,
   JSONSchema,
   ToolResult,
-} from "../../types/index.js";
+} from "../../schemas/index.js";
 import { spawn, type ChildProcess } from "child_process";
 import WebSocket from "ws";
 
@@ -238,7 +239,11 @@ export class MCPClientImpl {
       this.tools = result.tools.map((tool) => ({
         name: tool.name,
         description: tool.description,
-        inputSchema: tool.inputSchema,
+        inputSchema: {
+          type: "object" as const,
+          properties: tool.inputSchema.properties as Record<string, MCPInputSchema["properties"][string]>,
+          required: tool.inputSchema.required,
+        },
       }));
 
       this.log(`Loaded ${this.tools.length} tools`);

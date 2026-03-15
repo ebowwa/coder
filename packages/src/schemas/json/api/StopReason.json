@@ -1,0 +1,31 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ebowwa.github.io/coder/schemas/StopReason.json",
+  "$ref": "#/definitions/StopReason",
+  "definitions": {
+    "StopReason": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "end_turn"
+        },
+        {
+          "type": "string",
+          "const": "max_tokens"
+        },
+        {
+          "type": "string",
+          "const": "stop_sequence"
+        },
+        {
+          "type": "string",
+          "const": "tool_use"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "title": "StopReason Schema"
+}

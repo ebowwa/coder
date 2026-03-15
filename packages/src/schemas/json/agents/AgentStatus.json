@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ebowwa.github.io/coder/schemas/AgentStatus.json",
+  "$ref": "#/definitions/AgentStatus",
+  "definitions": {
+    "AgentStatus": {
+      "type": "string",
+      "enum": [
+        "initializing",
+        "running",
+        "waiting_for_input",
+        "executing_tool",
+        "thinking",
+        "idle",
+        "completed",
+        "error",
+        "stopped"
+      ]
+    }
+  },
+  "title": "AgentStatus Schema"
+}

@@ -9,8 +9,8 @@
  * 3. Dispatches to TUI or single-query mode
  */
 
-import type { Message } from "../../../../types/index.js";
-import type { ToolDefinition, PermissionMode } from "../../../../types/index.js";
+import type { Message } from "../../../../schemas/index.js";
+import type { ToolDefinition, PermissionMode } from "../../../../schemas/index.js";
 import type { builtInTools } from "../../../../ecosystem/tools/index.js";
 import type { HookManager } from "../../../../ecosystem/hooks/index.js";
 import type { SkillManager } from "../../../../ecosystem/skills/index.js";

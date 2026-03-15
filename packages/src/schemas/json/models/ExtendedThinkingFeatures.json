@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ebowwa.github.io/coder/schemas/ExtendedThinkingFeatures.json",
+  "$ref": "#/definitions/ExtendedThinkingFeatures",
+  "definitions": {
+    "ExtendedThinkingFeatures": {
+      "type": "object",
+      "properties": {
+        "interleavedThinking": {
+          "type": "string"
+        },
+        "adaptiveThinking": {
+          "type": "string"
+        },
+        "redactThinking": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "interleavedThinking",
+        "adaptiveThinking",
+        "redactThinking"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "title": "ExtendedThinkingFeatures Schema"
+}

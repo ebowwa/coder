@@ -9,7 +9,7 @@ import {
   toImageBlock,
   formatImageResult,
 } from "./image.js";
-import type { MediaType } from "../types/index.js";
+import type { MediaType } from "../schemas/index.js";
 
 describe("Image Extensions", () => {
   test("IMAGE_EXTENSIONS contains supported formats", () => {

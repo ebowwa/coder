@@ -9,7 +9,7 @@ import type {
   ToolUseBlock,
   ToolResult,
   PermissionMode,
-} from "../../../types/index.js";
+} from "../../../schemas/index.js";
 import { PermissionManager } from "../../permissions.js";
 
 // Mock tool definitions

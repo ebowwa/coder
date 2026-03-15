@@ -23,11 +23,12 @@
     "coder": "dist/interfaces/ui/terminal/cli/index.js"
   },
   "scripts": {
-    "build": "bun run build:native && bun run build:ts && bun run build:types && bun run link",
-    "build:ts": "bun build ./packages/src/index.ts ./packages/src/interfaces/ui/terminal/cli/index.ts --outdir ./dist --target bun --external sharp",
+    "build": "rm -rf dist && bun run build:native && bun run build:ts && bun run build:types && bun run link",
+    "build:ts": "bun build ./packages/src/index.ts ./packages/src/interfaces/ui/terminal/cli/index.ts --outdir ./dist --target bun --external sharp --external @ebowwa/bun-native-page",
     "build:types": "tsc --emitDeclarationOnly --declaration --outDir dist",
     "build:native": "cd packages/rust && cargo build --release --target-dir ./target && cd ../.. && bun run build:napi-artifacts",
     "build:napi-artifacts": "napi build --platform --release --target-dir packages/rust/target --manifest-path packages/rust/Cargo.toml --output-dir native --js-package-name @ebowwa/coder-native --const-enum --strip --dts index.d.ts",
+    "build:schemas": "bun run packages/src/schemas/generate-json-schemas.ts",
     "link": "bun link || npm link",
     "unlink": "bun unlink || npm unlink -g @ebowwa/coder",
     "dev": "bun run --watch packages/src/interfaces/ui/terminal/cli/index.ts",
@@ -39,8 +40,21 @@
     "native",
     "packages/src"
   ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./schemas": {
+      "types": "./packages/src/schemas/index.ts",
+      "import": "./packages/src/schemas/index.ts"
+    },
+    "./schemas/json/*": "./packages/src/schemas/json/*/*.json",
+    "./schemas/json": "./packages/src/schemas/json/index.json"
+  },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
+    "@ebowwa/bun-native-page": "^0.2.0",
     "@ebowwa/coder-native": "^0.2.1",
     "@ebowwa/quant-rust": "^0.2.2",
     "@modelcontextprotocol/sdk": "^1.10.0",
@@ -74,6 +88,7 @@
     "@vitest/ui": "^4.0.18",
     "happy-dom": "^20.7.0",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.18"
+    "vitest": "^4.0.18",
+    "zod-to-json-schema": "^3.25.1"
   }
 }

@@ -1,0 +1,90 @@
+# Robotics Fleet Operator Preset
+name: robotics
+description: AI fleet operator for robot coordination and control
+version: 1.0.0
+
+# MCP Servers
+mcpServers:
+  hetzner:
+    type: stdio
+    command: bun
+    args:
+      - run
+      - /packages/mcp/mcp-hetzner/dist/index.js
+
+  tailscale:
+    type: stdio
+    command: bun
+    args:
+      - run
+      - /packages/mcp/mcp-tailscale/dist/index.js
+
+  # Custom robot control server (TODO: needs to be built)
+  # robot-control:
+  #   type: stdio
+  #   command: bun
+  #   args:
+  #     - run
+  #     - /packages/mcp/mcp-robot-control/dist/index.js
+
+# CLAUDE.md content
+claudeMd: |
+  # Robotics Fleet Mode
+
+  You are an AI fleet operator for coordinating and controlling robots.
+
+  ## Focus Areas
+  - Fleet status monitoring
+  - Mission planning and execution
+  - Sensor data analysis
+  - Safety management
+  - Coordination between robots
+
+  ## Behavior
+  - Safety is ALWAYS the top priority
+  - Coordinate fleet actions
+  - Handle failures gracefully
+  - Monitor battery and connectivity
+
+  ## Safety Rules
+  - Never send robot into unknown area without confirmation
+  - Always check battery before missions
+  - Maintain communication with all robots
+  - Emergency stop available at all times
+
+  ## Coordination Patterns
+  - Broadcast mission updates
+  - Share sensor data between robots
+  - Delegate tasks based on robot capabilities
+  - Handle robot failures with fallback plans
+
+# Permissions
+permissions:
+  defaultMode: default
+  allowedTools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Glob
+    - Grep
+
+# Skills
+skills:
+  - fleet-status
+  - mission-planner
+  - safety-monitor
+
+# Tags
+tags:
+  - robotics
+  - fleet
+  - automation
+  - hardware
+  - unitree
+  - g1
+
+# Environment
+env:
+  ROBOT_FLEET_ID: "${ROBOT_FLEET_ID}"
+  TAILSCALE_AUTH_KEY: "${TAILSCALE_AUTH_KEY}"

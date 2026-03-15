@@ -17,6 +17,12 @@ pub mod file_index;
 // Cognitive Security Module
 pub mod cognitive_security;
 
+// TUI Primitives Module
+pub mod tui;
+
+// Quantitative Analysis Module
+pub mod quant;
+
 // ===== Shared Types =====
 
 #[napi(object)]
@@ -1132,4 +1138,259 @@ pub fn sanitize_content(content: String) -> String {
 #[napi]
 pub fn create_taint_tracker() -> cognitive_security::flow::TaintTrackerHandle {
     cognitive_security::flow::create_taint_tracker()
+}
+
+// ===== TUI Module NAPI Wrappers =====
+
+// Re-export types
+pub use tui::style::{TuiColor, TuiRgb, TuiModifiers, TuiStyle};
+pub use tui::text::{TuiTextSegment, TuiTextLine, TuiTextBlock};
+pub use tui::box_primitive::{TuiBorderType, TuiBorders, TuiPadding};
+
+// ===== TUI Style Functions =====
+
+#[napi]
+pub fn tui_style_default() -> TuiStyle {
+    tui::style::tui_style_default()
+}
+
+#[napi]
+pub fn tui_style_fg(color: TuiColor) -> TuiStyle {
+    tui::style::tui_style_fg(color)
+}
+
+#[napi]
+pub fn tui_style_bg(color: TuiColor) -> TuiStyle {
+    tui::style::tui_style_bg(color)
+}
+
+#[napi]
+pub fn tui_style_rgb_fg(r: u8, g: u8, b: u8) -> TuiStyle {
+    tui::style::tui_style_rgb_fg(r, g, b)
+}
+
+#[napi]
+pub fn tui_style_rgb_bg(r: u8, g: u8, b: u8) -> TuiStyle {
+    tui::style::tui_style_rgb_bg(r, g, b)
+}
+
+#[napi]
+pub fn tui_style_bold() -> TuiStyle {
+    tui::style::tui_style_bold()
+}
+
+#[napi]
+pub fn tui_style_dim() -> TuiStyle {
+    tui::style::tui_style_dim()
+}
+
+#[napi]
+pub fn tui_style_user() -> TuiStyle {
+    tui::style::tui_style_user()
+}
+
+#[napi]
+pub fn tui_style_assistant() -> TuiStyle {
+    tui::style::tui_style_assistant()
+}
+
+#[napi]
+pub fn tui_style_system() -> TuiStyle {
+    tui::style::tui_style_system()
+}
+
+#[napi]
+pub fn tui_style_error() -> TuiStyle {
+    tui::style::tui_style_error()
+}
+
+#[napi]
+pub fn tui_style_success() -> TuiStyle {
+    tui::style::tui_style_success()
+}
+
+#[napi]
+pub fn tui_style_tool() -> TuiStyle {
+    tui::style::tui_style_tool()
+}
+
+#[napi]
+pub fn tui_style_highlight() -> TuiStyle {
+    tui::style::tui_style_highlight()
+}
+
+#[napi]
+pub fn tui_style_muted() -> TuiStyle {
+    tui::style::tui_style_muted()
+}
+
+// ===== TUI Text Functions =====
+
+#[napi]
+pub fn tui_text_segment(content: String, style: Option<TuiStyle>) -> TuiTextSegment {
+    tui::text::tui_text_segment(content, style)
+}
+
+#[napi]
+pub fn tui_text_line_plain(content: String) -> TuiTextLine {
+    tui::text::tui_text_line_plain(content)
+}
+
+#[napi]
+pub fn tui_text_line_styled(content: String, style: TuiStyle) -> TuiTextLine {
+    tui::text::tui_text_line_styled(content, style)
+}
+
+#[napi]
+pub fn tui_text_line(segments: Vec<TuiTextSegment>) -> TuiTextLine {
+    tui::text::tui_text_line(segments)
+}
+
+#[napi]
+pub fn tui_text_block(lines: Vec<TuiTextLine>) -> TuiTextBlock {
+    tui::text::tui_text_block(lines)
+}
+
+#[napi]
+pub fn tui_text_block_plain(content: String) -> TuiTextBlock {
+    tui::text::tui_text_block_plain(content)
+}
+
+// ===== TUI Box Functions =====
+
+#[napi]
+pub fn tui_borders_all() -> TuiBorders {
+    tui::box_primitive::tui_borders_all()
+}
+
+#[napi]
+pub fn tui_borders_none() -> TuiBorders {
+    tui::box_primitive::tui_borders_none()
+}
+
+#[napi]
+pub fn tui_borders_horizontal() -> TuiBorders {
+    tui::box_primitive::tui_borders_horizontal()
+}
+
+#[napi]
+pub fn tui_borders_vertical() -> TuiBorders {
+    tui::box_primitive::tui_borders_vertical()
+}
+
+#[napi]
+pub fn tui_borders_top() -> TuiBorders {
+    tui::box_primitive::tui_borders_top()
+}
+
+#[napi]
+pub fn tui_borders_bottom() -> TuiBorders {
+    tui::box_primitive::tui_borders_bottom()
+}
+
+#[napi]
+pub fn tui_padding_uniform(value: u16) -> TuiPadding {
+    tui::box_primitive::tui_padding_uniform(value)
+}
+
+#[napi]
+pub fn tui_padding_horizontal(value: u16) -> TuiPadding {
+    tui::box_primitive::tui_padding_horizontal(value)
+}
+
+#[napi]
+pub fn tui_padding_vertical(value: u16) -> TuiPadding {
+    tui::box_primitive::tui_padding_vertical(value)
+}
+
+#[napi]
+pub fn tui_draw_horizontal_line(width: u32, style: Option<TuiStyle>) -> String {
+    tui::box_primitive::tui_draw_horizontal_line(width, style)
+}
+
+#[napi]
+pub fn tui_draw_vertical_line(height: u32, style: Option<TuiStyle>) -> String {
+    tui::box_primitive::tui_draw_vertical_line(height, style)
+}
+
+#[napi]
+pub fn tui_draw_box_border(width: u32, height: u32, title: Option<String>, style: Option<TuiStyle>) -> String {
+    tui::box_primitive::tui_draw_box_border(width, height, title, style)
+}
+
+#[napi]
+pub fn tui_draw_box(width: u32, height: u32, title: Option<String>, content: String, style: Option<TuiStyle>) -> String {
+    tui::box_primitive::tui_draw_box(width, height, title, content, style)
+}
+
+#[napi]
+pub fn tui_draw_separator(width: u32, style: Option<TuiStyle>) -> String {
+    tui::box_primitive::tui_draw_separator(width, style)
+}
+
+#[napi]
+pub fn tui_draw_double_separator(width: u32, style: Option<TuiStyle>) -> String {
+    tui::box_primitive::tui_draw_double_separator(width, style)
+}
+
+// ===== TUI Buffer Functions =====
+
+#[napi]
+pub fn tui_render_line(line: TuiTextLine, width: Option<u32>) -> String {
+    tui::buffer::tui_render_line(line, width)
+}
+
+#[napi]
+pub fn tui_render_block(block: TuiTextBlock, width: Option<u32>) -> String {
+    tui::buffer::tui_render_block(block, width)
+}
+
+#[napi]
+pub fn tui_render_message(prefix: String, content: String, prefix_style: Option<TuiStyle>, width: Option<u32>) -> String {
+    tui::buffer::tui_render_message(prefix, content, prefix_style, width)
+}
+
+#[napi]
+pub fn tui_render_status_bar(left: String, right: String, style: Option<TuiStyle>, width: Option<u32>) -> String {
+    tui::buffer::tui_render_status_bar(left, right, style, width)
+}
+
+#[napi]
+pub fn tui_clear_screen() -> String {
+    tui::buffer::tui_clear_screen()
+}
+
+#[napi]
+pub fn tui_hide_cursor() -> String {
+    tui::buffer::tui_hide_cursor()
+}
+
+#[napi]
+pub fn tui_show_cursor() -> String {
+    tui::buffer::tui_show_cursor()
+}
+
+#[napi]
+pub fn tui_move_cursor(row: u32, col: u32) -> String {
+    tui::buffer::tui_move_cursor(row, col)
+}
+
+#[napi]
+pub fn tui_enter_alt_screen() -> String {
+    tui::buffer::tui_enter_alt_screen()
+}
+
+#[napi]
+pub fn tui_exit_alt_screen() -> String {
+    tui::buffer::tui_exit_alt_screen()
+}
+
+#[napi]
+pub fn tui_reset_style() -> String {
+    tui::buffer::tui_reset_style()
+}
+
+#[napi]
+pub fn tui_styled_text(content: String, style: TuiStyle) -> String {
+    tui::buffer::tui_styled_text(content, style)
 }

@@ -3,23 +3,11 @@
  * Handles rate limits, network errors, and transient failures
  */
 
-export interface RetryOptions {
-  maxRetries?: number;
-  baseDelayMs?: number;
-  maxDelayMs?: number;
-  jitterFactor?: number;
-  retryableStatusCodes?: number[];
-  onRetry?: (attempt: number, error: Error, delayMs: number) => void;
-}
+import type { RetryOptions } from "../schemas/index.js";
+import { DEFAULT_RETRY_OPTIONS } from "../schemas/index.js";
 
-const DEFAULT_RETRY_OPTIONS = {
-  maxRetries: 3,
-  baseDelayMs: 1000,
-  maxDelayMs: 30000,
-  jitterFactor: 0.2,
-  retryableStatusCodes: [429, 500, 502, 503, 504, 529],
-  onRetry: undefined as ((attempt: number, error: Error, delayMs: number) => void) | undefined,
-};
+// Re-export types for backward compatibility
+export type { RetryOptions } from "../schemas/index.js";
 
 /**
  * Calculate delay with exponential backoff and jitter

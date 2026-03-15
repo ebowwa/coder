@@ -1,0 +1,152 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ebowwa.github.io/coder/schemas/models/index.json",
+  "title": "models Schemas Index",
+  "description": "JSON Schema definitions for models types",
+  "definitions": {
+    "KnownClaudeModel": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "$id": "https://ebowwa.github.io/coder/schemas/KnownClaudeModel.json",
+      "$ref": "#/definitions/KnownClaudeModel",
+      "definitions": {
+        "KnownClaudeModel": {
+          "type": "string",
+          "enum": [
+            "claude-opus-4-6",
+            "claude-opus-4-6[1m]",
+            "claude-opus-4-1",
+            "claude-opus-4",
+            "claude-sonnet-4-6",
+            "claude-sonnet-4-6[1m]",
+            "claude-sonnet-4-5",
+            "claude-sonnet-4",
+            "claude-haiku-4-5",
+            "claude-haiku-4-5-20251001"
+          ]
+        }
+      },
+      "title": "KnownClaudeModel Schema"
+    },
+    "ModelTier": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "$id": "https://ebowwa.github.io/coder/schemas/ModelTier.json",
+      "$ref": "#/definitions/ModelTier",
+      "definitions": {
+        "ModelTier": {
+          "type": "string",
+          "enum": [
+            "haiku",
+            "sonnet",
+            "opus"
+          ]
+        }
+      },
+      "title": "ModelTier Schema"
+    },
+    "ModelDefinition": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "$id": "https://ebowwa.github.io/coder/schemas/ModelDefinition.json",
+      "$ref": "#/definitions/ModelDefinition",
+      "definitions": {
+        "ModelDefinition": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "vertexRegion": {
+              "type": "string"
+            },
+            "displayName": {
+              "type": "string"
+            },
+            "contextWindow": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            },
+            "tier": {
+              "type": "string",
+              "enum": [
+                "haiku",
+                "sonnet",
+                "opus"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "displayName",
+            "contextWindow",
+            "tier"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "title": "ModelDefinition Schema"
+    },
+    "ModelPricing": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "$id": "https://ebowwa.github.io/coder/schemas/ModelPricing.json",
+      "$ref": "#/definitions/ModelPricing",
+      "definitions": {
+        "ModelPricing": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "type": "number",
+              "minimum": 0
+            },
+            "output": {
+              "type": "number",
+              "minimum": 0
+            },
+            "cacheWrite": {
+              "type": "number",
+              "minimum": 0
+            },
+            "cacheRead": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "input",
+            "output",
+            "cacheWrite",
+            "cacheRead"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "title": "ModelPricing Schema"
+    },
+    "ExtendedThinkingFeatures": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "$id": "https://ebowwa.github.io/coder/schemas/ExtendedThinkingFeatures.json",
+      "$ref": "#/definitions/ExtendedThinkingFeatures",
+      "definitions": {
+        "ExtendedThinkingFeatures": {
+          "type": "object",
+          "properties": {
+            "interleavedThinking": {
+              "type": "string"
+            },
+            "adaptiveThinking": {
+              "type": "string"
+            },
+            "redactThinking": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "interleavedThinking",
+            "adaptiveThinking",
+            "redactThinking"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "title": "ExtendedThinkingFeatures Schema"
+    }
+  }
+}

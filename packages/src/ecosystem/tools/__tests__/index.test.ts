@@ -18,7 +18,7 @@ import {
   getToolByName,
   builtInTools,
 } from "../index.js";
-import type { ToolContext, ToolResult } from "../../../types/index.js";
+import type { ToolContext, ToolResult } from "../../../schemas/index.js";
 
 // Helper to create a default tool context
 function createToolContext(workingDirectory: string): ToolContext {

@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ebowwa.github.io/coder/schemas/ModelDefinition.json",
+  "$ref": "#/definitions/ModelDefinition",
+  "definitions": {
+    "ModelDefinition": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "vertexRegion": {
+          "type": "string"
+        },
+        "displayName": {
+          "type": "string"
+        },
+        "contextWindow": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        },
+        "tier": {
+          "type": "string",
+          "enum": [
+            "haiku",
+            "sonnet",
+            "opus"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "displayName",
+        "contextWindow",
+        "tier"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "title": "ModelDefinition Schema"
+}

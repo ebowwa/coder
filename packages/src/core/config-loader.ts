@@ -10,63 +10,28 @@
 
 import { readFile, access } from "fs/promises";
 import { join } from "path";
-import type { MCPServerConfig, PermissionMode, HookDefinition, HookEvent } from "../types/index.js";
+import type {
+  MCPServerConfig,
+  PermissionMode,
+  HookDefinition,
+  HookEvent,
+  ClaudeMainConfig,
+  ProjectConfig,
+  SettingsConfig,
+  HookMatcherConfig,
+  KeybindingConfig,
+  LoadedConfig,
+} from "../schemas/index.js";
 
-// ============================================
-// TYPES
-// ============================================
-
-export interface ClaudeMainConfig {
-  numStartups?: number;
-  verbose?: boolean;
-  preferredNotifChannel?: "terminal_bell" | "notification";
-  projects?: Record<string, ProjectConfig>;
-  mcpServers?: Record<string, MCPServerConfig>;
-}
-
-export interface ProjectConfig {
-  allowedTools?: string[];
-  mcpServers?: Record<string, MCPServerConfig>;
-  enabledMcpjsonServers?: string[];
-  disabledMcpjsonServers?: string[];
-  hasTrustDialogAccepted?: boolean;
-  lastSessionId?: string;
-}
-
-export interface SettingsConfig {
-  hooks?: Partial<Record<HookEvent, HookMatcherConfig[]>>;
-  permissions?: {
-    defaultMode?: PermissionMode;
-    allowedTools?: string[];
-    disallowedTools?: string[];
-  };
-}
-
-export interface HookMatcherConfig {
-  matcher?: string;
-  hooks: Array<{
-    type: "command" | "prompt";
-    command?: string;
-    prompt?: string;
-    timeout?: number;
-  }>;
-}
-
-export interface KeybindingConfig {
-  bindings: Array<{
-    key: string;
-    command: string;
-    when?: string;
-  }>;
-}
-
-export interface LoadedConfig {
-  main: ClaudeMainConfig;
-  settings: SettingsConfig;
-  keybindings: KeybindingConfig;
-  projectSettings: SettingsConfig;
-  sources: string[];
-}
+// Re-export types for backward compatibility
+export type {
+  ClaudeMainConfig,
+  ProjectConfig,
+  SettingsConfig,
+  HookMatcherConfig,
+  KeybindingConfig,
+  LoadedConfig,
+} from "../schemas/index.js";
 
 // ============================================
 // PATHS
@@ -274,6 +239,7 @@ export function settingsToHookDefinitions(
         if (hook.type === "prompt") {
           definitions.push({
             event: hookEvent,
+            type: "prompt" as const,
             command: "", // Not used for prompt hooks
             prompt: hook.prompt || "",
             timeout: hook.timeout || 30000,
@@ -285,6 +251,7 @@ export function settingsToHookDefinitions(
         }
         definitions.push({
           event: hookEvent,
+          type: "command" as const,
           command: hook.type === "command" ? hook.command || "" : "",
           timeout: hook.timeout || 60000,
           enabled: true,

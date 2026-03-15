@@ -3,7 +3,7 @@
  * Type definitions for the interactive TUI components
  */
 
-import type { PermissionMode, ClaudeModel, Message as ApiMessage, ToolDefinition } from "../../../../types/index.js";
+import type { PermissionMode, ClaudeModel, Message as ApiMessage, ToolDefinition } from "../../../../schemas/index.js";
 import type { HookManager } from "../../../../ecosystem/hooks/index.js";
 import type { LoadedSession, SessionSummary } from "../../../../core/sessions/types.js";
 
@@ -181,5 +181,5 @@ export interface ContextInfo {
 /**
  * Re-export types from parent for convenience
  */
-export type { PermissionMode, ClaudeModel, Message as ApiMessage, ToolDefinition } from "../../../../types/index.js";
+export type { PermissionMode, ClaudeModel, Message as ApiMessage, ToolDefinition } from "../../../../schemas/index.js";
 export type { HookManager } from "../../../../ecosystem/hooks/index.js";

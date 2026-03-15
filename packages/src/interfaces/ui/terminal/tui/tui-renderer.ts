@@ -7,15 +7,15 @@
 
 import {
   native,
-  TuiStyle,
-  TuiColor,
-  TuiRgb,
-  TuiModifiers,
-  TuiTextSegment,
-  TuiTextLine,
-  TuiTextBlock,
-  TuiBorders,
-  TuiPadding,
+  type TuiStyle,
+  type TuiColor,
+  type TuiRgb,
+  type TuiModifiers,
+  type TuiTextSegment,
+  type TuiTextLine,
+  type TuiTextBlock,
+  type TuiBorders,
+  type TuiPadding,
   type NativeModule,
 } from "../../../../native/index.js";
 
@@ -61,6 +61,16 @@ export const Colors = {
 
 // ===== Style Builder =====
 
+const defaultModifiers: TuiModifiers = {
+  bold: false,
+  dim: false,
+  italic: false,
+  underline: false,
+  strikethrough: false,
+  reverse: false,
+  hidden: false,
+};
+
 export class StyleBuilder {
   private style: TuiStyle = {};
 
@@ -87,22 +97,22 @@ export class StyleBuilder {
   }
 
   bold(value = true): this {
-    this.style.modifiers = { ...this.style.modifiers, bold: value };
+    this.style.modifiers = { ...defaultModifiers, ...this.style.modifiers, bold: value };
     return this;
   }
 
   dim(value = true): this {
-    this.style.modifiers = { ...this.style.modifiers, dim: value };
+    this.style.modifiers = { ...defaultModifiers, ...this.style.modifiers, dim: value };
     return this;
   }
 
   italic(value = true): this {
-    this.style.modifiers = { ...this.style.modifiers, italic: value };
+    this.style.modifiers = { ...defaultModifiers, ...this.style.modifiers, italic: value };
     return this;
   }
 
   underline(value = true): this {
-    this.style.modifiers = { ...this.style.modifiers, underline: value };
+    this.style.modifiers = { ...defaultModifiers, ...this.style.modifiers, underline: value };
     return this;
   }
 
@@ -137,7 +147,7 @@ export const Styles = {
 
 export const Text = {
   segment: (content: string, style?: TuiStyle): TuiTextSegment =>
-    native.tui_text_segment(content, style ?? null),
+    native.tui_text_segment(content, style),
 
   linePlain: (content: string): TuiTextLine =>
     native.tui_text_line_plain(content),
@@ -176,38 +186,38 @@ export const Padding = {
 
 export const Draw = {
   horizontalLine: (width: number, style?: TuiStyle): string =>
-    native.tui_draw_horizontal_line(width, style ?? null),
+    native.tui_draw_horizontal_line(width, style),
 
   verticalLine: (height: number, style?: TuiStyle): string =>
-    native.tui_draw_vertical_line(height, style ?? null),
+    native.tui_draw_vertical_line(height, style),
 
   boxBorder: (width: number, height: number, title?: string, style?: TuiStyle): string =>
-    native.tui_draw_box_border(width, height, title ?? null, style ?? null),
+    native.tui_draw_box_border(width, height, title, style),
 
   box: (width: number, height: number, title: string | null, content: string, style?: TuiStyle): string =>
-    native.tui_draw_box(width, height, title, content, style ?? null),
+    native.tui_draw_box(width, height, title, content, style),
 
   separator: (width: number, style?: TuiStyle): string =>
-    native.tui_draw_separator(width, style ?? null),
+    native.tui_draw_separator(width, style),
 
   doubleSeparator: (width: number, style?: TuiStyle): string =>
-    native.tui_draw_double_separator(width, style ?? null),
+    native.tui_draw_double_separator(width, style),
 };
 
 // ===== Render Functions =====
 
 export const Render = {
   line: (line: TuiTextLine, width?: number): string =>
-    native.tui_render_line(line, width ?? null),
+    native.tui_render_line(line, width),
 
   block: (block: TuiTextBlock, width?: number): string =>
-    native.tui_render_block(block, width ?? null),
+    native.tui_render_block(block, width),
 
   message: (prefix: string, content: string, prefixStyle?: TuiStyle, width?: number): string =>
-    native.tui_render_message(prefix, content, prefixStyle ?? null, width ?? null),
+    native.tui_render_message(prefix, content, prefixStyle, width),
 
   statusBar: (left: string, right: string, style?: TuiStyle, width?: number): string =>
-    native.tui_render_status_bar(left, right, style ?? null, width ?? null),
+    native.tui_render_status_bar(left, right, style, width),
 };
 
 // ===== Terminal Control =====

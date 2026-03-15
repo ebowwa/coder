@@ -2,7 +2,7 @@
  * Built-in Tools
  */
 
-import type { ToolDefinition, ToolResult, ToolContext, ImageBlock } from "../../types/index.js";
+import type { ToolDefinition, ToolResult, ToolContext, ImageBlock } from "../../schemas/index.js";
 import { glob as globAsync } from "glob";
 import { spawn } from "child_process";
 import { apply_multi_edits, validate_multi_edits, preview_multi_edits, type MultiEditEntry } from "../../native/index.js";
@@ -46,7 +46,7 @@ export const ReadTool: ToolDefinition = {
     },
     required: ["file_path"],
   },
-  handler: async (args, context: ToolContext): Promise<ToolResult> => {
+  handler: async (args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
     const filePath = args.file_path as string;
     const offset = (args.offset as number) || 1;
     const limit = (args.limit as number) || 2000;
@@ -156,7 +156,7 @@ export const WriteTool: ToolDefinition = {
     },
     required: ["file_path", "content"],
   },
-  handler: async (args, context: ToolContext): Promise<ToolResult> => {
+  handler: async (args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
     const filePath = args.file_path as string;
     const content = args.content as string;
 
@@ -208,7 +208,7 @@ export const EditTool: ToolDefinition = {
     },
     required: ["file_path", "old_string", "new_string"],
   },
-  handler: async (args, context: ToolContext): Promise<ToolResult> => {
+  handler: async (args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
     const filePath = args.file_path as string;
     const oldString = args.old_string as string;
     const newString = args.new_string as string;
@@ -292,7 +292,7 @@ export const BashTool: ToolDefinition = {
     },
     required: ["command"],
   },
-  handler: async (args, context: ToolContext): Promise<ToolResult> => {
+  handler: async (args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
     const command = args.command as string;
     const timeout = (args.timeout as number) || 120000;
 
@@ -348,7 +348,7 @@ export const GlobTool: ToolDefinition = {
     },
     required: ["pattern"],
   },
-  handler: async (args, context: ToolContext): Promise<ToolResult> => {
+  handler: async (args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
     const pattern = args.pattern as string;
     const searchPath = (args.path as string) || context.workingDirectory;
 
@@ -419,7 +419,7 @@ export const GrepTool: ToolDefinition = {
     },
     required: ["pattern"],
   },
-  handler: async (args, context: ToolContext): Promise<ToolResult> => {
+  handler: async (args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
     const pattern = args.pattern as string;
     const searchPath = (args.path as string) || context.workingDirectory;
     const glob = args.glob as string | undefined;
@@ -540,7 +540,7 @@ Usage notes:
     },
     required: ["subagent_type", "prompt"],
   },
-  handler: async (args, context: ToolContext): Promise<ToolResult> => {
+  handler: async (args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
     const subagentType = args.subagent_type as string;
     const prompt = args.prompt as string;
     const description = args.description as string | undefined;
@@ -699,7 +699,7 @@ Works with all task types: background shells, async agents, and remote sessions`
     },
     required: ["task_id"],
   },
-  handler: async (args, context: ToolContext): Promise<ToolResult> => {
+  handler: async (args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
     const taskId = args.task_id as string;
     const block = (args.block as boolean) ?? true;
     const timeout = (args.timeout as number) ?? 30000;
@@ -850,7 +850,7 @@ User can always select "Other" to provide custom text input.`,
     },
     required: ["questions"],
   },
-  handler: async (args, context: ToolContext): Promise<ToolResult> => {
+  handler: async (args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
     const questions = args.questions as Array<{
       question: string;
       header: string;
@@ -942,7 +942,7 @@ Important notes:
     },
     required: [],
   },
-  handler: async (args, context: ToolContext): Promise<ToolResult> => {
+  handler: async (args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
     const allowedPrompts = args.allowedPrompts as Array<{ tool: string; prompt: string }> | undefined;
 
     try {
@@ -1012,7 +1012,7 @@ ExitPlanMode inherently requests user approval of the plan.`,
     },
     required: [],
   },
-  handler: async (args, context: ToolContext): Promise<ToolResult> => {
+  handler: async (args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
     const allowedPrompts = args.allowedPrompts as Array<{ tool: string; prompt: string }> | undefined;
 
     try {
@@ -1086,16 +1086,29 @@ Important:
     },
     required: ["skill"],
   },
-  handler: async (args, context: ToolContext): Promise<ToolResult> => {
+  handler: async (args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
     const skillName = args.skill as string;
     const skillArgs = args.args as string | undefined;
 
     try {
-      // Load available skills
+      // 1. Check built-in skills first
+      const builtInSkills = ["commit", "review-pr", "mcp-builder", "hooks", "claude-api", "simplify", "skill-creator"];
+      if (builtInSkills.includes(skillName)) {
+        return {
+          content: JSON.stringify({
+            type: "skill_invocation",
+            skill: skillName,
+            args: skillArgs,
+            source: "built-in",
+            message: `Built-in skill "${skillName}" invoked. The skill instructions are now active.`,
+          }, null, 2),
+        };
+      }
+
+      // 2. Check local skill files
       const skillsDir = `${context.workingDirectory}/.claude/skills`;
       const globalSkillsDir = `${process.env.HOME || ""}/.claude/skills`;
 
-      // Check for skill file in multiple locations
       const possiblePaths = [
         `${skillsDir}/${skillName}.md`,
         `${skillsDir}/${skillName}/skill.md`,
@@ -1112,26 +1125,62 @@ Important:
         }
       }
 
-      if (!skillFile) {
+      if (skillFile) {
+        const file = Bun.file(skillFile);
+        const skillContent = await file.text();
+
         return {
-          content: `Skill not found: ${skillName}. Available skills can be listed with /help.`,
-          is_error: true,
+          content: JSON.stringify({
+            type: "skill_invocation",
+            skill: skillName,
+            args: skillArgs,
+            skillFile: skillFile,
+            source: "local",
+            content: skillContent,
+            message: `Skill "${skillName}" loaded from local file.`,
+          }, null, 2),
         };
       }
 
-      // Read and return the skill content
-      const file = Bun.file(skillFile);
-      const skillContent = await file.text();
+      // 3. Try marketplace (if API key available)
+      const apiKey = process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN;
+      if (apiKey) {
+        try {
+          const { SkillsClient } = await import("../skills/skills-client.js");
+          const client = new SkillsClient(apiKey);
+          const marketplaceSkill = await client.getByName(skillName);
 
+          if (marketplaceSkill) {
+            return {
+              content: JSON.stringify({
+                type: "skill_invocation",
+                skill: skillName,
+                args: skillArgs,
+                source: "marketplace",
+                skillData: marketplaceSkill,
+                content: marketplaceSkill.prompt,
+                message: `Skill "${skillName}" loaded from marketplace.`,
+              }, null, 2),
+            };
+          }
+        } catch (marketplaceError) {
+          // Marketplace lookup failed, fall through to error
+          console.error("Marketplace lookup failed:", marketplaceError);
+        }
+      }
+
+      // 4. Skill not found anywhere
       return {
-        content: JSON.stringify({
-          type: "skill_invocation",
-          skill: skillName,
-          args: skillArgs,
-          skillFile: skillFile,
-          content: skillContent,
-          message: `Skill "${skillName}" loaded. Follow the instructions in the skill content.`,
-        }, null, 2),
+        content: `Skill not found: ${skillName}
+
+Available sources checked:
+- Built-in skills: ${builtInSkills.join(", ")}
+- Local skills: ${skillsDir}
+- Global skills: ${globalSkillsDir}
+- Marketplace: ${apiKey ? "checked" : "no API key"}
+
+Use /help to see available skills.`,
+        is_error: true,
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -1164,7 +1213,7 @@ Use this tool to terminate a long-running task.`,
     },
     required: ["task_id"],
   },
-  handler: async (args, context: ToolContext): Promise<ToolResult> => {
+  handler: async (args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
     const taskId = args.task_id as string;
 
     try {
@@ -1269,7 +1318,7 @@ IMPORTANT: You MUST read the files first before using this tool. Only edit files
     },
     required: ["edits"],
   },
-  handler: async (args, context: ToolContext): Promise<ToolResult> => {
+  handler: async (args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
     const rawEdits = args.edits as Array<{
       file_path?: string;
       old_string?: string;
@@ -1409,7 +1458,7 @@ Jupyter notebooks are interactive documents that combine code, text, and visuali
     },
     required: ["notebook_path"],
   },
-  handler: async (args, context: ToolContext): Promise<ToolResult> => {
+  handler: async (args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
     const notebookPath = args.notebook_path as string;
     const cellId = args.cell_id as string | undefined;
     const cellNumber = args.cell_number as number | undefined;
@@ -1548,7 +1597,7 @@ export const TempGlmVisionTool: ToolDefinition = {
     },
     required: ["imageSource", "prompt"],
   },
-  handler: async (args, context: ToolContext): Promise<ToolResult> => {
+  handler: async (args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
     const imageSource = args.imageSource as string;
     const prompt = args.prompt as string;
 
@@ -1711,7 +1760,7 @@ export const AnalyzeImageTool: ToolDefinition = {
     },
     required: ["imageSource", "prompt"],
   },
-  handler: async (args, context: ToolContext): Promise<ToolResult> => {
+  handler: async (args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
     const imageSource = args.imageSource as string;
     const prompt = args.prompt as string;
 

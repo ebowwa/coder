@@ -9,7 +9,7 @@
  */
 
 import chalk from "chalk";
-import type { PermissionMode } from "../../../../types/index.js";
+import type { PermissionMode } from "../../../../schemas/index.js";
 import {
   getContextWindow as getContextWindowBase,
   getModelDisplayName as getModelDisplayNameBase,
@@ -63,11 +63,14 @@ export interface ContextInfo {
 
 const permissionModeDisplay: Record<PermissionMode, { symbol: string; label: string; color: string }> = {
   default: { symbol: "○", label: "default", color: "gray" },
+  ask: { symbol: "?", label: "ask", color: "yellow" },
   acceptEdits: { symbol: "●", label: "accept edits", color: "green" },
   bypassPermissions: { symbol: "⏵⏵", label: "bypass permissions", color: "yellow" },
+  bypass: { symbol: "⏵", label: "bypass", color: "yellow" },
   plan: { symbol: "◐", label: "plan", color: "cyan" },
   dontAsk: { symbol: "■", label: "don't ask", color: "red" },
   interactive: { symbol: "◉", label: "interactive", color: "blue" },
+  auto: { symbol: "◎", label: "auto", color: "green" },
 };
 
 /**
@@ -203,6 +206,7 @@ export function renderStatusLine(options: StatusLineOptions): string {
     model,
     permissionMode,
     isLoading = false,
+    verbose = false,
   } = options;
 
   const contextInfo = calculateContextInfo(tokensUsed, model);
@@ -222,6 +226,11 @@ export function renderStatusLine(options: StatusLineOptions): string {
 
   // 2. Add permission mode
   parts.push(formatPermissionMode(permissionMode));
+
+  // 3. Add version in verbose mode
+  if (verbose) {
+    parts.push(`currentVersion: ${VERSION}`);
+  }
 
   // Join with comma-space
   let statusLine = parts.join(", ");
