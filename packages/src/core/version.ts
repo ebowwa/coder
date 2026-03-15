@@ -41,7 +41,7 @@ export function getVersion(): string {
         const pkg = JSON.parse(content);
         if (pkg.version) {
           _version = pkg.version;
-          return _version;
+          return pkg.version;
         }
       }
     } catch {
