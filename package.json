@@ -54,7 +54,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
-    "@ebowwa/bun-native-page": "^0.2.0",
+    "@ebowwa/bun-native-page": "^0.2.4",
     "@ebowwa/coder-native": "^0.2.1",
     "@ebowwa/quant-rust": "^0.2.2",
     "@modelcontextprotocol/sdk": "^1.10.0",
