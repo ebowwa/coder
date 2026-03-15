@@ -1,42 +1,50 @@
 /**
  * TUI Entry Point
- * Renders and runs the InteractiveTUI
+ * Renders and runs the TUI
  *
- * IMPORTANT: Ink manages terminal state (raw mode, stdin).
- * The native input hook reads events without managing raw mode.
+ * Three modes available:
+ * - native (default): Full Rust TUI rendering (best performance)
+ * - scrollable: Ink with scrollable viewport
+ * - ink: Pure Ink rendering (no scrollback, but reactive UI)
+ *
+ * Set TUI_MODE=native|scrollable|ink to switch modes.
  */
 
-import React from "react";
-import { render } from "ink";
-import InteractiveTUI from "./InteractiveTUI.js";
-import { suppressConsole, restoreConsole } from "./console.js";
-import type { InteractiveTUIProps } from "./types.js";
+import type { InteractiveTUIProps } from "./InteractiveTUI.js";
+import type { SuppressOptions } from "./console.js";
+import { runScrollableTUI } from "./run-scrollable.js";
+
+// Re-export the scrollable runner
+export { runScrollableTUI };
 
 /**
  * Run the interactive TUI
+ *
+ * Uses native mode by default for best performance.
+ *
+ * @param options - TUI configuration
+ * @param suppressOptions - Console suppression options
  */
 export async function runInteractiveTUI(
-  options: InteractiveTUIProps
+  options: InteractiveTUIProps,
+  suppressOptions?: SuppressOptions
 ): Promise<void> {
-  // Suppress console output to prevent TUI corruption
-  suppressConsole();
+  // Use native mode by default for best performance
+  // Set TUI_MODE=scrollable for Ink-based scrolling
+  // Set TUI_MODE=ink for pure Ink mode (no scrollback)
+  const mode = process.env.TUI_MODE || "native";
 
-  // Ink manages raw mode and stdin
-  // Native input reads events without touching raw mode
-  const { unmount, waitUntilExit } = render(
-    <InteractiveTUI {...options} />,
-    {
-      exitOnCtrlC: false,
-      // Ensure Ink uses stdin properly
-      stdin: process.stdin,
-      stdout: process.stdout,
-      stderr: process.stderr,
-    }
-  );
+  if (mode === "native") {
+    // Full native Rust TUI rendering
+    const { runNativeTUI } = await import("./run-native.js");
+    return runNativeTUI(options);
+  }
 
-  await waitUntilExit();
-  unmount();
+  if (mode === "ink") {
+    // Dynamic import to avoid circular deps
+    const { runInkTUI } = await import("./run-ink.js");
+    return runInkTUI(options, suppressOptions);
+  }
 
-  // Restore console output
-  restoreConsole();
+  return runScrollableTUI(options, suppressOptions);
 }

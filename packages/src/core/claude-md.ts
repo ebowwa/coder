@@ -12,50 +12,27 @@
 import { readFile, access } from "fs/promises";
 import { join } from "path";
 import { randomUUID } from "crypto";
+import type {
+  SystemSignature,
+  EnvironmentInfo,
+  GitStatusInfo,
+  ToolsInfo,
+  ClaudeMdConfig,
+  ClaudeMdResult,
+} from "../schemas/index.js";
+import { DEFAULT_CLAUDE_MD_CONFIG } from "../schemas/index.js";
 
-// ===== System Signature Types =====
+// Re-export types for backward compatibility
+export type {
+  SystemSignature,
+  EnvironmentInfo,
+  GitStatusInfo,
+  ToolsInfo,
+  ClaudeMdConfig,
+  ClaudeMdResult,
+} from "../schemas/index.js";
 
-export interface SystemSignature {
-  version: string;
-  projectId: string;
-  sessionId: string;
-  timestamp: number;
-  environment: EnvironmentInfo;
-  gitStatus: GitStatusInfo;
-  tools: ToolsInfo;
-}
-
-export interface EnvironmentInfo {
-  platform: string;
-  nodeVersion: string;
-  shell: string;
-  homeDir: string;
-}
-
-export interface GitStatusInfo {
-  branch: string;
-  hasChanges: boolean;
-  staged: number;
-  unstaged: number;
-  untracked: number;
-}
-
-export interface ToolsInfo {
-  available: string[];
-  mcpServers: string[];
-}
-
-export interface ClaudeMdConfig {
-  globalPath: string;
-  projectPath: string;
-  rootPath: string;
-}
-
-const DEFAULT_CONFIG: ClaudeMdConfig = {
-  globalPath: `${process.env.HOME}/.claude/CLAUDE.md`,
-  projectPath: ".claude/CLAUDE.md",
-  rootPath: "CLAUDE.md",
-};
+const DEFAULT_CONFIG: ClaudeMdConfig = DEFAULT_CLAUDE_MD_CONFIG;
 
 /**
  * Check if a file exists and is readable

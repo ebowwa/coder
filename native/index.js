@@ -14,7 +14,7 @@ try {
       nativeBinding = require('./index.darwin-arm64.node');
       break;
     case 'linux-x64':
-      nativeBinding = require('./claude_code_native.linux-x64-gnu.node');
+      nativeBinding = require('./index.linux-x64-gnu.node');
       break;
     case 'win32-x64':
       nativeBinding = require('./claude_code_native.win32-x64-msvc.node');

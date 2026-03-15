@@ -3,7 +3,7 @@
  * Shared query runner for CLI -q mode
  */
 
-import type { Message, ToolDefinition, ExtendedThinkingConfig, GitStatus } from "../../../../types/index.js";
+import type { Message, ToolDefinition, ExtendedThinkingConfig, GitStatus } from "../../../../schemas/index.js";
 import { agentLoop, formatCost, formatCostBrief } from "../../../../core/agent-loop.js";
 import { HookManager } from "../../../../ecosystem/hooks/index.js";
 import { SessionStore } from "../../../../core/session-store.js";

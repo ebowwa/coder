@@ -2,7 +2,7 @@
  * Image Processing Module
  */
 
-import type { MediaType, ImageBlock } from "../types/index.js";
+import type { MediaType, ImageBlock } from "../schemas/index.js";
 
 // Lazy-load sharp to handle environments where it's not available
 type SharpModule = typeof import("sharp");

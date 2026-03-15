@@ -1,0 +1,206 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ebowwa.github.io/coder/schemas/hooks/index.json",
+  "title": "hooks Schemas Index",
+  "description": "JSON Schema definitions for hooks types",
+  "definitions": {
+    "HookType": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "$id": "https://ebowwa.github.io/coder/schemas/HookType.json",
+      "$ref": "#/definitions/HookType",
+      "definitions": {
+        "HookType": {
+          "type": "string",
+          "enum": [
+            "command",
+            "prompt",
+            "http",
+            "agent"
+          ]
+        }
+      },
+      "title": "HookType Schema"
+    },
+    "HookEvent": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "$id": "https://ebowwa.github.io/coder/schemas/HookEvent.json",
+      "$ref": "#/definitions/HookEvent",
+      "definitions": {
+        "HookEvent": {
+          "type": "string",
+          "enum": [
+            "SessionStart",
+            "SessionEnd",
+            "PreToolUse",
+            "PostToolUse",
+            "PostToolUseFailure",
+            "PrePrompt",
+            "PostPrompt",
+            "Notification",
+            "TeammateIdle",
+            "UserPromptSubmit",
+            "ConfigChange",
+            "WorktreeCreate"
+          ]
+        }
+      },
+      "title": "HookEvent Schema"
+    },
+    "HookDefinition": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "$id": "https://ebowwa.github.io/coder/schemas/HookDefinition.json",
+      "$ref": "#/definitions/HookDefinition",
+      "definitions": {
+        "HookDefinition": {
+          "type": "object",
+          "properties": {
+            "event": {
+              "type": "string",
+              "enum": [
+                "SessionStart",
+                "SessionEnd",
+                "PreToolUse",
+                "PostToolUse",
+                "PostToolUseFailure",
+                "PrePrompt",
+                "PostPrompt",
+                "Notification",
+                "TeammateIdle",
+                "UserPromptSubmit",
+                "ConfigChange",
+                "WorktreeCreate"
+              ]
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "command",
+                "prompt",
+                "http"
+              ]
+            },
+            "command": {
+              "type": "string"
+            },
+            "prompt": {
+              "type": "string"
+            },
+            "url": {
+              "type": "string",
+              "format": "uri"
+            },
+            "timeout": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 600000
+            },
+            "enabled": {
+              "type": "boolean"
+            },
+            "matcher": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "event"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "title": "HookDefinition Schema"
+    },
+    "HookInput": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "$id": "https://ebowwa.github.io/coder/schemas/HookInput.json",
+      "$ref": "#/definitions/HookInput",
+      "definitions": {
+        "HookInput": {
+          "type": "object",
+          "properties": {
+            "event": {
+              "type": "string",
+              "enum": [
+                "SessionStart",
+                "SessionEnd",
+                "PreToolUse",
+                "PostToolUse",
+                "PostToolUseFailure",
+                "PrePrompt",
+                "PostPrompt",
+                "Notification",
+                "TeammateIdle",
+                "UserPromptSubmit",
+                "ConfigChange",
+                "WorktreeCreate"
+              ]
+            },
+            "tool_name": {
+              "type": "string"
+            },
+            "tool_input": {
+              "type": "object",
+              "additionalProperties": {}
+            },
+            "tool_result": {},
+            "tool_result_is_error": {
+              "type": "boolean"
+            },
+            "error": {
+              "type": "string"
+            },
+            "session_id": {
+              "type": "string"
+            },
+            "prompt": {
+              "type": "string"
+            },
+            "timestamp": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "event",
+            "timestamp"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "title": "HookInput Schema"
+    },
+    "HookOutput": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "$id": "https://ebowwa.github.io/coder/schemas/HookOutput.json",
+      "$ref": "#/definitions/HookOutput",
+      "definitions": {
+        "HookOutput": {
+          "type": "object",
+          "properties": {
+            "decision": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "block",
+                "deny"
+              ]
+            },
+            "reason": {
+              "type": "string"
+            },
+            "modified_input": {
+              "type": "object",
+              "additionalProperties": {}
+            },
+            "errors": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "title": "HookOutput Schema"
+    }
+  }
+}

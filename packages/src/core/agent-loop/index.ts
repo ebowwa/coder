@@ -8,20 +8,22 @@
  * - Context compaction (compaction.ts)
  * - Message building (message-builder.ts)
  * - Formatting utilities (formatters.ts)
+ * - Loop behavior from teammate templates
  */
 
-import type { Message } from "../../types/index.js";
-import { DEFAULT_CACHE_CONFIG } from "../../types/index.js";
+import type { Message } from "../../schemas/index.js";
+import { DEFAULT_CACHE_CONFIG } from "../../schemas/index.js";
 import { PermissionManager } from "../permissions.js";
 import { DEFAULT_REMINDER_CONFIG } from "../system-reminders.js";
 import type { HookManager } from "../../ecosystem/hooks/index.js";
 
 import type { AgentLoopOptions, AgentLoopResult } from "./types.js";
-import { LoopState } from "./loop-state.js";
+import { LoopState, type LoopStateOptions } from "./loop-state.js";
 import { executeTurn, type TurnExecutorOptions } from "./turn-executor.js";
 
 // Re-export types and utilities
 export type { AgentLoopOptions, AgentLoopResult } from "./types.js";
+export type { LoopStateOptions } from "./loop-state.js";
 export { formatCost, formatMetrics, formatCostBrief, formatCacheMetrics } from "./formatters.js";
 export { LoopState } from "./loop-state.js";
 export { executeTurn } from "./turn-executor.js";
@@ -35,6 +37,35 @@ export {
   DEFAULT_PROACTIVE_OPTIONS,
   DEFAULT_REACTIVE_OPTIONS,
 } from "./compaction.js";
+
+// Re-export loop behavior from template system
+export {
+  type LoopBehavior,
+  type CompactionStrategy,
+  type ErrorHandling,
+  type CostThresholds,
+  type TeammateTemplate,
+  LoopBehaviorSchema,
+  CompactionStrategySchema,
+  ErrorHandlingSchema,
+  CostThresholdsSchema,
+  TeammateTemplateSchema,
+  DEFAULT_LOOP_BEHAVIOR,
+  getLoopBehavior,
+  TEAMMATE_TEMPLATES,
+  TEAMMATE_TEMPLATE_NAMES,
+  templateManager,
+} from "../../ecosystem/presets/index.js";
+
+// Re-export stop sequences system (user-controlled, no auto-detection)
+export {
+  type StopSequenceConfig,
+  type StopSequenceContext,
+  type StopSequenceOptions,
+  getStopSequences,
+  createConfig,
+  fromMarkers,
+} from "./stop-sequences.js";
 
 /**
  * Main agent loop - processes messages in turns until completion
@@ -66,6 +97,8 @@ export async function agentLoop(
     onReminder,
     onPermissionRequest,
     signal,
+    stopSequences,
+    stopSequenceConfig,
   } = options;
 
   // Initialize state
@@ -111,6 +144,8 @@ export async function agentLoop(
       permissionManager,
       onMetrics,
       onToolResult,
+      stopSequences,
+      stopSequenceConfig,
     };
 
     // Execute a single turn

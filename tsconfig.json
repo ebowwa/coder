@@ -33,5 +33,5 @@
     "noPropertyAccessFromIndexSignature": false,
   },
   "include": ["packages/src/**/*"],
-  "exclude": ["assignments", "dapp", "node_modules", "dist"],
+  "exclude": ["assignments", "dapp", "node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"],
 }

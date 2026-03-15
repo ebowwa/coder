@@ -11,7 +11,7 @@ import type {
   ISessionExporter,
   SessionToolUse,
 } from "./types.js";
-import type { ContentBlock, ToolUseBlock, ToolResultBlock } from "../../types/index.js";
+import type { ContentBlock, ToolUseBlock, ToolResultBlock } from "../../schemas/index.js";
 import { SessionPersistence } from "./persistence.js";
 
 export class SessionExporter implements ISessionExporter {
@@ -136,8 +136,14 @@ export class SessionExporter implements ISessionExporter {
       lines.push(`### ${role}`);
       lines.push("");
 
-      for (const block of message.content) {
-        this.formatBlock(block, lines);
+      // Handle string content
+      if (typeof message.content === "string") {
+        lines.push(message.content);
+        lines.push("");
+      } else if (Array.isArray(message.content)) {
+        for (const block of message.content) {
+          this.formatBlock(block, lines);
+        }
       }
     }
 

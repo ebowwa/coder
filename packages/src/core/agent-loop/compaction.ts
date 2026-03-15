@@ -2,7 +2,7 @@
  * Compaction Handler - Context compaction strategies
  */
 
-import type { Message } from "../../types/index.js";
+import type { Message } from "../../schemas/index.js";
 import {
   needsCompaction,
   compactMessages,

@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ebowwa.github.io/coder/schemas/HookDefinition.json",
+  "$ref": "#/definitions/HookDefinition",
+  "definitions": {
+    "HookDefinition": {
+      "type": "object",
+      "properties": {
+        "event": {
+          "type": "string",
+          "enum": [
+            "SessionStart",
+            "SessionEnd",
+            "PreToolUse",
+            "PostToolUse",
+            "PostToolUseFailure",
+            "PrePrompt",
+            "PostPrompt",
+            "Notification",
+            "TeammateIdle",
+            "UserPromptSubmit",
+            "ConfigChange",
+            "WorktreeCreate"
+          ]
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "command",
+            "prompt",
+            "http"
+          ]
+        },
+        "command": {
+          "type": "string"
+        },
+        "prompt": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "timeout": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 600000
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "matcher": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "event"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "title": "HookDefinition Schema"
+}

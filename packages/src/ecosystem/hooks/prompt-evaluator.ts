@@ -5,7 +5,7 @@
  * about tool execution based on natural language rules.
  */
 
-import type { HookInput, HookOutput } from "../../types/index.js";
+import type { HookInput, HookOutput } from "../../schemas/index.js";
 import type { PromptEvaluator } from "./index.js";
 
 /**
@@ -78,9 +78,10 @@ function interpolatePrompt(template: string, input: HookInput): string {
 
   // Replace $TOOL_RESULT with tool result if present
   if (input.tool_result) {
-    const resultStr = typeof input.tool_result.content === "string"
-      ? input.tool_result.content
-      : JSON.stringify(input.tool_result.content);
+    const toolResult = input.tool_result as { content?: unknown };
+    const resultStr = typeof toolResult.content === "string"
+      ? toolResult.content
+      : JSON.stringify(toolResult.content);
     result = result.replace(/\$TOOL_RESULT/g, resultStr);
   }
 

@@ -8,7 +8,8 @@ import type {
   ToolUseBlock,
   StopReason,
   PermissionMode,
-} from "../../types/index.js";
+  JSONSchema,
+} from "../../schemas/index.js";
 import { createMessageStream } from "../api-client.js";
 import { buildCombinedReminder } from "../system-reminders.js";
 import type { PermissionManager } from "../permissions.js";
@@ -17,6 +18,11 @@ import type { LoopState } from "./loop-state.js";
 import { buildAPIMessages } from "./message-builder.js";
 import { handleProactiveCompaction, handleReactiveCompaction, DEFAULT_PROACTIVE_OPTIONS, DEFAULT_REACTIVE_OPTIONS } from "./compaction.js";
 import { executeTools, type ToolExecutionOptions } from "./tool-executor.js";
+import {
+  getStopSequences,
+  type StopSequenceConfig,
+  type StopSequenceOptions,
+} from "./stop-sequences.js";
 
 /**
  * Options for turn execution
@@ -27,11 +33,11 @@ export interface TurnExecutorOptions {
   maxTokens: number;
   systemPrompt: string;
   tools: ToolDefinition[];
-  cacheConfig: import("../../types/index.js").CacheConfig;
-  thinking?: import("../../types/index.js").ThinkingConfig;
-  extendedThinking?: import("../../types/index.js").ExtendedThinkingConfig;
+  cacheConfig: import("../../schemas/index.js").CacheConfig;
+  thinking?: import("../../schemas/index.js").ThinkingConfig;
+  extendedThinking?: import("../../schemas/index.js").ExtendedThinkingConfig;
   workingDirectory: string;
-  gitStatus: import("../../types/index.js").GitStatus | null;
+  gitStatus: import("../../schemas/index.js").GitStatus | null;
   reminderConfig: import("../system-reminders.js").SystemReminderConfig;
   hookManager?: HookManager;
   sessionId?: string;
@@ -42,8 +48,12 @@ export interface TurnExecutorOptions {
   onReminder?: (reminder: string) => void;
   permissionMode: PermissionMode;
   permissionManager: PermissionManager;
-  onMetrics?: (metrics: import("../../types/index.js").QueryMetrics) => void;
-  onToolResult?: (result: { id: string; result: import("../../types/index.js").ToolResult }) => void;
+  onMetrics?: (metrics: import("../../schemas/index.js").QueryMetrics) => void;
+  onToolResult?: (result: { id: string; result: import("../../schemas/index.js").ToolResult }) => void;
+  /** Stop sequences - user/AI decides */
+  stopSequences?: string[];
+  /** Stop sequence config with optional reason */
+  stopSequenceConfig?: StopSequenceConfig;
 }
 
 /**
@@ -55,7 +65,7 @@ export interface ExecuteTurnResult {
   /** Stop reason if the loop should stop */
   stopReason?: StopReason;
   /** The metrics from this turn (if any) */
-  metrics?: import("../../types/index.js").QueryMetrics;
+  metrics?: import("../../schemas/index.js").QueryMetrics;
 }
 
 /**
@@ -87,6 +97,8 @@ export async function executeTurn(
     permissionMode,
     permissionManager,
     onToolResult,
+    stopSequences: userStopSequences,
+    stopSequenceConfig,
   } = options;
 
   // Increment turn counter
@@ -117,6 +129,14 @@ export async function executeTurn(
   // Build API messages with system reminders
   const apiMessages = buildAPIMessages(state.messages, systemPrompt, reminder);
 
+  // Get stop sequences - user-controlled, no auto-detection
+  const stopSequences = getStopSequences({
+    sequences: userStopSequences,
+    config: stopSequenceConfig,
+    includeSafety: true,
+    maxSequences: 10,
+  });
+
   // Create streaming request
   const streamResult = await createMessageStream(apiMessages, {
     apiKey,
@@ -129,12 +149,13 @@ export async function executeTurn(
     tools: tools.map((t): APITool => ({
       name: t.name,
       description: t.description,
-      input_schema: t.input_schema,
+      input_schema: t.input_schema as JSONSchema,
     })),
     onToken: onText,
     onThinking,
     onToolUse,
     signal,
+    stopSequences,
   });
 
   const { message, usage, cacheMetrics, costUSD, durationMs, ttftMs } = streamResult;

@@ -4,7 +4,7 @@
 
 import { describe, it, expect } from "bun:test";
 import { buildAPIMessages, injectReminderIntoContent } from "../message-builder.js";
-import type { Message, ContentBlock } from "../../../types/index.js";
+import type { Message, ContentBlock } from "../../../schemas/index.js";
 
 describe("injectReminderIntoContent", () => {
   it("should append reminder to existing text block", () => {

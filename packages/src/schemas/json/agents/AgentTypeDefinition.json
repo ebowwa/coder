@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ebowwa.github.io/coder/schemas/AgentTypeDefinition.json",
+  "$ref": "#/definitions/AgentTypeDefinition",
+  "definitions": {
+    "AgentTypeDefinition": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "useCase": {
+          "type": "string"
+        },
+        "tools": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ]
+        },
+        "subagentType": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "tools",
+        "subagentType"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "title": "AgentTypeDefinition Schema"
+}

@@ -34,6 +34,7 @@ export async function buildDefaultSystemPrompt(
     agentId?: string;
     agentName?: string;
     teamName?: string;
+    presetClaudeMd?: string;
   }
 ): Promise<string> {
   let prompt = `You are Coder, an AI coding assistant.
@@ -80,6 +81,11 @@ Working directory: ${workingDirectory}`;
     prompt += `\n\n${claudeMdContent}`;
   }
 
+  // Add preset CLAUDE.md if provided (from preset configuration)
+  if (options?.presetClaudeMd) {
+    prompt += `\n\n# Preset Configuration\n\n${options.presetClaudeMd}`;
+  }
+
   // Teammate mode adjustments
   if (options?.teammateMode && options.teamName) {
     prompt += `\n\nYou are running as a teammate agent in the "${options.teamName}" team.`;
@@ -114,6 +120,7 @@ export async function buildCompleteSystemPrompt(
     agentId?: string;
     agentName?: string;
     teamName?: string;
+    presetClaudeMd?: string;
   }
 ): Promise<string> {
   // Use custom system prompt if provided
@@ -135,6 +142,7 @@ export async function buildCompleteSystemPrompt(
     agentId: options?.agentId,
     agentName: options?.agentName,
     teamName: options?.teamName,
+    presetClaudeMd: options?.presetClaudeMd,
   });
 
   // Append additional prompt if provided

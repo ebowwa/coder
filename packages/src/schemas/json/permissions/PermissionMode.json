@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ebowwa.github.io/coder/schemas/PermissionMode.json",
+  "$ref": "#/definitions/PermissionMode",
+  "definitions": {
+    "PermissionMode": {
+      "type": "string",
+      "enum": [
+        "default",
+        "ask",
+        "acceptEdits",
+        "bypassPermissions",
+        "bypass",
+        "dontAsk",
+        "interactive",
+        "plan",
+        "auto"
+      ]
+    }
+  },
+  "title": "PermissionMode Schema"
+}

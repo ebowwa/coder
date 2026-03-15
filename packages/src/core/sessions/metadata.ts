@@ -10,7 +10,7 @@ import type {
   SessionMetrics,
   SessionFilter,
 } from "./types.js";
-import type { ContentBlock, Message } from "../../types/index.js";
+import type { ContentBlock, Message } from "../../schemas/index.js";
 import { SessionPersistence } from "./persistence.js";
 
 export class SessionMetadataManager {
@@ -114,13 +114,22 @@ export class SessionMetadataManager {
             lastActivity = entry.timestamp;
             const msg = (entry as SessionMessage).data as Message;
             if (!firstMessage && msg.role === "user") {
-              const textBlock = msg.content.find(
-                (b: ContentBlock) => b.type === "text"
-              );
-              if (textBlock && "text" in textBlock) {
-                firstMessage = textBlock.text.slice(0, 100);
-                if (textBlock.text.length > 100) {
+              // Handle string content directly
+              if (typeof msg.content === "string") {
+                firstMessage = msg.content.slice(0, 100);
+                if (msg.content.length > 100) {
                   firstMessage += "...";
+                }
+              } else if (Array.isArray(msg.content)) {
+                // Handle array content blocks
+                const textBlock = msg.content.find(
+                  (b: ContentBlock) => b.type === "text"
+                );
+                if (textBlock && "text" in textBlock) {
+                  firstMessage = textBlock.text.slice(0, 100);
+                  if (textBlock.text.length > 100) {
+                    firstMessage += "...";
+                  }
                 }
               }
             }

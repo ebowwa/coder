@@ -10,7 +10,7 @@ import type {
   APIRequest,
   APIResponse,
   APITool,
-  JSONSchema,
+  JSONSchemaType,
   CacheConfig,
   CacheControl,
   CacheMetrics,
@@ -20,13 +20,15 @@ import type {
   EffortLevel,
   RedactedThinkingBlock,
   StopReason,
-} from "../types/index.js";
+  StreamOptions,
+  StreamResult,
+} from "../schemas/index.js";
 import {
   DEFAULT_CACHE_CONFIG,
   calculateBudgetTokens,
   supportsExtendedThinking as supportsThinkingType,
   EFFORT_TO_BUDGET,
-} from "../types/index.js";
+} from "../schemas/index.js";
 import { withRetry, parseRetryAfter, type RetryOptions } from "./retry.js";
 import {
   calculateCost as calculateModelCost,
@@ -34,41 +36,8 @@ import {
   supportsExtendedThinking,
 } from "./models.js";
 
-export interface StreamOptions {
-  apiKey: string;
-  model?: string;
-  maxTokens?: number;
-  tools?: APITool[];
-  /** Force tool usage: "auto", "required", "none", or specific tool name */
-  toolChoice?: "auto" | "required" | "none" | string;
-  /** API format: "anthropic" (default) or "openai" (for GLM, etc.) */
-  apiFormat?: "anthropic" | "openai";
-  /** Base URL for API (defaults to ANTHROPIC_BASE_URL env or api.anthropic.com) */
-  baseUrl?: string;
-  systemPrompt?: string | SystemBlock[];
-  cacheConfig?: CacheConfig;
-  /** Legacy thinking config (budget_tokens) */
-  thinking?: ThinkingConfig;
-  /** Extended thinking config (effort levels) */
-  extendedThinking?: ExtendedThinkingConfig;
-  onToken?: (text: string) => void;
-  onThinking?: (thinking: string) => void;
-  /** Called when redacted thinking is received (data is base64) */
-  onRedactedThinking?: (data: string) => void;
-  onToolUse?: (toolUse: { id: string; name: string; input: unknown }) => void;
-  signal?: AbortSignal;
-}
-
-export interface StreamResult {
-  message: APIResponse;
-  usage: UsageMetrics;
-  cacheMetrics?: CacheMetrics;
-  costUSD: number;
-  durationMs: number;
-  ttftMs: number;
-  /** Thinking tokens used (if extended thinking was enabled) */
-  thinkingTokens?: number;
-}
+// Re-export types for backward compatibility
+export type { StreamOptions, StreamResult } from "../schemas/index.js";
 
 /**
  * Calculate cost for API usage including cache metrics
@@ -149,6 +118,7 @@ export function buildCachedMessages(
       // Add cache_control to large text blocks (especially in user messages)
       if (
         block.type === "text" &&
+        cacheConfig.minTokensForCache !== undefined &&
         block.text.length >= cacheConfig.minTokensForCache * 4 && // Approximate chars per token
         !block.cache_control &&
         (isLastBlock || isLastMessage)
@@ -169,11 +139,14 @@ export function buildCachedMessages(
   if (result.length > 0 && cacheConfig.enabled) {
     const lastMsg = result[result.length - 1]!;
     const lastBlock = lastMsg.content[lastMsg.content.length - 1];
-    if (lastBlock && !("cache_control" in lastBlock)) {
-      lastMsg.content[lastMsg.content.length - 1] = {
+    if (lastBlock && typeof lastBlock === "object" && !("cache_control" in lastBlock)) {
+      // Create new array with updated last block instead of mutating
+      const updatedContent: ContentBlock[] = [...lastMsg.content] as ContentBlock[];
+      updatedContent[updatedContent.length - 1] = {
         ...lastBlock,
         cache_control: { type: "ephemeral", ttl: cacheConfig.ttl },
       } as ContentBlock;
+      result[result.length - 1] = { ...lastMsg, content: updatedContent };
     }
   }
 
@@ -195,6 +168,8 @@ export function calculateCacheMetrics(usage: UsageMetrics): CacheMetrics {
   return {
     cacheHits,
     cacheMisses,
+    cacheReadTokens,
+    cacheWriteTokens,
     totalCacheReadTokens: cacheReadTokens,
     totalCacheWriteTokens: cacheWriteTokens,
     cacheHitRate: total > 0 ? cacheHits / total : 0,
@@ -268,6 +243,11 @@ export async function createMessageStream(
         req.tool_choice = { type: "function", function: { name: options.toolChoice } };
       }
     }
+  }
+
+  // Add stop sequences if provided
+  if (options.stopSequences && options.stopSequences.length > 0) {
+    request.stop_sequences = options.stopSequences;
   }
 
   // Determine API endpoint (support custom base URL for GLM, etc.)
@@ -365,7 +345,7 @@ export async function createMessageStream(
 
     if (extendedThinking?.budgetTokens) {
       budgetTokens = extendedThinking.budgetTokens;
-    } else if (thinking?.type === "enabled") {
+    } else if (thinking?.type === "enabled" && thinking.budget_tokens !== undefined) {
       budgetTokens = thinking.budget_tokens;
     } else {
       // Use effort level to determine budget

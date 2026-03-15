@@ -9,7 +9,7 @@ import {
   formatCostBrief,
   formatCacheMetrics,
 } from "../formatters.js";
-import type { QueryMetrics, CacheMetrics } from "../../../types/index.js";
+import type { QueryMetrics, CacheMetrics } from "../../../schemas/index.js";
 
 describe("formatCost", () => {
   it("should format small costs with 4 decimal places", () => {

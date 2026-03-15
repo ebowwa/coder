@@ -1,10 +1,29 @@
 /**
  * Skill System - Custom agent behaviors
+ *
+ * Sources:
+ * 1. Built-in skills (hardcoded)
+ * 2. Project skills (.coder/skills/*.md)
+ * 3. Marketplace skills (API with skills-2025-10-02 beta header)
  */
 
-import type { SkillDefinition, ClaudeModel } from "../../types/index.js";
+import type { SkillDefinition, ClaudeModel } from "../../schemas/index.js";
 import { readFileSync, existsSync, readdirSync } from "fs";
 import { join, extname } from "path";
+
+// Re-export marketplace client types and classes
+export type {
+  MarketplaceSkill,
+  SkillVersion,
+  ListSkillsOptions,
+  ListSkillsResponse,
+} from "./skills-client.js";
+
+export {
+  SkillsClient,
+  SkillsCache,
+  SkillResolver,
+} from "./skills-client.js";
 
 export interface SkillFile {
   path: string;
@@ -112,6 +131,15 @@ function parseYAML(yaml: string): Record<string, unknown> {
 
 export class SkillManager {
   private skills = new Map<string, SkillFile>();
+  private marketplaceClient: InstanceType<typeof import("./skills-client.js").SkillsClient> | null = null;
+
+  /**
+   * Enable marketplace integration with API key
+   */
+  enableMarketplace(apiKey: string, baseUrl?: string): void {
+    const { SkillsClient } = require("./skills-client.js");
+    this.marketplaceClient = new SkillsClient(apiKey, baseUrl);
+  }
 
   /**
    * Load skills from a directory
@@ -138,7 +166,47 @@ export class SkillManager {
   }
 
   /**
-   * Get a skill by name
+   * Load built-in skills
+   */
+  loadBuiltIn(): void {
+    for (const skill of builtInSkills) {
+      this.skills.set(skill.name, skill);
+    }
+  }
+
+  /**
+   * Get a skill by name (checks local first, then marketplace)
+   */
+  async getAsync(name: string): Promise<SkillFile | undefined> {
+    // Check local cache first
+    const local = this.skills.get(name);
+    if (local) return local;
+
+    // Try marketplace
+    if (this.marketplaceClient) {
+      try {
+        const { SkillsCache } = require("./skills-client.js");
+        const cache = new SkillsCache();
+        const cached = cache.get(name);
+        if (cached) {
+          return this.marketplaceSkillToLocal(cached);
+        }
+
+        const marketplace = await this.marketplaceClient.getByName(name);
+        if (marketplace) {
+          cache.set(marketplace);
+          return this.marketplaceSkillToLocal(marketplace);
+        }
+      } catch (error) {
+        console.error(`Failed to fetch skill "${name}" from marketplace:`, error);
+      }
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Get a skill by name (sync - local only)
    */
   get(name: string): SkillFile | undefined {
     return this.skills.get(name);
@@ -163,6 +231,36 @@ export class SkillManager {
    */
   getNames(): string[] {
     return Array.from(this.skills.keys());
+  }
+
+  /**
+   * Search marketplace for skills
+   */
+  async searchMarketplace(query: string): Promise<SkillFile[]> {
+    if (!this.marketplaceClient) return [];
+
+    try {
+      const { skills } = await this.marketplaceClient.list({ search: query });
+      return skills.map(s => this.marketplaceSkillToLocal(s));
+    } catch (error) {
+      console.error("Failed to search marketplace:", error);
+      return [];
+    }
+  }
+
+  /**
+   * Convert marketplace skill to local format
+   */
+  private marketplaceSkillToLocal(skill: import("./skills-client.js").MarketplaceSkill): SkillFile {
+    return {
+      path: `marketplace://${skill.id}`,
+      name: skill.name,
+      description: skill.description,
+      prompt: skill.prompt,
+      tools: skill.tools,
+      model: skill.model,
+      source: "built-in", // Treat marketplace as built-in
+    };
   }
 }
 

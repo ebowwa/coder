@@ -1,0 +1,268 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ebowwa.github.io/coder/schemas/agents/index.json",
+  "title": "agents Schemas Index",
+  "description": "JSON Schema definitions for agents types",
+  "definitions": {
+    "AgentTypeDefinition": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "$id": "https://ebowwa.github.io/coder/schemas/AgentTypeDefinition.json",
+      "$ref": "#/definitions/AgentTypeDefinition",
+      "definitions": {
+        "AgentTypeDefinition": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
+            },
+            "useCase": {
+              "type": "string"
+            },
+            "tools": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              ]
+            },
+            "subagentType": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "description",
+            "tools",
+            "subagentType"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "title": "AgentTypeDefinition Schema"
+    },
+    "SessionType": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "$id": "https://ebowwa.github.io/coder/schemas/SessionType.json",
+      "$ref": "#/definitions/SessionType",
+      "definitions": {
+        "SessionType": {
+          "type": "string",
+          "enum": [
+            "main-session",
+            "teammate",
+            "subagent",
+            "worker"
+          ]
+        }
+      },
+      "title": "SessionType Schema"
+    },
+    "SessionState": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "$id": "https://ebowwa.github.io/coder/schemas/SessionState.json",
+      "$ref": "#/definitions/SessionState",
+      "definitions": {
+        "SessionState": {
+          "type": "object",
+          "properties": {
+            "sessionId": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "active",
+                "idle",
+                "paused",
+                "completed",
+                "error"
+              ]
+            },
+            "startTime": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            },
+            "endTime": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            },
+            "messageCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "totalTokens": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "costUSD": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "sessionId",
+            "status",
+            "startTime",
+            "messageCount",
+            "totalTokens",
+            "costUSD"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "title": "SessionState Schema"
+    },
+    "AgentCapabilities": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "$id": "https://ebowwa.github.io/coder/schemas/AgentCapabilities.json",
+      "$ref": "#/definitions/AgentCapabilities",
+      "definitions": {
+        "AgentCapabilities": {
+          "type": "object",
+          "properties": {
+            "canSpawnAgents": {
+              "type": "boolean"
+            },
+            "canUseBash": {
+              "type": "boolean"
+            },
+            "canEditFiles": {
+              "type": "boolean"
+            },
+            "canAccessNetwork": {
+              "type": "boolean"
+            },
+            "canUseMCP": {
+              "type": "boolean"
+            },
+            "maxConcurrency": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            }
+          },
+          "required": [
+            "canSpawnAgents",
+            "canUseBash",
+            "canEditFiles",
+            "canAccessNetwork",
+            "canUseMCP",
+            "maxConcurrency"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "title": "AgentCapabilities Schema"
+    },
+    "AgentConfig": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "$id": "https://ebowwa.github.io/coder/schemas/AgentConfig.json",
+      "$ref": "#/definitions/AgentConfig",
+      "definitions": {
+        "AgentConfig": {
+          "type": "object",
+          "properties": {
+            "agentType": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "color": {
+              "type": "string"
+            },
+            "systemPrompt": {
+              "type": "string"
+            },
+            "model": {
+              "type": "string"
+            },
+            "permissionMode": {
+              "type": "string",
+              "enum": [
+                "ask",
+                "bypass"
+              ]
+            },
+            "capabilities": {
+              "type": "object",
+              "properties": {
+                "canSpawnAgents": {
+                  "type": "boolean"
+                },
+                "canUseBash": {
+                  "type": "boolean"
+                },
+                "canEditFiles": {
+                  "type": "boolean"
+                },
+                "canAccessNetwork": {
+                  "type": "boolean"
+                },
+                "canUseMCP": {
+                  "type": "boolean"
+                },
+                "maxConcurrency": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0
+                }
+              },
+              "additionalProperties": false
+            },
+            "maxTurns": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            },
+            "workingDirectory": {
+              "type": "string"
+            },
+            "env": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "agentType"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "title": "AgentConfig Schema"
+    },
+    "AgentStatus": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "$id": "https://ebowwa.github.io/coder/schemas/AgentStatus.json",
+      "$ref": "#/definitions/AgentStatus",
+      "definitions": {
+        "AgentStatus": {
+          "type": "string",
+          "enum": [
+            "initializing",
+            "running",
+            "waiting_for_input",
+            "executing_tool",
+            "thinking",
+            "idle",
+            "completed",
+            "error",
+            "stopped"
+          ]
+        }
+      },
+      "title": "AgentStatus Schema"
+    }
+  }
+}

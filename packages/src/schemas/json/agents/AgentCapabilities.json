@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ebowwa.github.io/coder/schemas/AgentCapabilities.json",
+  "$ref": "#/definitions/AgentCapabilities",
+  "definitions": {
+    "AgentCapabilities": {
+      "type": "object",
+      "properties": {
+        "canSpawnAgents": {
+          "type": "boolean"
+        },
+        "canUseBash": {
+          "type": "boolean"
+        },
+        "canEditFiles": {
+          "type": "boolean"
+        },
+        "canAccessNetwork": {
+          "type": "boolean"
+        },
+        "canUseMCP": {
+          "type": "boolean"
+        },
+        "maxConcurrency": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        }
+      },
+      "required": [
+        "canSpawnAgents",
+        "canUseBash",
+        "canEditFiles",
+        "canAccessNetwork",
+        "canUseMCP",
+        "maxConcurrency"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "title": "AgentCapabilities Schema"
+}

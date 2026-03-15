@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach } from "bun:test";
 import { LoopState, createInitialCacheMetrics } from "../loop-state.js";
-import type { Message, ToolUseBlock, CacheMetrics } from "../../../types/index.js";
+import type { Message, ToolUseBlock, CacheMetrics } from "../../../schemas/index.js";
 
 describe("createInitialCacheMetrics", () => {
   it("should create initial cache metrics with zeros", () => {

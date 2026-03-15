@@ -2,8 +2,8 @@
  * Hook System - Lifecycle event handlers
  */
 
-import type { HookEvent, HookDefinition, HookInput, HookOutput } from "../../types/index.js";
-import { spawn } from "child_process";
+import type { HookEvent, HookDefinition, HookInput, HookOutput, ExtendedHookEvent } from "../../schemas/index.js";
+import { spawn, type ChildProcess } from "child_process";
 
 export type HookHandler = (input: HookInput) => Promise<HookOutput>;
 
@@ -150,10 +150,11 @@ export class HookManager {
 
     // Shell command execution
     const timeout = def.timeout || this.timeout;
+    const command = def.command; // Type-safe after guard clause
 
     try {
       const result = await new Promise<HookOutput>((resolve, reject) => {
-        const proc = spawn(def.command, [], {
+        const proc = spawn(command, [], {
           shell: true,
           stdio: ["pipe", "pipe", "pipe"],
         });
@@ -311,7 +312,7 @@ export const builtInHooks: Record<string, HookDefinition> = {
 // HOOK EVENT DOCUMENTATION
 // ============================================
 
-export const hookEventDocs: Record<HookEvent, string> = {
+export const hookEventDocs: Record<ExtendedHookEvent, string> = {
   PreToolUse: "Before a tool is executed. Can modify input or deny execution.",
   PostToolUse: "After a tool successfully executes. Can process result.",
   PostToolUseFailure: "After a tool fails. Can handle error or retry.",
@@ -322,6 +323,9 @@ export const hookEventDocs: Record<HookEvent, string> = {
   Notification: "When a notification is sent.",
   ConfigChange: "When configuration changes.",
   WorktreeCreate: "When a git worktree is created.",
+  PrePrompt: "Before prompt is sent to the model. Can modify system/user prompts.",
+  PostPrompt: "After model response. Can process or modify response.",
+  TeammateIdle: "When a teammate goes idle (no activity for 60+ seconds).",
 };
 
 /**

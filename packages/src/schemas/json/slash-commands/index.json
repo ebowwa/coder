@@ -1,0 +1,101 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ebowwa.github.io/coder/schemas/slash-commands/index.json",
+  "title": "slash-commands Schemas Index",
+  "description": "JSON Schema definitions for slash-commands types",
+  "definitions": {
+    "SlashCommand": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "$id": "https://ebowwa.github.io/coder/schemas/SlashCommand.json",
+      "$ref": "#/definitions/SlashCommand",
+      "definitions": {
+        "SlashCommand": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "pattern": "^\\/"
+            },
+            "description": {
+              "type": "string"
+            },
+            "skill": {
+              "type": "boolean"
+            },
+            "aliases": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "permissions": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "hidden": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "name",
+            "description"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "title": "SlashCommand Schema"
+    },
+    "ParsedCommand": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "$id": "https://ebowwa.github.io/coder/schemas/ParsedCommand.json",
+      "$ref": "#/definitions/ParsedCommand",
+      "definitions": {
+        "ParsedCommand": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "args": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "raw": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "command",
+            "args",
+            "raw"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "title": "ParsedCommand Schema"
+    },
+    "CommandCategory": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "$id": "https://ebowwa.github.io/coder/schemas/CommandCategory.json",
+      "$ref": "#/definitions/CommandCategory",
+      "definitions": {
+        "CommandCategory": {
+          "type": "string",
+          "enum": [
+            "git",
+            "session",
+            "ui",
+            "voice",
+            "project",
+            "utility"
+          ]
+        }
+      },
+      "title": "CommandCategory Schema"
+    }
+  }
+}

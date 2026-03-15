@@ -2,7 +2,7 @@
  * Message Builder - API message construction with reminder injection
  */
 
-import type { Message, ContentBlock, TextBlock } from "../../types/index.js";
+import type { Message, ContentBlock, TextBlock } from "../../schemas/index.js";
 
 /**
  * Build API messages with system reminders injected

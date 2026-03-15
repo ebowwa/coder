@@ -1,17 +1,11 @@
 /**
  * TUI Module Exports
- * Re-exports all components and utilities from the modular TUI package
  */
 
 // Types
 export type {
   InteractiveTUIProps,
   SessionStore,
-  MessageAreaProps,
-  StatusBarProps,
-  InputFieldProps,
-  TerminalLayout,
-  CommandContext,
   ContextInfo,
 } from "./types.js";
 
@@ -30,61 +24,23 @@ export {
   createSpinnerIterator,
 } from "./spinner.js";
 
-// Components
-export { MessageArea } from "./MessageArea.js";
-export { StatusBar } from "./StatusBar.js";
-export { InputField } from "./InputField.js";
+// Terminal size hook
+export { useTerminalSize, type TerminalSize, type UseTerminalSizeOptions } from "./useTerminalSize.js";
 
-// Hooks
-export { useInputHandler as useInputFieldHandler, useExitHandler } from "./useInputHandler.js";
-
-// Commands
-export { handleCommand, getHelpText } from "./commands.js";
-
-// Main component and entry point
-export { default as InteractiveTUI } from "./InteractiveTUI.js";
-export { runInteractiveTUI } from "./run.js";
-
-// TUI App (Ink-based)
+// Main TUI component
 export {
-  createTUIApp,
-  type TUIAppProps,
-  type TUIAppHandle,
-  type Message as TUIMessage,
-} from "./tui-app.js";
-export { default as TUIApp } from "./tui-app.js";
+  default as InteractiveTUI,
+  createInteractiveTUI,
+  type InteractiveTUIHandle,
+} from "./InteractiveTUI.js";
 
-// TUI Footer
+// Scrollable TUI component
 export {
-  TUIFooter,
-  getTUIFooter,
-  enableTUIFooter,
-  disableTUIFooter,
-  renderTUIFooter,
-  clearTUIFooter,
-  ANSI,
-  type TUIFooterOptions,
-  type TUIFooterState,
-} from "./tui-footer.js";
+  default as ScrollableTUI,
+  type ScrollableTUIProps,
+} from "./ScrollableTUI.js";
 
-// Input Context (centralized keyboard input management)
-export {
-  InputProvider,
-  useInputContext,
-  useInputHandler,
-  useInputFocus,
-  useInputBlock,
-  InputPriority,
-  type InputHandler,
-  type InputHandlerOptions,
-  type InputContextValue,
-} from "./InputContext.js";
-
-// Message Store (centralized message state management)
-export {
-  MessageStoreProvider,
-  useMessageStore,
-  type UIMessage,
-  type MessageSubType,
-  type MessageStoreValue,
-} from "./MessageStore.js";
+// Runners
+export { runInteractiveTUI, runScrollableTUI } from "./run.js";
+export { runInkTUI } from "./run-ink.js";
+export { runNativeTUI, NativeTUI } from "./run-native.js";

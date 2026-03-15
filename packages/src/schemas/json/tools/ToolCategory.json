@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ebowwa.github.io/coder/schemas/ToolCategory.json",
+  "$ref": "#/definitions/ToolCategory",
+  "definitions": {
+    "ToolCategory": {
+      "type": "string",
+      "enum": [
+        "file",
+        "execution",
+        "search",
+        "workflow",
+        "code-intelligence",
+        "interaction",
+        "planning",
+        "git"
+      ]
+    }
+  },
+  "title": "ToolCategory Schema"
+}

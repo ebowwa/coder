@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ebowwa.github.io/coder/schemas/SessionType.json",
+  "$ref": "#/definitions/SessionType",
+  "definitions": {
+    "SessionType": {
+      "type": "string",
+      "enum": [
+        "main-session",
+        "teammate",
+        "subagent",
+        "worker"
+      ]
+    }
+  },
+  "title": "SessionType Schema"
+}

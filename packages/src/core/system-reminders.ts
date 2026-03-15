@@ -3,53 +3,29 @@
  * Provides token warnings, cost tracking, tool summaries, and environment info
  */
 
-import type { ToolUseBlock, GitStatus, UsageMetrics } from "../types/index.js";
+import type {
+  ToolUseBlock,
+  GitStatus,
+  UsageMetrics,
+  TokenWarningOptions,
+  CostUpdateOptions,
+  ToolSummaryOptions,
+  EnvInfoOptions,
+  SystemReminderConfig,
+} from "../schemas/index.js";
+import { DEFAULT_REMINDER_CONFIG } from "../schemas/index.js";
 
-// ============================================
-// TYPES
-// ============================================
+// Re-export types for backward compatibility
+export type {
+  TokenWarningOptions,
+  CostUpdateOptions,
+  ToolSummaryOptions,
+  EnvInfoOptions,
+  SystemReminderConfig,
+} from "../schemas/index.js";
 
-export interface TokenWarningOptions {
-  current: number;
-  max: number;
-  threshold?: number; // Percentage threshold for warning (default: 80%)
-}
-
-export interface CostUpdateOptions {
-  cost: number;
-  previousCost?: number;
-  currency?: string;
-}
-
-export interface ToolSummaryOptions {
-  tools: ToolUseBlock[];
-  maxDisplay?: number;
-}
-
-export interface EnvInfoOptions {
-  workingDirectory: string;
-  gitStatus?: GitStatus | null;
-  platform?: NodeJS.Platform;
-  shell?: string;
-}
-
-export interface SystemReminderConfig {
-  tokenWarningThreshold: number;
-  costUpdateInterval: number;
-  toolSummaryInterval: number;
-  envInfoOnStart: boolean;
-}
-
-// ============================================
-// CONSTANTS
-// ============================================
-
-export const DEFAULT_REMINDER_CONFIG: SystemReminderConfig = {
-  tokenWarningThreshold: 0.8, // 80% of max tokens
-  costUpdateInterval: 5, // Every 5 turns
-  toolSummaryInterval: 3, // Every 3 turns
-  envInfoOnStart: true,
-};
+// Re-export DEFAULT_REMINDER_CONFIG
+export { DEFAULT_REMINDER_CONFIG } from "../schemas/index.js";
 
 // Token limit thresholds
 const TOKEN_THRESHOLDS = {

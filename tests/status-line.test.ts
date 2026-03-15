@@ -21,7 +21,7 @@ import {
   getPermissionModeDisplay,
   type StatusLineOptions,
 } from "../packages/src/interfaces/ui/terminal/shared/status-line.js";
-import type { PermissionMode } from "../packages/src/types/index.js";
+import type { PermissionMode } from "../packages/src/schemas/index.js";
 
 describe("Status Line", () => {
   describe("VERSION", () => {
@@ -245,14 +245,16 @@ describe("Status Line", () => {
 
       const result = renderCompactStatusLine(options);
       expect(result).toContain("%");
-      expect(result).toContain("bypass");
+      // Compact format shows percentage and tokens, not permission mode
+      expect(result).toMatch(/\d/); // Contains numbers
     });
   });
 
   describe("renderMinimalStatusLine", () => {
-    test("renders only permission mode", () => {
+    test("renders empty string (permission mode not shown)", () => {
       const result = renderMinimalStatusLine("bypassPermissions");
-      expect(result).toContain("bypass permissions");
+      // Minimal status line intentionally returns empty (permission mode no longer shown)
+      expect(result).toBe("");
     });
   });
 

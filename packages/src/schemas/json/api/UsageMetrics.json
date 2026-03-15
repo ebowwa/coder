@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ebowwa.github.io/coder/schemas/UsageMetrics.json",
+  "$ref": "#/definitions/UsageMetrics",
+  "definitions": {
+    "UsageMetrics": {
+      "type": "object",
+      "properties": {
+        "input_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "output_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cache_creation_input_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cache_read_input_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cache_creation": {
+          "type": "object",
+          "properties": {
+            "ephemeral_1h_input_tokens": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "ephemeral_5m_input_tokens": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "ephemeral_1h_input_tokens",
+            "ephemeral_5m_input_tokens"
+          ],
+          "additionalProperties": false
+        },
+        "thinking_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "redacted_thinking_tokens": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "input_tokens",
+        "output_tokens"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "title": "UsageMetrics Schema"
+}

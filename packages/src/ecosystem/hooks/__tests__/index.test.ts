@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { HookManager, builtInHooks, hookExitCodes } from "../index.js";
-import type { HookEvent, HookInput, HookOutput } from "../../../types/index.js";
+import type { HookEvent, HookInput, HookOutput } from "../../../schemas/index.js";
 
 describe("HookManager", () => {
   let manager: HookManager;

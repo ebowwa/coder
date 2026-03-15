@@ -6,16 +6,19 @@
 import { describe, it, expect } from "bun:test";
 import { createMessageStream, calculateCost } from "../packages/src/core/api-client-impl.js";
 
-import type { Message, ContentBlock, UsageMetrics } from "../packages/src/types/index.js";
+import type { Message, ContentBlock, UsageMetrics } from "../packages/src/schemas/index.js";
 import type { StreamOptions } from "../packages/src/core/api-client-impl.js";
 
-// Check for API key
+// Check for API key and integration test mode
 const hasApiKey = !!(
   process.env.ANTHROPIC_API_KEY ||
   process.env.CLAUDE_API_KEY ||
   process.env.ANTHROPIC_AUTH_TOKEN ||
   process.env.Z_AI_API_KEY
 );
+
+// Skip integration tests unless explicitly enabled
+const runIntegrationTests = process.env.RUN_INTEGRATION_TESTS === "true";
 
 // Get API key from environment
 function getApiKey(): string {
@@ -72,8 +75,8 @@ describe("Cost calculation", () => {
   });
 });
 
-// Only run API tests if key is available
-if (hasApiKey) {
+// Only run API tests if key is available AND integration tests are enabled
+if (hasApiKey && runIntegrationTests) {
   describe("API Streaming", () => {
     describe("Basic streaming", () => {
       it("should stream a simple message", async () => {

@@ -1,0 +1,119 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ebowwa.github.io/coder/schemas/OAuthConfig.json",
+  "$ref": "#/definitions/OAuthConfig",
+  "definitions": {
+    "OAuthConfig": {
+      "type": "object",
+      "properties": {
+        "createApiKeyUrl": {
+          "type": "string",
+          "format": "uri"
+        },
+        "customUrlEnv": {
+          "type": "string"
+        },
+        "clientIdEnv": {
+          "type": "string"
+        },
+        "scopes": {
+          "type": "object",
+          "properties": {
+            "console": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "claude_ai": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "console",
+            "claude_ai"
+          ],
+          "additionalProperties": false
+        },
+        "authorizeUrls": {
+          "type": "object",
+          "properties": {
+            "console": {
+              "type": "string",
+              "format": "uri"
+            },
+            "claude_ai": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          "required": [
+            "console",
+            "claude_ai"
+          ],
+          "additionalProperties": false
+        },
+        "tokenUrls": {
+          "type": "object",
+          "properties": {
+            "console": {
+              "type": "string",
+              "format": "uri"
+            },
+            "claude_ai": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          "required": [
+            "console",
+            "claude_ai"
+          ],
+          "additionalProperties": false
+        },
+        "successUrls": {
+          "type": "object",
+          "properties": {
+            "console": {
+              "type": "string",
+              "format": "uri"
+            },
+            "claude_ai": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          "required": [
+            "console",
+            "claude_ai"
+          ],
+          "additionalProperties": false
+        },
+        "manualRedirectUrl": {
+          "type": "string",
+          "format": "uri"
+        },
+        "rolesUrl": {
+          "type": "string",
+          "format": "uri"
+        }
+      },
+      "required": [
+        "createApiKeyUrl",
+        "customUrlEnv",
+        "clientIdEnv",
+        "scopes",
+        "authorizeUrls",
+        "tokenUrls",
+        "successUrls",
+        "manualRedirectUrl",
+        "rolesUrl"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "title": "OAuthConfig Schema"
+}

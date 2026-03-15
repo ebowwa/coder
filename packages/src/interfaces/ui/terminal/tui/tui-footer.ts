@@ -1,422 +1,277 @@
 /**
- * TUI Footer Component for Coder CLI
- * Provides a persistent status bar at the bottom of the terminal
- *
- * Uses ANSI escape codes for cursor positioning:
- * - ESC[s    Save cursor position
- * - ESC[u    Restore cursor position
- * - ESC[#;#H Move cursor to row, col
- * - ESC[2K   Clear entire line
- * - ESC[J    Clear from cursor to end of screen
+ * TUI Footer Component
+ * Renders a status footer at the bottom of the terminal
  */
 
-import chalk from "chalk";
-import type { PermissionMode } from "../../../../types/index.js";
-import {
-  calculateContextInfo,
-  formatPermissionMode,
-  type StatusLineOptions,
-} from "../shared/status-line.js";
-import { spinnerFrames } from "./spinner.js";
+import type { PermissionMode } from "../../../../schemas/index.js";
 
 // ============================================
 // ANSI ESCAPE CODES
 // ============================================
 
-const ANSI = {
-  // Cursor
+export const ANSI = {
   SAVE_CURSOR: "\x1b[s",
   RESTORE_CURSOR: "\x1b[u",
-  MOVE_TO: (row: number, col: number) => `\x1b[${row};${col}H`,
-  MOVE_TO_BOTTOM: (offset = 0) => `\x1b[999;1H\x1b[${offset + 1}A`,
-
-  // Clear
   CLEAR_LINE: "\x1b[2K",
-  CLEAR_TO_END: "\x1b[J",
-  CLEAR_SCREEN: "\x1b[2J",
-
-  // Scrolling
-  SCROLL_UP: (lines: number) => `\x1b[${lines}S`,
-  SCROLL_DOWN: (lines: number) => `\x1b[${lines}T`,
-
-  // Colors reset
-  RESET: "\x1b[0m",
-
-  // Alternate screen buffer
-  ENTER_ALT_SCREEN: "\x1b[?1049h",
-  EXIT_ALT_SCREEN: "\x1b[?1049l",
-
-  // Cursor visibility
+  MOVE_TO: (row: number, col: number) => `\x1b[${row};${col}H`,
+  MOVE_TO_BOTTOM: (offset: number = 0) => `\x1b[999;1H\x1b[${offset + 1}A`,
   HIDE_CURSOR: "\x1b[?25l",
   SHOW_CURSOR: "\x1b[?25h",
+  RESET: "\x1b[0m",
+  BOLD: "\x1b[1m",
+  DIM: "\x1b[2m",
 };
-
-// Export ANSI for external use
-export { ANSI };
 
 // ============================================
 // TYPES
 // ============================================
 
 export interface TUIFooterOptions {
-  /** Permission mode to display */
   permissionMode: PermissionMode;
-  /** Tokens used in context */
-  tokensUsed: number;
-  /** Current model */
-  model: string;
-  /** Is loading/spinning */
+  model?: string;
+  tokensUsed?: number;
+  maxTokens?: number;
   isLoading?: boolean;
-  /** Verbose mode */
-  verbose?: boolean;
-  /** Show version */
-  showVersion?: boolean;
+  width?: number;
 }
 
-export interface TUIFooterState {
-  isEnabled: boolean;
-  lastRender: string;
-  lastOptions: TUIFooterOptions | null;
-  renderInterval: Timer | null;
-  spinnerFrame: number;
-  terminalHeight: number;
-  terminalWidth: number;
+interface TerminalSize {
+  width: number;
+  height: number;
 }
 
 // ============================================
-// FOOTER RENDERER
+// FOOTER MANAGER CLASS
 // ============================================
 
-/**
- * Render footer content (without positioning)
- */
-function renderFooterContent(options: TUIFooterOptions, spinnerFrame?: string): string {
-  const { permissionMode, tokensUsed, model, isLoading, verbose, showVersion } = options;
-  const contextInfo = calculateContextInfo(tokensUsed, model);
+class FooterManager {
+  private enabled = false;
+  private options: TUIFooterOptions | null = null;
+  private lastRender = "";
+  private spinnerInterval: ReturnType<typeof setInterval> | null = null;
+  private spinnerFrame = 0;
+  private static instance: FooterManager | null = null;
 
-  // Build status parts
-  const parts: string[] = [];
+  private constructor() {}
 
-  // 1. Loading spinner if active
-  if (isLoading && spinnerFrame) {
-    parts.push(chalk.cyan(spinnerFrame));
-  }
-
-  // 2. Context percentage with color
-  const contextValue = contextInfo.isCritical
-    ? chalk.red(`${contextInfo.percentRemaining.toFixed(0)}%`)
-    : contextInfo.isLow
-      ? chalk.yellow(`${contextInfo.percentRemaining.toFixed(0)}%`)
-      : chalk.dim(`${contextInfo.percentRemaining.toFixed(0)}%`);
-  parts.push(`Context: ${contextValue}`);
-
-  // 3. Permission mode
-  const permDisplay = formatPermissionMode(permissionMode);
-  parts.push(permDisplay);
-
-  // 4. Version (if verbose or showVersion)
-  if (verbose || showVersion) {
-    parts.push(chalk.dim(`v${getVersion()}`));
-  }
-
-  return parts.join(chalk.dim(" | "));
-}
-
-/**
- * Get VERSION dynamically to avoid circular imports
- */
-function getVersion(): string {
-  try {
-    // Dynamic import to avoid circular dependency
-    const statusLine = require("../shared/status-line.js");
-    return statusLine.VERSION || "0.0.0";
-  } catch {
-    return "0.0.0";
-  }
-}
-
-// ============================================
-// TUI FOOTER CLASS
-// ============================================
-
-export class TUIFooter {
-  private state: TUIFooterState;
-  private static instance: TUIFooter | null = null;
-
-  private constructor() {
-    this.state = {
-      isEnabled: false,
-      lastRender: "",
-      lastOptions: null,
-      renderInterval: null,
-      spinnerFrame: 0,
-      terminalHeight: process.stdout.rows || 24,
-      terminalWidth: process.stdout.columns || 80,
-    };
-  }
-
-  /**
-   * Get singleton instance
-   */
-  static getInstance(): TUIFooter {
-    if (!TUIFooter.instance) {
-      TUIFooter.instance = new TUIFooter();
+  static getInstance(): FooterManager {
+    if (!FooterManager.instance) {
+      FooterManager.instance = new FooterManager();
     }
-    return TUIFooter.instance;
+    return FooterManager.instance;
   }
 
-  /**
-   * Reset singleton (for testing)
-   */
   static reset(): void {
-    if (TUIFooter.instance) {
-      TUIFooter.instance.disable();
-      TUIFooter.instance = null;
+    if (FooterManager.instance) {
+      FooterManager.instance.stopSpinner();
+      FooterManager.instance.enabled = false;
+      FooterManager.instance.options = null;
+      FooterManager.instance.lastRender = "";
     }
+    FooterManager.instance = new FooterManager();
   }
 
-  /**
-   * Enable the footer (start tracking terminal size)
-   */
-  enable(): void {
-    if (this.state.isEnabled) return;
-
-    this.state.isEnabled = true;
-    this.updateTerminalSize();
-
-    // Listen for terminal resize
-    process.stdout.on("resize", this.handleResize);
+  enable(): this {
+    this.enabled = true;
+    return this;
   }
 
-  /**
-   * Disable the footer and clear it
-   */
   disable(): void {
-    if (!this.state.isEnabled) return;
-
+    this.enabled = false;
     this.stopSpinner();
     this.clear();
-
-    process.stdout.off("resize", this.handleResize);
-    this.state.isEnabled = false;
   }
 
-  /**
-   * Check if footer is enabled
-   */
   isEnabled(): boolean {
-    return this.state.isEnabled;
+    return this.enabled;
   }
 
-  /**
-   * Update terminal dimensions
-   */
-  private updateTerminalSize(): void {
-    this.state.terminalHeight = process.stdout.rows || 24;
-    this.state.terminalWidth = process.stdout.columns || 80;
-  }
-
-  /**
-   * Handle terminal resize
-   */
-  private handleResize = (): void => {
-    this.updateTerminalSize();
-    if (this.state.lastOptions) {
-      this.render(this.state.lastOptions);
-    }
-  };
-
-  /**
-   * Render the footer at the bottom of the screen
-   * Saves cursor position, moves to bottom, renders, restores cursor
-   */
-  render(options: TUIFooterOptions): void {
-    if (!this.state.isEnabled) return;
-
-    this.state.lastOptions = options;
-
-    // Build footer content
-    const content = renderFooterContent(options);
-
-    // Skip if content unchanged (optimization)
-    if (content === this.state.lastRender && !options.isLoading) {
-      return;
-    }
-
-    this.state.lastRender = content;
-
-    // Build ANSI sequence:
-    // 1. Save cursor position
-    // 2. Move to bottom of screen
-    // 3. Clear the line
-    // 4. Render footer content
-    // 5. Restore cursor position
-    const output =
-      ANSI.SAVE_CURSOR +
-      ANSI.MOVE_TO_BOTTOM() +
-      ANSI.CLEAR_LINE +
-      "\r" + // Go to start of line
-      chalk.dim("┌") +
-      content +
-      ANSI.RESTORE_CURSOR;
-
-    process.stdout.write(output);
-  }
-
-  /**
-   * Render with loading spinner animation
-   */
-  renderLoading(options: TUIFooterOptions): void {
-    const frame = spinnerFrames[this.state.spinnerFrame];
-    this.state.spinnerFrame = (this.state.spinnerFrame + 1) % spinnerFrames.length;
-
-    const content = renderFooterContent(options, frame);
-    this.state.lastRender = content;
-
-    if (!this.state.isEnabled) return;
-
-    const output =
-      ANSI.SAVE_CURSOR +
-      ANSI.MOVE_TO_BOTTOM() +
-      ANSI.CLEAR_LINE +
-      "\r" +
-      chalk.dim("┌") +
-      content +
-      ANSI.RESTORE_CURSOR;
-
-    process.stdout.write(output);
-  }
-
-  /**
-   * Start spinner animation for loading state
-   */
-  startSpinner(options: TUIFooterOptions, interval = 80): void {
-    this.stopSpinner();
-
-    this.state.renderInterval = setInterval(() => {
-      this.renderLoading(options);
-    }, interval);
-  }
-
-  /**
-   * Stop spinner animation
-   */
-  stopSpinner(): void {
-    if (this.state.renderInterval) {
-      clearInterval(this.state.renderInterval);
-      this.state.renderInterval = null;
-    }
-  }
-
-  /**
-   * Clear the footer line
-   */
-  clear(): void {
-    if (!this.state.isEnabled) return;
-
-    const output =
-      ANSI.SAVE_CURSOR +
-      ANSI.MOVE_TO_BOTTOM() +
-      ANSI.CLEAR_LINE +
-      ANSI.RESTORE_CURSOR;
-
-    process.stdout.write(output);
-    this.state.lastRender = "";
-  }
-
-  /**
-   * Update just the token count (for incremental updates)
-   */
-  updateTokens(tokensUsed: number): void {
-    if (this.state.lastOptions) {
-      this.render({
-        ...this.state.lastOptions,
-        tokensUsed,
-      });
-    }
-  }
-
-  /**
-   * Update loading state
-   */
-  setLoading(isLoading: boolean): void {
-    if (this.state.lastOptions) {
-      const options = {
-        ...this.state.lastOptions,
-        isLoading,
+  getTerminalSize(): TerminalSize {
+    // Try to get actual terminal size, fall back to defaults
+    try {
+      return {
+        width: process.stdout.columns ?? 80,
+        height: process.stdout.rows ?? 24,
       };
+    } catch {
+      return { width: 80, height: 24 };
+    }
+  }
 
-      if (isLoading) {
-        this.startSpinner(options);
-      } else {
-        this.stopSpinner();
-        this.render(options);
+  setOptions(options: TUIFooterOptions): void {
+    this.options = options;
+  }
+
+  getOptions(): TUIFooterOptions | null {
+    return this.options;
+  }
+
+  render(options?: TUIFooterOptions): string {
+    if (options) {
+      this.options = options;
+    }
+
+    if (!this.enabled || !this.options) {
+      return "";
+    }
+
+    const { permissionMode, model, tokensUsed = 0, isLoading = false, width } = this.options;
+    const terminalWidth = width ?? this.getTerminalSize().width;
+
+    const parts: string[] = [];
+
+    // Permission mode
+    const modeDisplay = this.formatPermissionMode(permissionMode);
+    parts.push(modeDisplay);
+
+    // Model if provided
+    if (model) {
+      parts.push(this.formatModel(model));
+    }
+
+    // Token usage
+    if (tokensUsed > 0) {
+      parts.push(this.formatTokens(tokensUsed));
+    }
+
+    // Loading indicator
+    let footer = parts.join(" | ");
+    if (isLoading) {
+      footer = `${ANSI.DIM}⠋${ANSI.RESET} ${footer}`;
+    }
+
+    // Truncate to width
+    if (footer.length > terminalWidth) {
+      footer = footer.substring(0, terminalWidth - 3) + "...";
+    }
+
+    this.lastRender = footer;
+    return footer;
+  }
+
+  renderLoading(options: TUIFooterOptions): string {
+    return this.render({ ...options, isLoading: true });
+  }
+
+  private formatPermissionMode(mode: PermissionMode): string {
+    const modeLabels: Record<PermissionMode, string> = {
+      default: "○ default",
+      ask: "? ask",
+      acceptEdits: "✓ accept edits",
+      bypassPermissions: "⚡ bypass",
+      bypass: "⚡ bypass",
+      dontAsk: "✗ dontAsk",
+      interactive: "💬 interactive",
+      plan: "📋 plan",
+      auto: "⚡ auto",
+    };
+    return modeLabels[mode] ?? mode;
+  }
+
+  private formatModel(model: string): string {
+    // Simplify model name
+    if (model.includes("opus")) return "Opus";
+    if (model.includes("sonnet")) return "Sonnet";
+    if (model.includes("haiku")) return "Haiku";
+    return model.split("-").pop() ?? model;
+  }
+
+  private formatTokens(tokens: number): string {
+    if (tokens < 1000) return `${tokens}t`;
+    if (tokens < 1000000) return `${(tokens / 1000).toFixed(1)}k`;
+    return `${(tokens / 1000000).toFixed(1)}M`;
+  }
+
+  startSpinner(options: TUIFooterOptions): void {
+    this.stopSpinner();
+    this.options = options;
+
+    const frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+
+    this.spinnerInterval = setInterval(() => {
+      if (!this.enabled || !this.options) return;
+
+      const frame = frames[this.spinnerFrame % frames.length];
+      this.spinnerFrame++;
+
+      // Build footer with spinner
+      const { permissionMode, model, tokensUsed = 0, width } = this.options;
+      const terminalWidth = width ?? this.getTerminalSize().width;
+
+      const parts: string[] = [this.formatPermissionMode(permissionMode)];
+      if (model) parts.push(this.formatModel(model));
+      if (tokensUsed > 0) parts.push(this.formatTokens(tokensUsed));
+
+      let footer = `${frame} ${parts.join(" | ")}`;
+      if (footer.length > terminalWidth) {
+        footer = footer.substring(0, terminalWidth - 3) + "...";
+      }
+
+      // Write to terminal
+      process.stdout.write(ANSI.SAVE_CURSOR);
+      process.stdout.write(ANSI.MOVE_TO_BOTTOM(0));
+      process.stdout.write(ANSI.CLEAR_LINE);
+      process.stdout.write(footer);
+      process.stdout.write(ANSI.RESTORE_CURSOR);
+
+      this.lastRender = footer;
+    }, 80);
+  }
+
+  stopSpinner(): void {
+    if (this.spinnerInterval) {
+      clearInterval(this.spinnerInterval);
+      this.spinnerInterval = null;
+    }
+    this.spinnerFrame = 0;
+  }
+
+  updateTokens(tokens: number): void {
+    if (this.options) {
+      this.options.tokensUsed = tokens;
+      if (this.enabled) {
+        this.render();
       }
     }
   }
 
-  /**
-   * Get terminal dimensions
-   */
-  getTerminalSize(): { width: number; height: number } {
-    return {
-      width: this.state.terminalWidth,
-      height: this.state.terminalHeight,
-    };
+  setLoading(loading: boolean): void {
+    if (this.options) {
+      this.options.isLoading = loading;
+      if (this.enabled) {
+        this.render();
+      }
+    }
+  }
+
+  clear(): void {
+    if (this.lastRender && this.enabled) {
+      process.stdout.write(ANSI.SAVE_CURSOR);
+      process.stdout.write(ANSI.MOVE_TO_BOTTOM(0));
+      process.stdout.write(ANSI.CLEAR_LINE);
+      process.stdout.write(ANSI.RESTORE_CURSOR);
+    }
+    this.lastRender = "";
   }
 }
 
 // ============================================
-// CONVENIENCE EXPORTS
+// SINGLETON EXPORT
 // ============================================
 
-/**
- * Get the global TUI footer instance
- */
-export function getTUIFooter(): TUIFooter {
-  return TUIFooter.getInstance();
+export const TUIFooter = FooterManager;
+
+// Convenience functions
+export function getTUIFooter(): FooterManager {
+  return FooterManager.getInstance();
 }
 
-/**
- * Enable TUI footer
- */
-export function enableTUIFooter(): TUIFooter {
-  const footer = TUIFooter.getInstance();
+export function enableTUIFooter(): FooterManager {
+  const footer = FooterManager.getInstance();
   footer.enable();
   return footer;
 }
 
-/**
- * Disable TUI footer
- */
 export function disableTUIFooter(): void {
-  TUIFooter.getInstance().disable();
+  FooterManager.getInstance().disable();
 }
-
-/**
- * Render footer status (convenience function)
- */
-export function renderTUIFooter(options: TUIFooterOptions): void {
-  TUIFooter.getInstance().render(options);
-}
-
-/**
- * Clear the footer line
- */
-export function clearTUIFooter(): void {
-  TUIFooter.getInstance().clear();
-}
-
-// ============================================
-// EXPORTS
-// ============================================
-
-export default {
-  TUIFooter,
-  getTUIFooter,
-  enableTUIFooter,
-  disableTUIFooter,
-  renderTUIFooter,
-  clearTUIFooter,
-  ANSI,
-};

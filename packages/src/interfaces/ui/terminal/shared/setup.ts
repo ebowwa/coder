@@ -3,7 +3,7 @@
  * Shared initialization logic for CLI and TUI modes
  */
 
-import type { MCPServerConfig, ToolDefinition, PermissionMode } from "../../../../types/index.js";
+import type { MCPServerConfig, ToolDefinition, PermissionMode, ToolContext } from "../../../../schemas/index.js";
 import { MCPClientImpl, createMCPClients } from "../../../mcp/client.js";
 import { HookManager } from "../../../../ecosystem/hooks/index.js";
 import { createPromptEvaluator } from "../../../../ecosystem/hooks/prompt-evaluator.js";
@@ -92,7 +92,7 @@ export function mcpToolsToToolDefinitions(mcpClients: Map<string, MCPClientImpl>
         name: `mcp__${serverName}__${mcpTool.name}`,
         description: mcpTool.description,
         input_schema: mcpTool.inputSchema,
-        handler: async (args, context) => {
+        handler: async (args: Record<string, unknown>, context: ToolContext) => {
           if (!client.connected) {
             return {
               content: `Error: MCP server "${serverName}" is not connected`,
@@ -187,7 +187,7 @@ export async function setupSession(options: SetupOptions): Promise<SessionSetup>
   const hookDefinitions = settingsToHookDefinitions(mergedSettings);
   for (const [event, definitions] of Object.entries(hookDefinitions)) {
     for (const def of definitions) {
-      hookManager.register(event as import("../../../../types/index.js").HookEvent, def);
+      hookManager.register(event as import("../../../../schemas/index.js").HookEvent, def);
     }
   }
   if (Object.keys(hookDefinitions).length > 0) {
@@ -239,6 +239,15 @@ export async function setupSession(options: SetupOptions): Promise<SessionSetup>
       const errorMessage = error instanceof Error ? error.message : String(error);
       log(`Warning: Failed to load MCP config file: ${errorMessage}`);
     }
+  }
+
+  // Merge preset MCP servers (preset servers have higher priority)
+  if (args.presetMcpServers) {
+    servers = {
+      ...servers,
+      ...args.presetMcpServers,
+    };
+    log(`  Preset MCP servers: ${Object.keys(args.presetMcpServers).length} added`);
   }
 
   // Connect to MCP servers

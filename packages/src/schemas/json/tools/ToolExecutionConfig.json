@@ -1,0 +1,45 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ebowwa.github.io/coder/schemas/ToolExecutionConfig.json",
+  "$ref": "#/definitions/ToolExecutionConfig",
+  "definitions": {
+    "ToolExecutionConfig": {
+      "type": "object",
+      "properties": {
+        "timeout_ms": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "default_timeout": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "max_timeout": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "chrome_bridge": {
+          "type": "boolean"
+        },
+        "tool_call_timeout_ms": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "max_retries": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "timeout_ms",
+        "default_timeout",
+        "max_timeout",
+        "chrome_bridge",
+        "tool_call_timeout_ms",
+        "max_retries"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "title": "ToolExecutionConfig Schema"
+}

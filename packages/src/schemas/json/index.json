@@ -1,0 +1,243 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ebowwa.github.io/coder/schemas/index.json",
+  "title": "Coder JSON Schemas",
+  "description": "JSON Schema definitions for @ebowwa/coder types",
+  "schemas": [
+    {
+      "category": "api",
+      "name": "StopReason",
+      "$ref": "./api/StopReason.json"
+    },
+    {
+      "category": "api",
+      "name": "UsageMetrics",
+      "$ref": "./api/UsageMetrics.json"
+    },
+    {
+      "category": "api",
+      "name": "ContentBlock",
+      "$ref": "./api/ContentBlock.json"
+    },
+    {
+      "category": "api",
+      "name": "APIResponse",
+      "$ref": "./api/APIResponse.json"
+    },
+    {
+      "category": "api",
+      "name": "APIRequest",
+      "$ref": "./api/APIRequest.json"
+    },
+    {
+      "category": "api",
+      "name": "Message",
+      "$ref": "./api/Message.json"
+    },
+    {
+      "category": "api",
+      "name": "OAuthConfig",
+      "$ref": "./api/OAuthConfig.json"
+    },
+    {
+      "category": "api",
+      "name": "BackendConfig",
+      "$ref": "./api/BackendConfig.json"
+    },
+    {
+      "category": "api",
+      "name": "RateLimitConfig",
+      "$ref": "./api/RateLimitConfig.json"
+    },
+    {
+      "category": "api",
+      "name": "CacheConfig",
+      "$ref": "./api/CacheConfig.json"
+    },
+    {
+      "category": "models",
+      "name": "KnownClaudeModel",
+      "$ref": "./models/KnownClaudeModel.json"
+    },
+    {
+      "category": "models",
+      "name": "ModelTier",
+      "$ref": "./models/ModelTier.json"
+    },
+    {
+      "category": "models",
+      "name": "ModelDefinition",
+      "$ref": "./models/ModelDefinition.json"
+    },
+    {
+      "category": "models",
+      "name": "ModelPricing",
+      "$ref": "./models/ModelPricing.json"
+    },
+    {
+      "category": "models",
+      "name": "ExtendedThinkingFeatures",
+      "$ref": "./models/ExtendedThinkingFeatures.json"
+    },
+    {
+      "category": "agents",
+      "name": "AgentTypeDefinition",
+      "$ref": "./agents/AgentTypeDefinition.json"
+    },
+    {
+      "category": "agents",
+      "name": "SessionType",
+      "$ref": "./agents/SessionType.json"
+    },
+    {
+      "category": "agents",
+      "name": "SessionState",
+      "$ref": "./agents/SessionState.json"
+    },
+    {
+      "category": "agents",
+      "name": "AgentCapabilities",
+      "$ref": "./agents/AgentCapabilities.json"
+    },
+    {
+      "category": "agents",
+      "name": "AgentConfig",
+      "$ref": "./agents/AgentConfig.json"
+    },
+    {
+      "category": "agents",
+      "name": "AgentStatus",
+      "$ref": "./agents/AgentStatus.json"
+    },
+    {
+      "category": "permissions",
+      "name": "PermissionMode",
+      "$ref": "./permissions/PermissionMode.json"
+    },
+    {
+      "category": "permissions",
+      "name": "PermissionRequest",
+      "$ref": "./permissions/PermissionRequest.json"
+    },
+    {
+      "category": "permissions",
+      "name": "PermissionResponse",
+      "$ref": "./permissions/PermissionResponse.json"
+    },
+    {
+      "category": "permissions",
+      "name": "RiskLevel",
+      "$ref": "./permissions/RiskLevel.json"
+    },
+    {
+      "category": "permissions",
+      "name": "PermissionToolChoice",
+      "$ref": "./permissions/PermissionToolChoice.json"
+    },
+    {
+      "category": "mcp",
+      "name": "MCPServerConfig",
+      "$ref": "./mcp/MCPServerConfig.json"
+    },
+    {
+      "category": "mcp",
+      "name": "MCPTool",
+      "$ref": "./mcp/MCPTool.json"
+    },
+    {
+      "category": "mcp",
+      "name": "JSONRPCRequest",
+      "$ref": "./mcp/JSONRPCRequest.json"
+    },
+    {
+      "category": "mcp",
+      "name": "JSONRPCResponse",
+      "$ref": "./mcp/JSONRPCResponse.json"
+    },
+    {
+      "category": "mcp",
+      "name": "ToolCallRequest",
+      "$ref": "./mcp/ToolCallRequest.json"
+    },
+    {
+      "category": "mcp",
+      "name": "ToolCallResponse",
+      "$ref": "./mcp/ToolCallResponse.json"
+    },
+    {
+      "category": "mcp",
+      "name": "TransportType",
+      "$ref": "./mcp/TransportType.json"
+    },
+    {
+      "category": "hooks",
+      "name": "HookType",
+      "$ref": "./hooks/HookType.json"
+    },
+    {
+      "category": "hooks",
+      "name": "HookEvent",
+      "$ref": "./hooks/HookEvent.json"
+    },
+    {
+      "category": "hooks",
+      "name": "HookDefinition",
+      "$ref": "./hooks/HookDefinition.json"
+    },
+    {
+      "category": "hooks",
+      "name": "HookInput",
+      "$ref": "./hooks/HookInput.json"
+    },
+    {
+      "category": "hooks",
+      "name": "HookOutput",
+      "$ref": "./hooks/HookOutput.json"
+    },
+    {
+      "category": "slash-commands",
+      "name": "SlashCommand",
+      "$ref": "./slash-commands/SlashCommand.json"
+    },
+    {
+      "category": "slash-commands",
+      "name": "ParsedCommand",
+      "$ref": "./slash-commands/ParsedCommand.json"
+    },
+    {
+      "category": "slash-commands",
+      "name": "CommandCategory",
+      "$ref": "./slash-commands/CommandCategory.json"
+    },
+    {
+      "category": "tools",
+      "name": "ToolCategory",
+      "$ref": "./tools/ToolCategory.json"
+    },
+    {
+      "category": "tools",
+      "name": "BuiltInTool",
+      "$ref": "./tools/BuiltInTool.json"
+    },
+    {
+      "category": "tools",
+      "name": "ToolExecutionConfig",
+      "$ref": "./tools/ToolExecutionConfig.json"
+    },
+    {
+      "category": "tools",
+      "name": "ToolResult",
+      "$ref": "./tools/ToolResult.json"
+    }
+  ],
+  "categories": [
+    "api",
+    "models",
+    "agents",
+    "permissions",
+    "mcp",
+    "hooks",
+    "slash-commands",
+    "tools"
+  ]
+}
