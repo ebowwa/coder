@@ -5,22 +5,64 @@
  * - File-based inbox system for cross-process communication
  * - Messages stored as JSON files in ~/.claude/teams/{team}/inboxes/{teammateId}/
  * - pending/ for unread messages, processed/ for read messages
+ *
+ * Claude Code Parity Features:
+ * - Template-based spawning: Load MCP servers + CLAUDE.md + permissions from templates
+ * - Tool restrictions: allowedTools/disallowedTools per teammate
+ * - Worktree isolation: Optional git worktree for safe parallel work
+ * - Agent types: general-purpose, Explore, Plan, claude-code-guide
  */
 
-import type { Teammate, Team, TeammateMessage, TeammateStatus } from "../types/index.js";
+import type { Teammate, Team, TeammateMessage, TeammateStatus, ToolRestrictions, TeammateWorktreeConfig, AgentType } from "../schemas/index.js";
+import type { TeammateTemplate } from "../ecosystem/presets/types.js";
 import { spawn } from "child_process";
 import { mkdirSync, rmSync, existsSync, readFileSync, readdirSync, renameSync, writeFileSync, statSync } from "fs";
 import { join, basename } from "path";
+import { templateManager } from "../ecosystem/presets/index.js";
+import { execSync } from "child_process";
 
 // ============================================
 // FILE-BASED INBOX TYPES
 // ============================================
 
-interface StoredMessage extends TeammateMessage {
+/**
+ * Message type enum matching TeammateMessageSchema
+ */
+type MessageType = "task" | "status" | "query" | "response" | "notification" | "broadcast" | "direct";
+
+/**
+ * Message priority enum matching TeammateMessageSchema
+ */
+type MessagePriority = "low" | "normal" | "high";
+
+/**
+ * Stored message in file-based inbox system
+ * Contains all fields from TeammateMessage plus storage metadata
+ */
+interface StoredMessage {
+  // Core message fields (from TeammateMessage)
   id: string;
+  from: string;
+  to?: string | string[];
+  type: MessageType;
+  content: string;
+  timestamp: number;
+  priority?: MessagePriority;
+  // Storage metadata
   teamName: string;
   createdAt: number;
   readAt?: number;
+}
+
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
+
+/**
+ * Get the ID of a teammate (handles both id and teammateId fields)
+ */
+function getTeammateId(teammate: Teammate): string {
+  return teammate.id || teammate.teammateId || teammate.name;
 }
 
 // ============================================
@@ -63,8 +105,8 @@ export class TeammateManager {
   private ensureInboxDirectories(): void {
     for (const team of this.teams.values()) {
       for (const teammate of team.teammates) {
-        const pendingPath = this.getPendingPath(team.name, teammate.teammateId);
-        const processedPath = this.getProcessedPath(team.name, teammate.teammateId);
+        const pendingPath = this.getPendingPath(team.name, getTeammateId(teammate));
+        const processedPath = this.getProcessedPath(team.name, getTeammateId(teammate));
 
         if (!existsSync(pendingPath)) {
           mkdirSync(pendingPath, { recursive: true });
@@ -94,13 +136,13 @@ export class TeammateManager {
 
     // Store teammates
     for (const teammate of config.teammates) {
-      this.teammates.set(teammate.teammateId, teammate);
+      this.teammates.set(getTeammateId(teammate), teammate);
     }
 
     // Create inbox directories for all teammates
     for (const teammate of config.teammates) {
-      const pendingPath = this.getPendingPath(config.name, teammate.teammateId);
-      const processedPath = this.getProcessedPath(config.name, teammate.teammateId);
+      const pendingPath = this.getPendingPath(config.name, getTeammateId(teammate));
+      const processedPath = this.getProcessedPath(config.name, getTeammateId(teammate));
 
       if (!existsSync(pendingPath)) {
         mkdirSync(pendingPath, { recursive: true });
@@ -131,7 +173,7 @@ export class TeammateManager {
     if (team) {
       // Remove teammates and their message queues
       for (const teammate of team.teammates) {
-        this.teammates.delete(teammate.teammateId);
+        this.teammates.delete(getTeammateId(teammate));
       }
       this.teams.delete(name);
 
@@ -169,11 +211,11 @@ export class TeammateManager {
 
     // Add to team
     team.teammates.push(teammate);
-    this.teammates.set(teammate.teammateId, teammate);
+    this.teammates.set(getTeammateId(teammate), teammate);
 
     // Create inbox directories
-    const pendingPath = this.getPendingPath(teamName, teammate.teammateId);
-    const processedPath = this.getProcessedPath(teamName, teammate.teammateId);
+    const pendingPath = this.getPendingPath(teamName, getTeammateId(teammate));
+    const processedPath = this.getProcessedPath(teamName, getTeammateId(teammate));
 
     if (!existsSync(pendingPath)) {
       mkdirSync(pendingPath, { recursive: true });
@@ -218,51 +260,286 @@ export class TeammateManager {
   // SPAWNING
   // ============================================
 
+  /**
+   * Spawn a teammate with optional template support
+   * Templates auto-populate MCP servers, CLAUDE.md, and tool restrictions
+   */
   async spawnTeammate(
     teammate: Teammate,
     options: {
       session?: string;
       workingDir?: string;
+      /** Enable worktree isolation for safe parallel work */
+      useWorktree?: boolean;
     } = {}
   ): Promise<void> {
-    const { session, workingDir = process.cwd() } = options;
+    const { session, workingDir = process.cwd(), useWorktree } = options;
+
+    // Apply template if specified
+    if (teammate.template) {
+      await this.applyTemplateToTeammate(teammate);
+    }
+
+    // Apply agent type tool restrictions (Claude Code parity)
+    if (teammate.agentType) {
+      this.applyAgentTypeRestrictions(teammate);
+    }
+
+    // Setup worktree isolation if requested
+    let actualWorkingDir = workingDir;
+    if (useWorktree || teammate.worktree?.enabled) {
+      actualWorkingDir = await this.setupWorktree(teammate, workingDir);
+    }
 
     // Check if inside tmux
     const insideTmux = !!process.env.TMUX;
 
     if (!insideTmux) {
       // Spawn in new terminal
-      await this.spawnInTerminal(teammate, { session, workingDir });
+      await this.spawnInTerminal(teammate, { session, workingDir: actualWorkingDir });
     } else {
       // Spawn in tmux pane
-      await this.spawnInTmux(teammate, { session, workingDir });
+      await this.spawnInTmux(teammate, { session, workingDir: actualWorkingDir });
     }
 
-    this.updateTeammateStatus(teammate.teammateId, "in_progress");
+    this.updateTeammateStatus(getTeammateId(teammate), "in_progress");
+  }
+
+  /**
+   * Spawn a teammate from a template (Claude Code parity)
+   * Auto-loads MCP servers, CLAUDE.md, and permissions from the template
+   */
+  async spawnFromTemplate(
+    templateName: string,
+    options: {
+      name?: string;
+      teamName: string;
+      task?: string;
+      session?: string;
+      workingDir?: string;
+      useWorktree?: boolean;
+    }
+  ): Promise<Teammate | null> {
+    const template = templateManager.get(templateName);
+    if (!template) {
+      console.error(`Template not found: ${templateName}`);
+      return null;
+    }
+
+    // Create teammate from template
+    const teammate: Teammate = {
+      id: generateTeammateId(),
+      name: options.name || template.name,
+      role: template.name,
+      description: template.description,
+      teamName: options.teamName,
+      template: templateName,
+      status: "pending",
+      prompt: options.task,
+      mcpServers: template.mcpServers,
+      claudeMd: template.claudeMd,
+      toolRestrictions: template.permissions,
+      allowedTools: template.permissions?.allowedTools,
+      disallowedTools: template.permissions?.disallowedTools,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    // Add to team
+    this.addTeammate(options.teamName, teammate);
+
+    // Spawn
+    await this.spawnTeammate(teammate, {
+      session: options.session,
+      workingDir: options.workingDir,
+      useWorktree: options.useWorktree,
+    });
+
+    return teammate;
+  }
+
+  /**
+   * Apply template to an existing teammate
+   */
+  private async applyTemplateToTeammate(teammate: Teammate): Promise<void> {
+    const template = templateManager.get(teammate.template!);
+    if (!template) return;
+
+    // Merge MCP servers
+    if (template.mcpServers) {
+      teammate.mcpServers = {
+        ...teammate.mcpServers,
+        ...template.mcpServers,
+      };
+    }
+
+    // Merge CLAUDE.md
+    if (template.claudeMd && !teammate.claudeMd) {
+      teammate.claudeMd = template.claudeMd;
+    }
+
+    // Merge tool restrictions
+    if (template.permissions) {
+      teammate.toolRestrictions = {
+        allowedTools: [
+          ...(teammate.toolRestrictions?.allowedTools ?? []),
+          ...(template.permissions.allowedTools ?? []),
+        ],
+        disallowedTools: [
+          ...(teammate.toolRestrictions?.disallowedTools ?? []),
+          ...(template.permissions.disallowedTools ?? []),
+        ],
+      };
+      teammate.allowedTools = teammate.toolRestrictions.allowedTools;
+      teammate.disallowedTools = teammate.toolRestrictions.disallowedTools;
+    }
+  }
+
+  /**
+   * Apply tool restrictions based on agent type (Claude Code parity)
+   */
+  private applyAgentTypeRestrictions(teammate: Teammate): void {
+    const restrictions: Record<AgentType, string[]> = {
+      // General-purpose: Full tool access (no restrictions)
+      "general-purpose": [],
+
+      // Explore: Read-only, can only use Glob, Grep, Read, Bash (read-only)
+      "Explore": ["Glob", "Grep", "Read", "Bash"],
+
+      // Plan: Can use Glob, Grep, Read, LSP for analysis
+      "Plan": ["Glob", "Grep", "Read", "LSP"],
+
+      // claude-code-guide: Full tool access for helping users
+      "claude-code-guide": [],
+    };
+
+    const allowed = restrictions[teammate.agentType!];
+    if (allowed.length > 0) {
+      teammate.allowedTools = allowed;
+      teammate.toolRestrictions = {
+        ...teammate.toolRestrictions,
+        allowedTools: allowed,
+      };
+    }
+  }
+
+  /**
+   * Setup git worktree for isolated agent work (Claude Code parity)
+   */
+  private async setupWorktree(teammate: Teammate, baseDir: string): Promise<string> {
+    const worktreeConfig: TeammateWorktreeConfig = teammate.worktree || { enabled: true, createBranch: true };
+    const branchName = worktreeConfig.branch || `agent/${teammate.name}-${getTeammateId(teammate).slice(0, 8)}`;
+    const worktreePath = worktreeConfig.path || join(baseDir, `.worktrees`, getTeammateId(teammate));
+
+    try {
+      // Check if we're in a git repo
+      execSync("git rev-parse --git-dir", { cwd: baseDir, stdio: "pipe" });
+
+      // Create worktree
+      const createBranchFlag = worktreeConfig.createBranch ? "-b" : "";
+      const cmd = worktreeConfig.createBranch
+        ? `git worktree add ${createBranchFlag} ${branchName} ${worktreePath}`
+        : `git worktree add ${worktreePath} ${branchName}`;
+
+      execSync(cmd, { cwd: baseDir, stdio: "pipe" });
+
+      // Store worktree info
+      teammate.worktree = {
+        ...worktreeConfig,
+        enabled: true,
+        branch: branchName,
+        path: worktreePath,
+      };
+
+      return worktreePath;
+    } catch (error) {
+      console.error(`Failed to create worktree for ${teammate.name}:`, error);
+      return baseDir; // Fallback to base directory
+    }
+  }
+
+  /**
+   * Cleanup worktree after teammate is done
+   */
+  async cleanupWorktree(teammate: Teammate): Promise<void> {
+    if (!teammate.worktree?.path) return;
+
+    try {
+      execSync(`git worktree remove ${teammate.worktree.path}`, { stdio: "pipe" });
+    } catch {
+      // Worktree may have uncommitted changes, force remove
+      try {
+        execSync(`git worktree remove --force ${teammate.worktree.path}`, { stdio: "pipe" });
+      } catch {
+        // Ignore errors
+      }
+    }
+  }
+
+  /**
+   * Check if a tool is allowed for a teammate
+   */
+  isToolAllowed(teammateId: string, toolName: string): boolean {
+    const teammate = this.teammates.get(teammateId);
+    if (!teammate) return true; // No teammate = no restrictions
+
+    const restrictions = teammate.toolRestrictions;
+    if (!restrictions) return true;
+
+    // Check disallowed first
+    if (restrictions.disallowedTools?.includes(toolName)) {
+      return false;
+    }
+
+    // If allowedTools is set, tool must be in the list
+    if (restrictions.allowedTools && restrictions.allowedTools.length > 0) {
+      return restrictions.allowedTools.includes(toolName);
+    }
+
+    return true;
+  }
+
+  /**
+   * Get tool restrictions for a teammate
+   */
+  getToolRestrictions(teammateId: string): ToolRestrictions | null {
+    const teammate = this.teammates.get(teammateId);
+    return teammate?.toolRestrictions || null;
   }
 
   private async spawnInTerminal(
     teammate: Teammate,
     options: { session?: string; workingDir: string }
   ): Promise<void> {
-    // Build claude command
+    // Build claude command with template support
     const args = [
       "bun",
       "run",
       "src/interfaces/ui/terminal/cli/index.ts",
       "--teammate-mode",
       "--agent-id",
-      teammate.teammateId,
+      getTeammateId(teammate),
       "--agent-name",
       teammate.name,
       "--team-name",
       teammate.teamName,
       "--agent-color",
-      teammate.color,
+      teammate.color || "blue",
     ];
 
-    if (teammate.planModeRequired) {
-      args.push("--permission-mode", "plan");
+    // Add template reference if available
+    if (teammate.template) {
+      args.push("--template", teammate.template);
+    }
+
+    // Add allowed tools if restricted
+    if (teammate.allowedTools?.length) {
+      args.push("--allowed-tools", teammate.allowedTools.join(","));
+    }
+
+    // Add agent type if set
+    if (teammate.agentType) {
+      args.push("--agent-type", teammate.agentType);
     }
 
     // Use AppleScript on macOS to open new Terminal
@@ -297,19 +574,36 @@ export class TeammateManager {
       teammate.paneId = paneId.trim();
     }
 
-    // Send claude command
+    // Build command with template support
     const args = [
       "bun",
       "run",
       "src/interfaces/ui/terminal/cli/index.ts",
       "--teammate-mode",
       "--agent-id",
-      teammate.teammateId,
+      getTeammateId(teammate),
       "--agent-name",
       teammate.name,
       "--team-name",
       teammate.teamName,
+      "--agent-color",
+      teammate.color || "blue",
     ];
+
+    // Add template reference if available
+    if (teammate.template) {
+      args.push("--template", teammate.template);
+    }
+
+    // Add allowed tools if restricted
+    if (teammate.allowedTools?.length) {
+      args.push("--allowed-tools", teammate.allowedTools.join(","));
+    }
+
+    // Add agent type if set
+    if (teammate.agentType) {
+      args.push("--agent-type", teammate.agentType);
+    }
 
     await this.tmuxCommand(["send-keys", "-t", teammate.paneId || "", args.join(" "), "Enter"]);
   }
@@ -445,17 +739,17 @@ export class TeammateManager {
     // Write message to each teammate's inbox
     for (const teammate of team.teammates) {
       // Don't send to sender
-      if (fromId && teammate.teammateId === fromId) continue;
+      if (fromId && getTeammateId(teammate) === fromId) continue;
 
       const msg: StoredMessage = {
         ...baseMsg,
         id: this.generateMessageId(),
         teamName,
         createdAt: Date.now(),
-        to: teammate.teammateId,
+        to: getTeammateId(teammate),
       };
 
-      this.writeMessageToInbox(teamName, teammate.teammateId, msg);
+      this.writeMessageToInbox(teamName, getTeammateId(teammate), msg);
     }
   }
 
@@ -696,8 +990,9 @@ export class TeammateManager {
       let allIdle = true;
 
       for (const teammate of team.teammates) {
-        statuses[teammate.teammateId] = teammate.status;
-        if (!idleStatuses.includes(teammate.status)) {
+        const status = teammate.status ?? "pending";
+        statuses[getTeammateId(teammate)] = status;
+        if (!idleStatuses.includes(status)) {
           allIdle = false;
         }
       }
@@ -859,7 +1154,7 @@ export class TeammateManager {
 
           // Index teammates
           for (const teammate of team.teammates) {
-            this.teammates.set(teammate.teammateId, teammate);
+            this.teammates.set(getTeammateId(teammate), teammate);
           }
         } catch (error) {
           // Silently skip malformed configs
@@ -892,6 +1187,7 @@ export const teammateTemplates = {
    */
   architect: (teamName: string): Omit<Teammate, "teammateId"> => ({
     name: "architect",
+    role: "architect",
     teamName,
     color: "blue",
     prompt: `You are an architect on the ${teamName} team.
@@ -910,6 +1206,7 @@ Focus on:
    */
   implementer: (teamName: string): Omit<Teammate, "teammateId"> => ({
     name: "implementer",
+    role: "implementer",
     teamName,
     color: "green",
     prompt: `You are an implementer on the ${teamName} team.
@@ -928,6 +1225,7 @@ Focus on:
    */
   reviewer: (teamName: string): Omit<Teammate, "teammateId"> => ({
     name: "reviewer",
+    role: "reviewer",
     teamName,
     color: "yellow",
     prompt: `You are a code reviewer on the ${teamName} team.
@@ -946,6 +1244,7 @@ Focus on:
    */
   tester: (teamName: string): Omit<Teammate, "teammateId"> => ({
     name: "tester",
+    role: "tester",
     teamName,
     color: "orange",
     prompt: `You are a tester on the ${teamName} team.
