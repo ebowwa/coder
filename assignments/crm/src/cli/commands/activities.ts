@@ -28,6 +28,7 @@ import {
   previewAndConfirm,
   Spinner,
 } from '../utils/prompt.js';
+import { CRMStorageClient } from '../../mcp/storage/client.js';
 import type { Activity, ActivityType, CallOutcome, MeetingOutcome, CallMetadata, MeetingMetadata, EmailMetadata, TaskMetadata } from '../../core/types.js';
 
 // Activity types
@@ -84,81 +85,85 @@ const ACTIVITY_ICONS: Record<ActivityType, string> = {
   other: '\u2022',
 };
 
-/**
- * Mock data store
- */
-const activitiesStore = new Map<string, Activity>();
+// Storage client singleton
+let _storage: CRMStorageClient | null = null;
 
 /**
- * Generate UUID
+ * Get storage client (lazy initialization)
  */
-function generateId(): string {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
+async function getStorage(): Promise<CRMStorageClient> {
+  if (!_storage) {
+    _storage = new CRMStorageClient({
+      path: process.env.CRM_DB_PATH || './data/crm-cli',
+      mapSize: 256 * 1024 * 1024, // 256MB
+      maxDbs: 20,
+    });
+    await _storage.initialize();
+  }
+  return _storage;
 }
 
 /**
  * Get all activities
  */
-function getActivities(): Activity[] {
-  return Array.from(activitiesStore.values());
+async function getActivities(): Promise<Activity[]> {
+  const storage = await getStorage();
+  return storage.list('activities');
 }
 
 /**
  * Get activity by ID
  */
-function getActivity(id: string): Activity | undefined {
-  return activitiesStore.get(id);
+async function getActivity(id: string): Promise<Activity | null> {
+  const storage = await getStorage();
+  return storage.get('activities', id);
 }
 
 /**
  * Create activity
  */
-function createActivity(data: Partial<Activity>): Activity {
-  const now = new Date().toISOString();
-  const activity: Activity = {
-    id: generateId(),
+async function createActivity(data: Partial<Activity>): Promise<Activity> {
+  const storage = await getStorage();
+  return storage.insert('activities', {
     contactId: data.contactId,
     dealId: data.dealId,
     type: data.type || 'note',
     title: data.title || '',
     description: data.description || '',
-    timestamp: data.timestamp || now,
+    timestamp: data.timestamp || new Date().toISOString(),
     duration: data.duration,
     metadata: data.metadata || {},
     createdBy: data.createdBy,
     tags: data.tags || [],
     customFields: data.customFields || [],
-    createdAt: now,
-    updatedAt: now,
-  };
-
-  activitiesStore.set(activity.id, activity);
-  return activity;
+  });
 }
 
 /**
  * Delete activity
  */
-function deleteActivity(id: string): boolean {
-  return activitiesStore.delete(id);
+async function deleteActivity(id: string): Promise<boolean> {
+  const storage = await getStorage();
+  const existing = await storage.get('activities', id);
+  if (!existing) return false;
+  await storage.delete('activities', id);
+  return true;
 }
 
 /**
  * Filter activities by contact
  */
-function filterByContact(contactId: string): Activity[] {
-  return getActivities().filter((a) => a.contactId === contactId);
+async function filterByContact(contactId: string): Promise<Activity[]> {
+  const activities = await getActivities();
+  return activities.filter((a) => a.contactId === contactId);
 }
 
 /**
  * Filter activities by deal
  */
-function filterByDeal(dealId: string): Activity[] {
-  return getActivities().filter((a) => a.dealId === dealId);
+async function filterByDeal(dealId: string): Promise<Activity[]> {
+  const activities = await getActivities();
+  return activities.filter((a) => a.dealId === dealId);
 }
 
 /**
@@ -177,14 +182,14 @@ export function registerActivityCommands(program: Command): void {
     .option('--json', 'Output as JSON')
     .option('--limit <number>', 'Limit results', '20')
     .action(async (options) => {
-      let activities = getActivities();
+      let activities = await getActivities();
 
       if (options.contact) {
-        activities = filterByContact(options.contact);
+        activities = await filterByContact(options.contact);
       }
 
       if (options.deal) {
-        activities = filterByDeal(options.deal);
+        activities = await filterByDeal(options.deal);
       }
 
       if (options.type) {
@@ -259,7 +264,7 @@ export function registerActivityCommands(program: Command): void {
       const spinner = new Spinner('Logging activity...').start();
       await new Promise((r) => setTimeout(r, 300));
 
-      const activity = createActivity({
+      const activity = await createActivity({
         contactId,
         dealId: options.deal,
         type,
@@ -347,7 +352,7 @@ export function registerActivityCommands(program: Command): void {
       const spinner = new Spinner('Creating activity...').start();
       await new Promise((r) => setTimeout(r, 500));
 
-      const activity = createActivity({
+      const activity = await createActivity({
         contactId,
         dealId,
         type,
@@ -367,7 +372,7 @@ export function registerActivityCommands(program: Command): void {
     .description('Get activity details')
     .option('--json', 'Output as JSON')
     .action(async (id, options) => {
-      const activity = getActivity(id);
+      const activity = await getActivity(id);
 
       if (!activity) {
         printError(`Activity not found: ${id}`);
@@ -438,7 +443,7 @@ export function registerActivityCommands(program: Command): void {
     .description('Delete an activity')
     .option('-f, --force', 'Skip confirmation')
     .action(async (id, options) => {
-      const activity = getActivity(id);
+      const activity = await getActivity(id);
 
       if (!activity) {
         printError(`Activity not found: ${id}`);
@@ -463,7 +468,7 @@ export function registerActivityCommands(program: Command): void {
       const spinner = new Spinner('Deleting activity...').start();
       await new Promise((r) => setTimeout(r, 300));
 
-      deleteActivity(id);
+      await deleteActivity(id);
       spinner.succeed('Activity deleted successfully');
     });
 
@@ -475,14 +480,14 @@ export function registerActivityCommands(program: Command): void {
     .option('-d, --deal <id>', 'Filter by deal ID')
     .option('--days <number>', 'Days to show', '7')
     .action(async (options) => {
-      let activities = getActivities();
+      let activities = await getActivities();
 
       if (options.contact) {
-        activities = filterByContact(options.contact);
+        activities = await filterByContact(options.contact);
       }
 
       if (options.deal) {
-        activities = filterByDeal(options.deal);
+        activities = await filterByDeal(options.deal);
       }
 
       // Filter by date range
