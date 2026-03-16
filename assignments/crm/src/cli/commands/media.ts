@@ -27,6 +27,7 @@ import {
   select,
   Spinner,
 } from '../utils/prompt.js';
+import { CRMStorageClient } from '../../mcp/storage/client.js';
 import type { Media, MediaType, MimeType } from '../../core/types.js';
 
 // Media type icons
@@ -67,20 +68,22 @@ const MIME_TO_MEDIA_TYPE: Record<string, MediaType> = {
   'application/x-7z-compressed': 'archive',
 };
 
-/**
- * Mock data store
- */
-const mediaStore = new Map<string, Media>();
+// Storage client singleton
+let _storage: CRMStorageClient | null = null;
 
 /**
- * Generate UUID
+ * Get storage client (lazy initialization)
  */
-function generateId(): string {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
+async function getStorage(): Promise<CRMStorageClient> {
+  if (!_storage) {
+    _storage = new CRMStorageClient({
+      path: process.env.CRM_DB_PATH || './data/crm-cli',
+      mapSize: 256 * 1024 * 1024, // 256MB
+      maxDbs: 20,
+    });
+    await _storage.initialize();
+  }
+  return _storage;
 }
 
 /**
@@ -93,24 +96,25 @@ function getMediaType(mimeType: string): MediaType {
 /**
  * Get all media
  */
-function getMedia(): Media[] {
-  return Array.from(mediaStore.values());
+async function getMedia(): Promise<Media[]> {
+  const storage = await getStorage();
+  return storage.list('media');
 }
 
 /**
  * Get media by ID
  */
-function getMediaById(id: string): Media | undefined {
-  return mediaStore.get(id);
+async function getMediaById(id: string): Promise<Media | null> {
+  const storage = await getStorage();
+  return storage.get('media', id);
 }
 
 /**
  * Create media entry
  */
-function createMedia(data: Partial<Media>): Media {
-  const now = new Date().toISOString();
-  const media: Media = {
-    id: generateId(),
+async function createMedia(data: Partial<Media>): Promise<Media> {
+  const storage = await getStorage();
+  return storage.insert('media', {
     entityType: data.entityType || 'contact',
     entityId: data.entityId || '',
     type: data.type || 'other',
@@ -126,26 +130,40 @@ function createMedia(data: Partial<Media>): Media {
     downloadCount: data.downloadCount || 0,
     uploadedBy: data.uploadedBy,
     expiresAt: data.expiresAt,
-    createdAt: now,
-    updatedAt: now,
-  };
-
-  mediaStore.set(media.id, media);
-  return media;
+  });
 }
 
 /**
  * Delete media
  */
-function deleteMedia(id: string): boolean {
-  return mediaStore.delete(id);
+async function deleteMedia(id: string): Promise<boolean> {
+  const storage = await getStorage();
+  const existing = await storage.get('media', id);
+  if (!existing) return false;
+  await storage.delete('media', id);
+  return true;
+}
+
+/**
+ * Increment download count
+ */
+async function incrementDownloadCount(id: string): Promise<void> {
+  const storage = await getStorage();
+  const media = storage.get<Media>('media', id);
+  if (media) {
+    const updates: Partial<Media> = {
+      downloadCount: (media.downloadCount || 0) + 1,
+    };
+    await storage.update('media', id, updates);
+  }
 }
 
 /**
  * Filter media by contact
  */
-function filterByContact(contactId: string): Media[] {
-  return getMedia().filter(
+async function filterByContact(contactId: string): Promise<Media[]> {
+  const media = await getMedia();
+  return media.filter(
     (m) => m.entityType === 'contact' && m.entityId === contactId
   );
 }
@@ -153,10 +171,22 @@ function filterByContact(contactId: string): Media[] {
 /**
  * Filter media by deal
  */
-function filterByDeal(dealId: string): Media[] {
-  return getMedia().filter(
+async function filterByDeal(dealId: string): Promise<Media[]> {
+  const media = await getMedia();
+  return media.filter(
     (m) => m.entityType === 'deal' && m.entityId === dealId
   );
+}
+
+/**
+ * Generate UUID
+ */
+function generateId(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
 }
 
 /**
@@ -175,14 +205,14 @@ export function registerMediaCommands(program: Command): void {
     .option('--json', 'Output as JSON')
     .option('--limit <number>', 'Limit results', '20')
     .action(async (options) => {
-      let mediaFiles = getMedia();
+      let mediaFiles = await getMedia();
 
       if (options.contact) {
-        mediaFiles = filterByContact(options.contact);
+        mediaFiles = await filterByContact(options.contact);
       }
 
       if (options.deal) {
-        mediaFiles = filterByDeal(options.deal);
+        mediaFiles = await filterByDeal(options.deal);
       }
 
       if (options.type) {
@@ -321,7 +351,7 @@ export function registerMediaCommands(program: Command): void {
       const spinner = new Spinner('Uploading...').start();
       await new Promise((r) => setTimeout(r, 1000 + Math.random() * 1000));
 
-      const mediaEntry = createMedia({
+      const mediaEntry = await createMedia({
         entityType,
         entityId,
         type: mediaType,
@@ -344,7 +374,7 @@ export function registerMediaCommands(program: Command): void {
     .description('Get media details')
     .option('--json', 'Output as JSON')
     .action(async (id, options) => {
-      const mediaFile = getMediaById(id);
+      const mediaFile = await getMediaById(id);
 
       if (!mediaFile) {
         printError(`Media not found: ${id}`);
@@ -423,7 +453,7 @@ export function registerMediaCommands(program: Command): void {
     .description('Delete a media file')
     .option('-f, --force', 'Skip confirmation')
     .action(async (id, options) => {
-      const mediaFile = getMediaById(id);
+      const mediaFile = await getMediaById(id);
 
       if (!mediaFile) {
         printError(`Media not found: ${id}`);
@@ -449,7 +479,7 @@ export function registerMediaCommands(program: Command): void {
       const spinner = new Spinner('Deleting media...').start();
       await new Promise((r) => setTimeout(r, 300));
 
-      deleteMedia(id);
+      await deleteMedia(id);
       spinner.succeed('Media deleted successfully');
     });
 
@@ -459,7 +489,7 @@ export function registerMediaCommands(program: Command): void {
     .description('Download a media file')
     .option('-o, --output <path>', 'Output path')
     .action(async (id, options) => {
-      const mediaFile = getMediaById(id);
+      const mediaFile = await getMediaById(id);
 
       if (!mediaFile) {
         printError(`Media not found: ${id}`);
@@ -481,6 +511,9 @@ export function registerMediaCommands(program: Command): void {
       // In real implementation, would actually download the file
       // For now, just create a placeholder
       fs.writeFileSync(outputPath, `[Placeholder for ${mediaFile.filename}]`);
+
+      // Increment download count
+      await incrementDownloadCount(id);
 
       spinner.succeed('Download complete');
       printSuccess(`Saved to: ${outputPath}`);
