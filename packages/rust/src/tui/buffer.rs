@@ -71,6 +71,9 @@ pub fn tui_render_block(block: TuiTextBlock, width: Option<u32>) -> String {
 }
 
 /// Render a simple message with prefix (like "You: hello")
+///
+/// The prefix is only added to the FIRST line. Subsequent lines are rendered
+/// without the prefix, allowing for natural multi-line message display.
 #[napi]
 pub fn tui_render_message(prefix: String, content: String, prefix_style: Option<TuiStyle>, width: Option<u32>) -> String {
     let width = width.unwrap_or(80) as u16;
@@ -87,13 +90,25 @@ pub fn tui_render_message(prefix: String, content: String, prefix_style: Option<
     }
 
     // Split content into lines for proper wrapping
+    // Only add prefix to the FIRST line
     let lines: Vec<TuiTextLine> = content.lines()
-        .map(|line| {
-            TuiTextLine {
-                segments: vec![
-                    TuiTextSegment { content: prefix.clone(), style: prefix_style.as_ref().cloned() },
-                    TuiTextSegment { content: line.to_string(), style: None },
-                ],
+        .enumerate()
+        .map(|(i, line)| {
+            if i == 0 {
+                // First line: include prefix
+                TuiTextLine {
+                    segments: vec![
+                        TuiTextSegment { content: prefix.clone(), style: prefix_style.as_ref().cloned() },
+                        TuiTextSegment { content: line.to_string(), style: None },
+                    ],
+                }
+            } else {
+                // Subsequent lines: no prefix, just content
+                TuiTextLine {
+                    segments: vec![
+                        TuiTextSegment { content: line.to_string(), style: None },
+                    ],
+                }
             }
         })
         .collect();

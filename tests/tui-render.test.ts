@@ -96,21 +96,22 @@ describe("tui_render_message", () => {
     expect(stripped).toContain("Hello world");
   });
 
-  test("multi-line content - should prefix each line", () => {
+  test("multi-line content - prefix only on first line", () => {
     const content = "Line 1\nLine 2\nLine 3";
     const result = native.tui_render_message("A: ", content, undefined, 80);
     const stripped = stripAnsi(result);
 
     console.log("Multi-line result:\n", stripped);
 
-    // Each line should have the prefix
+    // Only FIRST line should have the prefix
     const lines = stripped.split("\n");
     expect(lines.length).toBe(3);
     expect(lines[0]).toContain("A:");
     expect(lines[0]).toContain("Line 1");
-    expect(lines[1]).toContain("A:");
+    // Subsequent lines should NOT have the prefix
+    expect(lines[1]).not.toContain("A:");
     expect(lines[1]).toContain("Line 2");
-    expect(lines[2]).toContain("A:");
+    expect(lines[2]).not.toContain("A:");
     expect(lines[2]).toContain("Line 3");
   });
 
