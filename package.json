@@ -1,6 +1,6 @@
 {
   "name": "@ebowwa/coder",
-  "version": "0.7.84",
+  "version": "0.7.88",
   "description": "AI-powered terminal coding assistant",
   "author": "ebowwa",
   "license": "MIT",
@@ -24,7 +24,7 @@
   },
   "scripts": {
     "build": "rm -rf dist && bun run build:native && bun run build:ts && bun run build:types && bun run link",
-    "build:ts": "bun build ./packages/src/index.ts ./packages/src/interfaces/ui/terminal/cli/index.ts --outdir ./dist --target bun --external sharp --external @ebowwa/bun-native-page",
+    "build:ts": "VERSION=$(node -p \"require('./package.json').version\") && bun build ./packages/src/index.ts ./packages/src/interfaces/ui/terminal/cli/index.ts --outdir ./dist --target bun --external sharp --external @ebowwa/bun-native-page --define \"CODER_VERSION=\\\"$VERSION\\\"\"",
     "build:types": "tsc --emitDeclarationOnly --declaration --outDir dist",
     "build:native": "cd packages/rust && cargo build --release --target-dir ./target && cd ../.. && bun run build:napi-artifacts",
     "build:napi-artifacts": "napi build --platform --release --target-dir packages/rust/target --manifest-path packages/rust/Cargo.toml --output-dir native --js-package-name @ebowwa/coder-native --const-enum --strip --dts index.d.ts",
@@ -54,7 +54,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
-    "@ebowwa/bun-native-page": "^0.2.0",
+    "@ebowwa/bun-native-page": "0.2.5",
     "@ebowwa/coder-native": "^0.2.1",
     "@ebowwa/quant-rust": "^0.2.2",
     "@modelcontextprotocol/sdk": "^1.10.0",

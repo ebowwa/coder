@@ -105,7 +105,7 @@ pub extern "C" fn quant_correlation(ptr_x: *const f64, ptr_y: *const f64, len: u
 /// Get library version
 #[no_mangle]
 pub extern "C" fn quant_version() -> *mut std::os::raw::c_char {
-    let version = std::ffi::CString::new("0.2.0").unwrap();
+    let version = std::ffi::CString::new(env!("CARGO_PKG_VERSION")).unwrap();
     version.into_raw()
 }
 

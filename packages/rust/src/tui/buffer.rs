@@ -71,19 +71,44 @@ pub fn tui_render_block(block: TuiTextBlock, width: Option<u32>) -> String {
 }
 
 /// Render a simple message with prefix (like "You: hello")
+///
+/// The prefix is only added to the FIRST line. Subsequent lines are rendered
+/// without the prefix, allowing for natural multi-line message display.
 #[napi]
 pub fn tui_render_message(prefix: String, content: String, prefix_style: Option<TuiStyle>, width: Option<u32>) -> String {
-    // Handle multi-line content by using block rendering
     let width = width.unwrap_or(80) as u16;
 
- // Split content into lines for proper wrapping
+    // Handle empty content - still show prefix
+    if content.is_empty() {
+        let line = TuiTextLine {
+            segments: vec![
+                TuiTextSegment { content: prefix.clone(), style: prefix_style.as_ref().cloned() },
+            ],
+        };
+        let block = TuiTextBlock { lines: vec![line] };
+        return tui_render_block(block, Some(width as u32));
+    }
+
+    // Split content into lines for proper wrapping
+    // Only add prefix to the FIRST line
     let lines: Vec<TuiTextLine> = content.lines()
-        .map(|line| {
-            TuiTextLine {
-                segments: vec![
-                    TuiTextSegment { content: prefix.clone(), style: prefix_style.as_ref().cloned() },
-                    TuiTextSegment { content: line.to_string(), style: None },
-                ],
+        .enumerate()
+        .map(|(i, line)| {
+            if i == 0 {
+                // First line: include prefix
+                TuiTextLine {
+                    segments: vec![
+                        TuiTextSegment { content: prefix.clone(), style: prefix_style.as_ref().cloned() },
+                        TuiTextSegment { content: line.to_string(), style: None },
+                    ],
+                }
+            } else {
+                // Subsequent lines: no prefix, just content
+                TuiTextLine {
+                    segments: vec![
+                        TuiTextSegment { content: line.to_string(), style: None },
+                    ],
+                }
             }
         })
         .collect();
@@ -269,6 +294,7 @@ fn buffer_to_ansi(buffer: &Buffer) -> String {
         // Flush remaining symbols
         if !current_symbols.is_empty() {
             output.push_str(&current_symbols);
+            current_symbols.clear();  // BUG FIX: Clear after flushing to prevent duplicate on next line
         }
 
         // Reset style at end of line

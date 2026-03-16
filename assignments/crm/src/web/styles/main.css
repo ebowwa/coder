@@ -1,0 +1,180 @@
+/* CRM Custom Styles */
+
+/* Base */
+:root {
+  --color-primary: #6366f1;
+  --color-secondary: #8b5cf6;
+  --color-accent: #06b6d4;
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1f2937;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #4b5563;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); }
+  50% { box-shadow: 0 0 0 10px rgba(99, 102, 241, 0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.animate-slide-in {
+  animation: slideIn 0.3s ease-out;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s infinite;
+}
+
+/* Cards */
+.crm-card {
+  @apply bg-gray-800 rounded-xl border border-gray-700 p-4 transition-all duration-200;
+}
+
+.crm-card:hover {
+  @apply border-gray-600 shadow-lg;
+}
+
+/* Pipeline */
+.pipeline-column {
+  @apply bg-gray-800/50 rounded-lg p-3 min-h-[400px];
+}
+
+.pipeline-card {
+  @apply bg-gray-800 rounded-lg border border-gray-700 p-3 mb-2 cursor-pointer transition-all;
+}
+
+.pipeline-card:hover {
+  @apply border-indigo-500 shadow-md transform: translateY(-2px);
+}
+
+.pipeline-card.dragging {
+  @apply opacity-50 border-indigo-400;
+}
+
+/* Activity Feed */
+.activity-item {
+  @apply flex items-start gap-3 p-3 rounded-lg hover:bg-gray-800/50 transition-colors;
+}
+
+.activity-dot {
+  @apply w-2 h-2 rounded-full mt-2;
+}
+
+/* Media Gallery */
+.media-grid {
+  @apply grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4;
+}
+
+.media-item {
+  @apply aspect-square bg-gray-800 rounded-lg overflow-hidden border border-gray-700 hover:border-indigo-500 transition-all cursor-pointer;
+}
+
+.media-item:hover {
+  @apply transform scale-105 shadow-lg;
+}
+
+/* Forms */
+.crm-input {
+  @apply w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-gray-100 placeholder-gray-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all;
+}
+
+.crm-btn {
+  @apply px-4 py-2 rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+.crm-btn-primary {
+  @apply bg-indigo-600 hover:bg-indigo-500 text-white;
+}
+
+.crm-btn-secondary {
+  @apply bg-gray-700 hover:bg-gray-600 text-gray-100;
+}
+
+.crm-btn-danger {
+  @apply bg-red-600 hover:bg-red-500 text-white;
+}
+
+/* Tags */
+.crm-tag {
+  @apply inline-flex items-center px-2 py-1 rounded-full text-xs font-medium;
+}
+
+.crm-tag-success {
+  @apply bg-green-900/50 text-green-400;
+}
+
+.crm-tag-warning {
+  @apply bg-yellow-900/50 text-yellow-400;
+}
+
+.crm-tag-danger {
+  @apply bg-red-900/50 text-red-400;
+}
+
+.crm-tag-info {
+  @apply bg-blue-900/50 text-blue-400;
+}
+
+/* Modal */
+.crm-modal-backdrop {
+  @apply fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center;
+}
+
+.crm-modal {
+  @apply bg-gray-800 rounded-xl border border-gray-700 p-6 max-w-lg w-full mx-4 animate-fade-in;
+}
+
+/* Toast */
+.crm-toast {
+  @apply fixed bottom-4 right-4 bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 shadow-lg animate-slide-in z-50;
+}
+
+/* Status indicators */
+.status-active {
+  @apply bg-green-500;
+}
+
+.status-inactive {
+  @apply bg-gray-500;
+}
+
+.status-pending {
+  @apply bg-yellow-500;
+}
+
+/* Loading spinner */
+.crm-spinner {
+  @apply w-6 h-6 border-2 border-gray-600 border-t-indigo-500 rounded-full animate-spin;
+}

@@ -1,0 +1,4 @@
+- tech: rust, bun, typescript
+- interfaces: mcp, cli, bun typescript site
+- data collections: text, images, audio, video
+- agressive: testing, telemetry

@@ -1,6 +1,6 @@
 {
   "name": "@ebowwa/coder-native",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Native Rust modules for @ebowwa/coder - provides high-performance search, token counting, and diff operations",
   "author": "ebowwa",
   "license": "MIT",
@@ -24,6 +24,8 @@
         "x86_64-apple-darwin",
         "aarch64-apple-darwin",
         "x86_64-unknown-linux-gnu",
+        "x86_64-unknown-linux-musl",
+        "aarch64-unknown-linux-gnu",
         "x86_64-pc-windows-msvc"
       ]
     }
