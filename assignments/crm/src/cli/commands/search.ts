@@ -20,6 +20,7 @@ import {
   output,
 } from '../utils/output.js';
 import { Spinner } from '../utils/prompt.js';
+import { CRMStorageClient } from '../../mcp/storage/client.js';
 import type { Contact, Deal, Activity } from '../../core/types.js';
 
 /**
@@ -34,13 +35,47 @@ interface SearchResult {
   matchValue?: string;
 }
 
+// Storage client singleton
+let _storage: CRMStorageClient | null = null;
+
 /**
- * Mock data stores (imported from other command modules)
- * In real implementation, would use shared data layer
+ * Get storage client (lazy initialization)
  */
-const contactsStore = new Map<string, Contact>();
-const dealsStore = new Map<string, Deal>();
-const activitiesStore = new Map<string, Activity>();
+async function getStorage(): Promise<CRMStorageClient> {
+  if (!_storage) {
+    _storage = new CRMStorageClient({
+      path: process.env.CRM_DB_PATH || './data/crm-cli',
+      mapSize: 256 * 1024 * 1024, // 256MB
+      maxDbs: 20,
+    });
+    await _storage.initialize();
+  }
+  return _storage;
+}
+
+/**
+ * Get all contacts
+ */
+async function getContacts(): Promise<Contact[]> {
+  const storage = await getStorage();
+  return storage.list('contacts');
+}
+
+/**
+ * Get all deals
+ */
+async function getDeals(): Promise<Deal[]> {
+  const storage = await getStorage();
+  return storage.list('deals');
+}
+
+/**
+ * Get all activities
+ */
+async function getActivities(): Promise<Activity[]> {
+  const storage = await getStorage();
+  return storage.list('activities');
+}
 
 /**
  * Register search commands
@@ -70,7 +105,7 @@ export function registerSearchCommands(program: Command): void {
 
       // Search contacts
       if (!options.type || options.type === 'contact') {
-        const contacts = Array.from(contactsStore.values());
+        const contacts = await getContacts();
         for (const contact of contacts) {
           const matches: { field: string; value: string }[] = [];
 
@@ -115,7 +150,7 @@ export function registerSearchCommands(program: Command): void {
 
       // Search deals
       if (!options.type || options.type === 'deal') {
-        const deals = Array.from(dealsStore.values());
+        const deals = await getDeals();
         for (const deal of deals) {
           const matches: { field: string; value: string }[] = [];
 
@@ -153,7 +188,7 @@ export function registerSearchCommands(program: Command): void {
 
       // Search activities
       if (!options.type || options.type === 'activity') {
-        const activities = Array.from(activitiesStore.values());
+        const activities = await getActivities();
         for (const activity of activities) {
           const matches: { field: string; value: string }[] = [];
 
@@ -270,7 +305,8 @@ export function registerSearchCommands(program: Command): void {
       const q = query.toLowerCase();
 
       // Quick contact search
-      for (const contact of contactsStore.values()) {
+      const contacts = await getContacts();
+      for (const contact of contacts) {
         if (contact.name.toLowerCase().includes(q)) {
           results.push({
             type: 'contact',
@@ -283,7 +319,8 @@ export function registerSearchCommands(program: Command): void {
       }
 
       // Quick deal search
-      for (const deal of dealsStore.values()) {
+      const deals = await getDeals();
+      for (const deal of deals) {
         if (deal.title.toLowerCase().includes(q)) {
           results.push({
             type: 'deal',
@@ -318,7 +355,7 @@ export function registerSearchCommands(program: Command): void {
 
       // Get recent contacts
       if (!options.type || options.type === 'contact') {
-        const contacts = Array.from(contactsStore.values())
+        const contacts = (await getContacts())
           .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
           .slice(0, limit);
 
@@ -334,7 +371,7 @@ export function registerSearchCommands(program: Command): void {
 
       // Get recent deals
       if (!options.type || options.type === 'deal') {
-        const deals = Array.from(dealsStore.values())
+        const deals = (await getDeals())
           .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
           .slice(0, limit);
 
@@ -350,7 +387,7 @@ export function registerSearchCommands(program: Command): void {
 
       // Get recent activities
       if (!options.type || options.type === 'activity') {
-        const activities = Array.from(activitiesStore.values())
+        const activities = (await getActivities())
           .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
           .slice(0, limit);
 
@@ -386,19 +423,4 @@ export function registerSearchCommands(program: Command): void {
 
       console.log();
     });
-}
-
-/**
- * Set data stores (for integration with other command modules)
- */
-export function setSearchDataStores(
-  contacts: Map<string, Contact>,
-  deals: Map<string, Deal>,
-  activities: Map<string, Activity>
-): void {
-  // In real implementation, would use shared data layer
-  // For now, copy references
-  contacts.forEach((v, k) => contactsStore.set(k, v));
-  deals.forEach((v, k) => dealsStore.set(k, v));
-  activities.forEach((v, k) => activitiesStore.set(k, v));
 }
