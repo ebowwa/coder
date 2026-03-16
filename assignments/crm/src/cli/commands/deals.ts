@@ -31,6 +31,7 @@ import {
   Spinner,
 } from '../utils/prompt.js';
 import { loadConfig, addRecentDeal, getConfig } from '../utils/config.js';
+import { CRMStorageClient } from '../../mcp/storage/client.js';
 import type { Deal, DealStage, DealPriority, Currency } from '../../core/types.js';
 
 // Deal stage options
@@ -72,43 +73,46 @@ const STAGE_LABELS: Record<DealStage, string> = {
   closed_lost: 'Closed Lost',
 };
 
-/**
- * Mock data store
- */
-const dealsStore = new Map<string, Deal>();
+// Storage client singleton
+let _storage: CRMStorageClient | null = null;
 
 /**
- * Generate UUID
+ * Get storage client (lazy initialization)
  */
-function generateId(): string {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
+async function getStorage(): Promise<CRMStorageClient> {
+  if (!_storage) {
+    _storage = new CRMStorageClient({
+      path: process.env.CRM_DB_PATH || './data/crm-cli',
+      mapSize: 256 * 1024 * 1024, // 256MB
+      maxDbs: 20,
+    });
+    await _storage.initialize();
+  }
+  return _storage;
 }
 
 /**
  * Get all deals
  */
-function getDeals(): Deal[] {
-  return Array.from(dealsStore.values());
+async function getDeals(): Promise<Deal[]> {
+  const storage = await getStorage();
+  return storage.list('deals');
 }
 
 /**
  * Get deal by ID
  */
-function getDeal(id: string): Deal | undefined {
-  return dealsStore.get(id);
+async function getDeal(id: string): Promise<Deal | null> {
+  const storage = await getStorage();
+  return storage.get('deals', id);
 }
 
 /**
  * Create deal
  */
-function createDeal(data: Partial<Deal>): Deal {
-  const now = new Date().toISOString();
-  const deal: Deal = {
-    id: generateId(),
+async function createDeal(data: Partial<Deal>): Promise<Deal> {
+  const storage = await getStorage();
+  return storage.insert('deals', {
     title: data.title || '',
     contactId: data.contactId || '',
     companyId: data.companyId,
@@ -116,7 +120,7 @@ function createDeal(data: Partial<Deal>): Deal {
     currency: data.currency || 'USD',
     stage: data.stage || 'prospecting',
     probability: data.probability || 0,
-    expectedClose: data.expectedClose || now,
+    expectedClose: data.expectedClose || new Date().toISOString(),
     actualClose: data.actualClose,
     priority: data.priority || 'medium',
     lineItems: data.lineItems || [],
@@ -132,45 +136,36 @@ function createDeal(data: Partial<Deal>): Deal {
     source: data.source,
     customFields: data.customFields || [],
     lastActivityAt: data.lastActivityAt,
-    createdAt: now,
-    updatedAt: now,
-  };
-
-  dealsStore.set(deal.id, deal);
-  return deal;
+  });
 }
 
 /**
  * Update deal
  */
-function updateDeal(id: string, data: Partial<Deal>): Deal | null {
-  const deal = dealsStore.get(id);
-  if (!deal) return null;
-
-  const updated = {
-    ...deal,
-    ...data,
-    id: deal.id,
-    createdAt: deal.createdAt,
-    updatedAt: new Date().toISOString(),
-  };
-
-  dealsStore.set(id, updated);
-  return updated;
+async function updateDeal(id: string, data: Partial<Deal>): Promise<Deal | null> {
+  const storage = await getStorage();
+  const existing = await storage.get('deals', id);
+  if (!existing) return null;
+  return storage.update('deals', id, data);
 }
 
 /**
  * Delete deal
  */
-function deleteDeal(id: string): boolean {
-  return dealsStore.delete(id);
+async function deleteDeal(id: string): Promise<boolean> {
+  const storage = await getStorage();
+  const existing = await storage.get('deals', id);
+  if (!existing) return false;
+  await storage.delete('deals', id);
+  return true;
 }
 
 /**
  * Filter deals by stage
  */
-function filterByStage(stage: DealStage): Deal[] {
-  return getDeals().filter((d) => d.stage === stage);
+async function filterByStage(stage: DealStage): Promise<Deal[]> {
+  const deals = await getDeals();
+  return deals.filter((d) => d.stage === stage);
 }
 
 /**
@@ -204,48 +199,48 @@ export function registerDealCommands(program: Command): void {
     .option('--json', 'Output as JSON')
     .option('--limit <number>', 'Limit results', '20')
     .action(async (options) => {
-      let deals = getDeals();
+      let dealsList = await getDeals();
 
       if (options.stage) {
-        deals = deals.filter(
+        dealsList = dealsList.filter(
           (d) => d.stage.toLowerCase() === options.stage.toLowerCase()
         );
       }
 
       if (options.priority) {
-        deals = deals.filter(
+        dealsList = dealsList.filter(
           (d) => d.priority.toLowerCase() === options.priority.toLowerCase()
         );
       }
 
       const limit = parseInt(options.limit);
-      deals = deals.slice(0, limit);
+      dealsList = dealsList.slice(0, limit);
 
       if (options.json) {
-        printJSON(deals);
+        printJSON(dealsList);
         return;
       }
 
-      if (deals.length === 0) {
+      if (dealsList.length === 0) {
         printWarning('No deals found');
         return;
       }
 
       // Calculate pipeline value
-      const totalValue = deals.reduce((sum, d) => sum + d.totalValue, 0);
-      const weightedValue = deals.reduce(
+      const totalValue = dealsList.reduce((sum, d) => sum + d.totalValue, 0);
+      const weightedValue = dealsList.reduce(
         (sum, d) => sum + d.totalValue * (d.probability / 100),
         0
       );
 
-      printHeader(`Deals (${deals.length})`);
+      printHeader(`Deals (${dealsList.length})`);
       console.log(
         `${output.dim('Pipeline:')} ${formatCurrency(totalValue)} | ` +
         `${output.dim('Weighted:')} ${formatCurrency(weightedValue)}`
       );
       console.log();
 
-      printTable(deals, [
+      printTable(dealsList, [
         { key: 'id', header: 'ID', width: 8, format: (v) => truncate(String(v), 8) },
         { key: 'title', header: 'Title', width: 25, format: (v) => truncate(String(v), 25) },
         {
@@ -270,7 +265,7 @@ export function registerDealCommands(program: Command): void {
     .description('Get deal details')
     .option('--json', 'Output as JSON')
     .action(async (id, options) => {
-      const deal = getDeal(id);
+      const deal = await getDeal(id);
 
       if (!deal) {
         printError(`Deal not found: ${id}`);
@@ -443,9 +438,8 @@ export function registerDealCommands(program: Command): void {
 
       // Create deal
       const spinner = new Spinner('Creating deal...').start();
-      await new Promise((r) => setTimeout(r, 500));
 
-      const deal = createDeal({
+      const deal = await createDeal({
         title,
         contactId,
         value,
@@ -475,7 +469,7 @@ export function registerDealCommands(program: Command): void {
     .option('--probability <percent>', 'Win probability')
     .option('--notes <notes>', 'Deal notes')
     .action(async (id, options) => {
-      const deal = getDeal(id);
+      const deal = await getDeal(id);
 
       if (!deal) {
         printError(`Deal not found: ${id}`);
@@ -510,9 +504,8 @@ export function registerDealCommands(program: Command): void {
       }
 
       const spinner = new Spinner('Updating deal...').start();
-      await new Promise((r) => setTimeout(r, 300));
 
-      updateDeal(id, updates);
+      await updateDeal(id, updates);
       spinner.succeed('Deal updated successfully');
     });
 
@@ -521,7 +514,7 @@ export function registerDealCommands(program: Command): void {
     .command('move <id> <stage>')
     .description('Move a deal to a different stage')
     .action(async (id, stageStr) => {
-      const deal = getDeal(id);
+      const deal = await getDeal(id);
 
       if (!deal) {
         printError(`Deal not found: ${id}`);
@@ -549,12 +542,11 @@ export function registerDealCommands(program: Command): void {
       }
 
       const spinner = new Spinner('Moving deal...').start();
-      await new Promise((r) => setTimeout(r, 300));
 
-      updateDeal(id, { stage, probability });
+      await updateDeal(id, { stage, probability });
 
       if (stage === 'closed_won' || stage === 'closed_lost') {
-        updateDeal(id, { actualClose: new Date().toISOString() });
+        await updateDeal(id, { actualClose: new Date().toISOString() });
       }
 
       spinner.succeed(`Deal moved to ${STAGE_LABELS[stage]}`);
@@ -566,7 +558,7 @@ export function registerDealCommands(program: Command): void {
     .description('Delete a deal')
     .option('-f, --force', 'Skip confirmation')
     .action(async (id, options) => {
-      const deal = getDeal(id);
+      const deal = await getDeal(id);
 
       if (!deal) {
         printError(`Deal not found: ${id}`);
@@ -589,9 +581,8 @@ export function registerDealCommands(program: Command): void {
       }
 
       const spinner = new Spinner('Deleting deal...').start();
-      await new Promise((r) => setTimeout(r, 300));
 
-      deleteDeal(id);
+      await deleteDeal(id);
       spinner.succeed('Deal deleted successfully');
     });
 
@@ -601,13 +592,16 @@ export function registerDealCommands(program: Command): void {
     .description('Show pipeline summary')
     .option('--json', 'Output as JSON')
     .action(async (options) => {
-      const deals = getDeals();
+      const dealsList = await getDeals();
 
       if (options.json) {
-        const summary = DEAL_STAGES.map((stage) => ({
-          stage,
-          count: filterByStage(stage).length,
-          value: filterByStage(stage).reduce((sum, d) => sum + d.totalValue, 0),
+        const summary = await Promise.all(DEAL_STAGES.map(async (stage) => {
+          const stageDeals = await filterByStage(stage);
+          return {
+            stage,
+            count: stageDeals.length,
+            value: stageDeals.reduce((sum, d) => sum + d.totalValue, 0),
+          };
         }));
         printJSON(summary);
         return;
@@ -619,7 +613,7 @@ export function registerDealCommands(program: Command): void {
       let totalWeighted = 0;
 
       for (const stage of DEAL_STAGES) {
-        const stageDeals = filterByStage(stage);
+        const stageDeals = await filterByStage(stage);
         const value = stageDeals.reduce((sum, d) => sum + d.totalValue, 0);
         const weighted = value * (getStageProbability(stage) / 100);
 
