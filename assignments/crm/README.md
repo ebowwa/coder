@@ -5,8 +5,9 @@ MCP server, CRM types, schemas, CLI, web interface, and native Rust module for h
 ## Features
 
 - **MCP Server** - Model Context Protocol server for AI integration
-- **CLI Tool** - Interactive command-line interface
+- **CLI Tool** - Interactive command-line interface with persistent storage
 - **Web Interface** - Bun.serve() with React frontend
+- **LMDB Storage** - High-performance persistent key-value storage
 - **Native Module** - Rust-based search with Tantivy (optional)
 - **TypeScript Types** - Full type definitions with Zod validation
 
@@ -119,6 +120,7 @@ crm/
 ├── src/
 │   ├── core/           # Types and schemas
 │   ├── mcp/            # MCP server implementation
+│   │   └── storage/    # LMDB storage client
 │   ├── cli/            # CLI commands
 │   └── web/            # Web interface
 ├── native/             # Native module loader + fallbacks
@@ -126,6 +128,27 @@ crm/
 ├── tests/              # Test files
 └── dist/               # Compiled output
 ```
+
+## Storage
+
+This package uses **LMDB** for persistent storage:
+- High-performance key-value store
+- Automatic indexing for fast lookups
+- Data persists between sessions
+- Storage location: `./data/crm-cli` (configurable via `CRM_DB_PATH`)
+
+### Supported Collections
+
+| Collection | Description |
+|------------|-------------|
+| `contacts` | Contact entities |
+| `deals` | Deal/opportunity entities |
+| `activities` | Activity/timeline entries |
+| `media` | File attachments |
+| `notes` | Freeform notes |
+| `tags` | Tag definitions |
+| `companies` | Company entities |
+| `pipelines` | Pipeline configurations |
 
 ## Development
 
