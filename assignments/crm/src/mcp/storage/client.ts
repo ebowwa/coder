@@ -189,7 +189,7 @@ export class CRMStorageClient {
     // Remove from indexes
     await this.removeFromIndexes(type, id, existing);
 
-    return collection.del(id);
+    return collection.remove(id);
   }
 
   /**

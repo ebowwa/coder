@@ -30,6 +30,7 @@ import {
   Spinner,
 } from '../utils/prompt.js';
 import { loadConfig, addRecentContact, getConfig } from '../utils/config.js';
+import { CRMStorageClient } from '../../mcp/storage/client.js';
 import type { Contact, ContactStatus, ContactSource } from '../../core/types.js';
 
 // Contact status options
@@ -56,43 +57,46 @@ const CONTACT_SOURCES: ContactSource[] = [
   'other',
 ];
 
-/**
- * Mock data store (replace with actual API calls)
- */
-const contactsStore = new Map<string, Contact>();
+// Storage client singleton
+let _storage: CRMStorageClient | null = null;
 
 /**
- * Generate a UUID
+ * Get storage client (lazy initialization)
  */
-function generateId(): string {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
+async function getStorage(): Promise<CRMStorageClient> {
+  if (!_storage) {
+    _storage = new CRMStorageClient({
+      path: process.env.CRM_DB_PATH || './data/crm-cli',
+      mapSize: 256 * 1024 * 1024, // 256MB
+      maxDbs: 20,
+    });
+    await _storage.initialize();
+  }
+  return _storage;
 }
 
 /**
  * Get all contacts
  */
-function getContacts(): Contact[] {
-  return Array.from(contactsStore.values());
+async function getContacts(): Promise<Contact[]> {
+  const storage = await getStorage();
+  return storage.list('contacts');
 }
 
 /**
  * Get contact by ID
  */
-function getContact(id: string): Contact | undefined {
-  return contactsStore.get(id);
+async function getContact(id: string): Promise<Contact | null> {
+  const storage = await getStorage();
+  return storage.get('contacts', id);
 }
 
 /**
  * Create contact
  */
-function createContact(data: Partial<Contact>): Contact {
-  const now = new Date().toISOString();
-  const contact: Contact = {
-    id: generateId(),
+async function createContact(data: Partial<Contact>): Promise<Contact> {
+  const storage = await getStorage();
+  return storage.insert('contacts', {
     name: data.name || '',
     firstName: data.firstName,
     lastName: data.lastName,
@@ -118,46 +122,37 @@ function createContact(data: Partial<Contact>): Contact {
     doNotContact: data.doNotContact || false,
     lastContactedAt: data.lastContactedAt,
     nextFollowUpAt: data.nextFollowUpAt,
-    createdAt: now,
-    updatedAt: now,
-  };
-
-  contactsStore.set(contact.id, contact);
-  return contact;
+  });
 }
 
 /**
  * Update contact
  */
-function updateContact(id: string, data: Partial<Contact>): Contact | null {
-  const contact = contactsStore.get(id);
-  if (!contact) return null;
-
-  const updated = {
-    ...contact,
-    ...data,
-    id: contact.id,
-    createdAt: contact.createdAt,
-    updatedAt: new Date().toISOString(),
-  };
-
-  contactsStore.set(id, updated);
-  return updated;
+async function updateContact(id: string, data: Partial<Contact>): Promise<Contact | null> {
+  const storage = await getStorage();
+  const existing = await storage.get('contacts', id);
+  if (!existing) return null;
+  return storage.update('contacts', id, data);
 }
 
 /**
  * Delete contact
  */
-function deleteContact(id: string): boolean {
-  return contactsStore.delete(id);
+async function deleteContact(id: string): Promise<boolean> {
+  const storage = await getStorage();
+  const existing = await storage.get('contacts', id);
+  if (!existing) return false;
+  await storage.delete('contacts', id);
+  return true;
 }
 
 /**
  * Search contacts
  */
-function searchContacts(query: string): Contact[] {
+async function searchContacts(query: string): Promise<Contact[]> {
+  const contacts = await getContacts();
   const q = query.toLowerCase();
-  return getContacts().filter((c) => {
+  return contacts.filter((c) => {
     return (
       c.name.toLowerCase().includes(q) ||
       c.emails.some((e) => e.email.toLowerCase().includes(q)) ||
@@ -170,8 +165,9 @@ function searchContacts(query: string): Contact[] {
 /**
  * Filter contacts by tag
  */
-function filterByTag(tag: string): Contact[] {
-  return getContacts().filter((c) =>
+async function filterByTag(tag: string): Promise<Contact[]> {
+  const contacts = await getContacts();
+  return contacts.filter((c) =>
     c.tags.some((t) => t.toLowerCase() === tag.toLowerCase())
   );
 }
@@ -195,11 +191,11 @@ export function registerContactCommands(program: Command): void {
       let contacts: Contact[];
 
       if (options.search) {
-        contacts = searchContacts(options.search);
+        contacts = await searchContacts(options.search);
       } else if (options.tag) {
-        contacts = filterByTag(options.tag);
+        contacts = await filterByTag(options.tag);
       } else {
-        contacts = getContacts();
+        contacts = await getContacts();
       }
 
       if (options.status) {
@@ -252,7 +248,7 @@ export function registerContactCommands(program: Command): void {
     .description('Get contact details')
     .option('--json', 'Output as JSON')
     .action(async (id, options) => {
-      const contact = getContact(id);
+      const contact = await getContact(id);
 
       if (!contact) {
         printError(`Contact not found: ${id}`);
@@ -408,9 +404,8 @@ export function registerContactCommands(program: Command): void {
 
       // Create contact
       const spinner = new Spinner('Creating contact...').start();
-      await new Promise((r) => setTimeout(r, 500)); // Simulate API call
 
-      const contact = createContact(contactData);
+      const contact = await createContact(contactData);
       spinner.succeed('Contact created successfully');
 
       printSuccess(`Contact ID: ${contact.id}`);
@@ -429,7 +424,7 @@ export function registerContactCommands(program: Command): void {
     .option('--status <status>', 'Contact status')
     .option('--tags <tags>', 'Tags (comma-separated)')
     .action(async (id, options) => {
-      const contact = getContact(id);
+      const contact = await getContact(id);
 
       if (!contact) {
         printError(`Contact not found: ${id}`);
@@ -483,12 +478,13 @@ export function registerContactCommands(program: Command): void {
       }
 
       const spinner = new Spinner('Updating contact...').start();
-      await new Promise((r) => setTimeout(r, 300));
 
-      const updated = updateContact(id, updates);
+      const updated = await updateContact(id, updates);
       spinner.succeed('Contact updated successfully');
 
-      printSuccess(`Updated ${Object.keys(updates).join(', ')}`);
+      if (updated) {
+        printSuccess(`Updated ${Object.keys(updates).join(', ')}`);
+      }
     });
 
   // Delete contact
@@ -497,7 +493,7 @@ export function registerContactCommands(program: Command): void {
     .description('Delete a contact')
     .option('-f, --force', 'Skip confirmation')
     .action(async (id, options) => {
-      const contact = getContact(id);
+      const contact = await getContact(id);
 
       if (!contact) {
         printError(`Contact not found: ${id}`);
@@ -520,9 +516,8 @@ export function registerContactCommands(program: Command): void {
       }
 
       const spinner = new Spinner('Deleting contact...').start();
-      await new Promise((r) => setTimeout(r, 300));
 
-      deleteContact(id);
+      await deleteContact(id);
       spinner.succeed('Contact deleted successfully');
     });
 
@@ -531,7 +526,7 @@ export function registerContactCommands(program: Command): void {
     .command('tag <id> <tags>')
     .description('Add tags to a contact')
     .action(async (id, tagsStr) => {
-      const contact = getContact(id);
+      const contact = await getContact(id);
 
       if (!contact) {
         printError(`Contact not found: ${id}`);
@@ -541,7 +536,7 @@ export function registerContactCommands(program: Command): void {
       const newTags = tagsStr.split(',').map((t: string) => t.trim());
       const allTags = [...new Set([...contact.tags, ...newTags])];
 
-      updateContact(id, { tags: allTags });
+      await updateContact(id, { tags: allTags });
       printSuccess(`Added tags: ${newTags.join(', ')}`);
     });
 
@@ -550,7 +545,7 @@ export function registerContactCommands(program: Command): void {
     .command('untag <id> <tags>')
     .description('Remove tags from a contact')
     .action(async (id, tagsStr) => {
-      const contact = getContact(id);
+      const contact = await getContact(id);
 
       if (!contact) {
         printError(`Contact not found: ${id}`);
@@ -562,7 +557,7 @@ export function registerContactCommands(program: Command): void {
         (t) => !removeTags.includes(t.toLowerCase())
       );
 
-      updateContact(id, { tags: filteredTags });
+      await updateContact(id, { tags: filteredTags });
       printSuccess(`Removed tags: ${removeTags.join(', ')}`);
     });
 }
