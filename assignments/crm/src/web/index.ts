@@ -1,13 +1,29 @@
 import index from "./index.html";
 import type { ServerWebSocket } from "bun";
 import type { Contact, Deal, Activity, Media, WSMessage } from "./types";
+import { CRMStorageClient } from "../mcp/storage/client.js";
 
-// In-memory storage (would be replaced with database)
-const contacts: Map<string, Contact> = new Map();
-const deals: Map<string, Deal> = new Map();
-const activities: Activity[] = [];
-const mediaFiles: Map<string, Media> = new Map();
+// Persistent storage client
+let storage: CRMStorageClient | null = null;
+
+// Connected WebSocket clients
 const connectedClients: Set<ServerWebSocket> = new Set();
+
+/**
+ * Initialize storage and return when ready
+ */
+async function getStorage(): Promise<CRMStorageClient> {
+  if (!storage) {
+    storage = new CRMStorageClient({
+      path: process.env.CRM_DB_PATH || "./data/crm-web",
+      mapSize: 512 * 1024 * 1024, // 512MB
+      maxDbs: 20,
+    });
+    await storage.initialize();
+    console.log("CRM storage initialized at", process.env.CRM_DB_PATH || "./data/crm-web");
+  }
+  return storage;
+}
 
 // WebSocket message broadcasting
 function broadcast(message: WSMessage) {
@@ -28,19 +44,20 @@ async function listContacts(request: Request): Promise<Response> {
   const search = url.searchParams.get('search') || '';
   const status = url.searchParams.get('status') || '';
 
-  let results = Array.from(contacts.values());
+  const store = await getStorage();
+  let results = store.list('contacts');
 
   if (search) {
     const searchLower = search.toLowerCase();
-    results = results.filter(c =>
-      c.name.toLowerCase().includes(searchLower) ||
-      c.email.toLowerCase().includes(searchLower) ||
-      c.company?.toLowerCase().includes(searchLower)
+    results = results.filter((c: { name?: string; email?: string; company?: string }) =>
+      (c.name?.toLowerCase() ?? '').includes(searchLower) ||
+      (c.email?.toLowerCase() ?? '').includes(searchLower) ||
+      (c.company?.toLowerCase() ?? '').includes(searchLower)
     );
   }
 
   if (status) {
-    results = results.filter(c => c.status === status);
+    results = results.filter((c: { status?: string }) => c.status === status);
   }
 
   return Response.json({ success: true, data: results });
@@ -48,11 +65,9 @@ async function listContacts(request: Request): Promise<Response> {
 
 async function createContact(request: Request): Promise<Response> {
   const body = await request.json();
-  const id = generateId();
-  const now = new Date().toISOString();
+  const store = await getStorage();
 
-  const contact: Contact = {
-    id,
+  const contact = await store.insert('contacts', {
     name: body.name,
     email: body.email,
     phone: body.phone,
@@ -61,22 +76,15 @@ async function createContact(request: Request): Promise<Response> {
     status: body.status || 'lead',
     tags: body.tags || [],
     notes: body.notes,
-    createdAt: now,
-    updatedAt: now,
-  };
-
-  contacts.set(id, contact);
+  });
 
   // Create activity
-  const activity: Activity = {
-    id: generateId(),
+  await store.insert('activities', {
     type: 'contact',
     description: `New contact created: ${contact.name}`,
-    contactId: id,
+    contactId: contact.id,
     userId: 'system',
-    timestamp: now,
-  };
-  activities.unshift(activity);
+  });
 
   broadcast({ type: 'contact_update', payload: contact });
 
@@ -84,7 +92,8 @@ async function createContact(request: Request): Promise<Response> {
 }
 
 async function getContact(request: Request, params: Record<string, string>): Promise<Response> {
-  const contact = contacts.get(params.id);
+  const store = await getStorage();
+  const contact = store.get('contacts', params.id);
   if (!contact) {
     return Response.json({ success: false, error: 'Contact not found' }, { status: 404 });
   }
@@ -92,31 +101,22 @@ async function getContact(request: Request, params: Record<string, string>): Pro
 }
 
 async function updateContact(request: Request, params: Record<string, string>): Promise<Response> {
-  const contact = contacts.get(params.id);
-  if (!contact) {
+  const store = await getStorage();
+  const existing = store.get('contacts', params.id);
+  if (!existing) {
     return Response.json({ success: false, error: 'Contact not found' }, { status: 404 });
   }
 
   const body = await request.json();
-  const updated: Contact = {
-    ...contact,
-    ...body,
-    id: contact.id,
-    createdAt: contact.createdAt,
-    updatedAt: new Date().toISOString(),
-  };
+  const updated = await store.update('contacts', params.id, body);
 
-  contacts.set(params.id, updated);
-
-  const activity: Activity = {
-    id: generateId(),
+  // Create activity
+  await store.insert('activities', {
     type: 'contact',
     description: `Contact updated: ${updated.name}`,
     contactId: updated.id,
     userId: 'system',
-    timestamp: updated.updatedAt,
-  };
-  activities.unshift(activity);
+  });
 
   broadcast({ type: 'contact_update', payload: updated });
 
@@ -124,12 +124,13 @@ async function updateContact(request: Request, params: Record<string, string>): 
 }
 
 async function deleteContact(request: Request, params: Record<string, string>): Promise<Response> {
-  const contact = contacts.get(params.id);
-  if (!contact) {
+  const store = await getStorage();
+  const existing = store.get('contacts', params.id);
+  if (!existing) {
     return Response.json({ success: false, error: 'Contact not found' }, { status: 404 });
   }
 
-  contacts.delete(params.id);
+  await store.delete('contacts', params.id);
 
   broadcast({ type: 'contact_update', payload: { id: params.id, deleted: true } });
 
@@ -140,10 +141,11 @@ async function listDeals(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const stage = url.searchParams.get('stage') || '';
 
-  let results = Array.from(deals.values());
+  const store = await getStorage();
+  let results = store.list('deals');
 
   if (stage) {
-    results = results.filter(d => d.stage === stage);
+    results = results.filter((d: { stage?: string }) => d.stage === stage);
   }
 
   return Response.json({ success: true, data: results });
@@ -151,11 +153,9 @@ async function listDeals(request: Request): Promise<Response> {
 
 async function createDeal(request: Request): Promise<Response> {
   const body = await request.json();
-  const id = generateId();
-  const now = new Date().toISOString();
+  const store = await getStorage();
 
-  const deal: Deal = {
-    id,
+  const deal = await store.insert('deals', {
     contactId: body.contactId,
     title: body.title,
     value: body.value,
@@ -164,21 +164,15 @@ async function createDeal(request: Request): Promise<Response> {
     probability: body.probability || 10,
     expectedCloseDate: body.expectedCloseDate,
     description: body.description,
-    createdAt: now,
-    updatedAt: now,
-  };
+  });
 
-  deals.set(id, deal);
-
-  const activity: Activity = {
-    id: generateId(),
+  // Create activity
+  await store.insert('activities', {
     type: 'deal',
     description: `New deal created: ${deal.title}`,
-    dealId: id,
+    dealId: deal.id,
     userId: 'system',
-    timestamp: now,
-  };
-  activities.unshift(activity);
+  });
 
   broadcast({ type: 'deal_update', payload: deal });
 
@@ -189,9 +183,12 @@ async function listActivities(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const limit = parseInt(url.searchParams.get('limit') || '50');
 
+  const store = await getStorage();
+  const activities = store.list('activities', { limit });
+
   return Response.json({
     success: true,
-    data: activities.slice(0, limit)
+    data: activities
   });
 }
 
@@ -203,27 +200,22 @@ async function uploadMedia(request: Request): Promise<Response> {
     return Response.json({ success: false, error: 'No file provided' }, { status: 400 });
   }
 
-  const id = generateId();
-  const now = new Date().toISOString();
+  const store = await getStorage();
 
   // Store file (in production, this would go to S3, etc.)
   const buffer = await file.arrayBuffer();
   const uploadsDir = './uploads';
-  await Bun.write(`${uploadsDir}/${id}-${file.name}`, buffer);
+  await Bun.write(`${uploadsDir}/${crypto.randomUUID()}-${file.name}`, buffer);
 
-  const media: Media = {
-    id,
+  const media = await store.insert('media', {
     filename: file.name,
     mimetype: file.type,
     size: file.size,
-    url: `/media/${id}`,
+    url: `/media/${crypto.randomUUID()}`,
     contactId: formData.get('contactId') as string || undefined,
     dealId: formData.get('dealId') as string || undefined,
     uploadedBy: 'system',
-    uploadedAt: now,
-  };
-
-  mediaFiles.set(id, media);
+  });
 
   broadcast({ type: 'media_upload', payload: media });
 
@@ -231,28 +223,36 @@ async function uploadMedia(request: Request): Promise<Response> {
 }
 
 async function getDashboardStats(): Promise<Response> {
-  const totalContacts = contacts.size;
-  const activeDeals = Array.from(deals.values()).filter(d =>
-    !d.stage.startsWith('closed_')
+  const store = await getStorage();
+  const stats = store.getStats();
+  const deals = store.list('deals');
+  const activities = store.list('activities', { limit: 1000 });
+
+  const activeDeals = deals.filter((d: { stage?: string }) =>
+    !d.stage?.startsWith('closed_')
   ).length;
-  const pipelineValue = Array.from(deals.values())
-    .filter(d => !d.stage.startsWith('closed_'))
-    .reduce((sum, d) => sum + d.value, 0);
-  const wonThisMonth = Array.from(deals.values())
-    .filter(d => d.stage === 'closed_won')
-    .reduce((sum, d) => sum + d.value, 0);
+
+  const pipelineValue = deals
+    .filter((d: { stage?: string }) => !d.stage?.startsWith('closed_'))
+    .reduce((sum: number, d: { value?: number }) => sum + (d.value || 0), 0);
+
+  const wonThisMonth = deals
+    .filter((d: { stage?: string }) => d.stage === 'closed_won')
+    .reduce((sum: number, d: { value?: number }) => sum + (d.value || 0), 0);
+
+  const activitiesToday = activities.filter((a: { timestamp?: string }) =>
+    a.timestamp && new Date(a.timestamp).toDateString() === new Date().toDateString()
+  ).length;
 
   return Response.json({
     success: true,
     data: {
-      totalContacts,
+      totalContacts: stats.contacts,
       activeDeals,
       pipelineValue,
       wonThisMonth,
-      activitiesToday: activities.filter(a =>
-        new Date(a.timestamp).toDateString() === new Date().toDateString()
-      ).length,
-      conversionRate: totalContacts > 0 ? (activeDeals / totalContacts) * 100 : 0,
+      activitiesToday,
+      conversionRate: stats.contacts > 0 ? (activeDeals / stats.contacts) * 100 : 0,
     }
   });
 }
