@@ -34,6 +34,7 @@ import {
   calculateCost as calculateModelCost,
   DEFAULT_MODEL,
   supportsExtendedThinking,
+  getModel,
 } from "./models.js";
 
 // Re-export types for backward compatibility
@@ -189,7 +190,7 @@ export async function createMessageStream(
     model = "claude-sonnet-4-6",
     maxTokens = 4096,
     tools,
-    apiFormat = "anthropic",
+    apiFormat: providedApiFormat,
     systemPrompt,
     cacheConfig = DEFAULT_CACHE_CONFIG,
     thinking,
@@ -200,6 +201,10 @@ export async function createMessageStream(
     onToolUse,
     signal,
   } = options;
+
+  // Determine apiFormat from model provider if not explicitly provided
+  const modelDefForFormat = getModel(model);
+  const apiFormat = providedApiFormat ?? (modelDefForFormat?.provider === "anthropic" ? "anthropic" : "openai");
 
   const startTime = Date.now();
   let ttft = 0;
@@ -250,8 +255,12 @@ export async function createMessageStream(
     request.stop_sequences = options.stopSequences;
   }
 
-  // Determine API endpoint (support custom base URL for GLM, etc.)
-  const baseUrl = options.baseUrl || process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com";
+  // Determine API endpoint (support custom base URL for GLM, MiniMax, OpenRouter, etc.)
+  // Priority: options.baseUrl > modelDefForFormat.baseUrl > env var > default
+  const baseUrl = options.baseUrl
+    || modelDefForFormat?.baseUrl
+    || process.env.ANTHROPIC_BASE_URL
+    || "https://api.anthropic.com";
   const apiEndpoint = apiFormat === "openai"
     ? `${baseUrl}/chat/completions`
     : `${baseUrl}/v1/messages`;

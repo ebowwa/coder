@@ -14,7 +14,6 @@ import {
 } from "../../packages/src/schemas/index.js";
 import {
   MODELS,
-  MODEL_PRICING,
   DEFAULT_CONTEXT_WINDOW,
   getModel,
   getContextWindow,
@@ -219,18 +218,19 @@ describe.skip("Extended thinking features", () => {
 // ============================================
 
 describe("Model pricing", () => {
-  test("MODEL_PRICING has entries for key models", () => {
-    expect(MODEL_PRICING["claude-opus-4-6"]).toBeDefined();
-    expect(MODEL_PRICING["claude-sonnet-4-6"]).toBeDefined();
-    expect(MODEL_PRICING["claude-haiku-4-5"]).toBeDefined();
+  test("getModelPricing returns pricing for key models", () => {
+    expect(getModelPricing("claude-opus-4-6")).toBeDefined();
+    expect(getModelPricing("claude-sonnet-4-6")).toBeDefined();
+    expect(getModelPricing("claude-haiku-4-5")).toBeDefined();
   });
 
   test("pricing values are reasonable", () => {
-    Object.entries(MODEL_PRICING).forEach(([modelId, pricing]) => {
+    Object.keys(MODELS).forEach((modelId) => {
+      const pricing = getModelPricing(modelId);
       expect(pricing.input).toBeGreaterThan(0);
       expect(pricing.output).toBeGreaterThan(0);
-      expect(pricing.cache_write).toBeGreaterThanOrEqual(0);
-      expect(pricing.cache_read).toBeGreaterThanOrEqual(0);
+      expect(pricing.cacheWrite).toBeGreaterThanOrEqual(0);
+      expect(pricing.cacheRead).toBeGreaterThanOrEqual(0);
     });
   });
 
@@ -247,9 +247,9 @@ describe("Model pricing", () => {
   });
 
   test("opus is most expensive", () => {
-    const opusPricing = MODEL_PRICING["claude-opus-4-6"];
-    const sonnetPricing = MODEL_PRICING["claude-sonnet-4-6"];
-    const haikuPricing = MODEL_PRICING["claude-haiku-4-5"];
+    const opusPricing = getModelPricing("claude-opus-4-6");
+    const sonnetPricing = getModelPricing("claude-sonnet-4-6");
+    const haikuPricing = getModelPricing("claude-haiku-4-5");
 
     expect(opusPricing.input).toBeGreaterThan(sonnetPricing.input);
     expect(sonnetPricing.input).toBeGreaterThan(haikuPricing.input);

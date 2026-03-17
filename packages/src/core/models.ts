@@ -35,6 +35,8 @@ export interface ModelDefinition {
   supportsVision: boolean;
   /** Model tier (haiku, sonnet, opus) */
   tier: "haiku" | "sonnet" | "opus";
+  /** Custom API base URL for non-Anthropic providers (e.g., GLM, MiniMax, OpenRouter) */
+  baseUrl?: string;
 }
 
 /**
@@ -198,11 +200,26 @@ export const MODELS: Record<string, ModelDefinition> = {
     fullName: "GLM-5",
     contextWindow: 200_000,
     maxOutput: 128_000,
-    pricing: { input: 0.5, output: 0.5, cacheWrite: 0, cacheRead: 0 }, // GLM pricing TBD
+    pricing: { input: 0.5, output: 0.5, cacheWrite: 0, cacheRead: 0 },
     supportsThinking: true,
     provider: "zhipu",
     supportsVision: true,
-    tier: "sonnet", // GLM-5 is roughly sonnet-tier
+    tier: "sonnet",
+    baseUrl: "https://open.bigmodel.cn/api/paas/v4",
+  },
+  "glm-5-turbo": {
+    id: "glm-5-turbo",
+    name: "GLM-5 Turbo",
+    displayName: "GLM-5 Turbo",
+    fullName: "GLM-5 Turbo",
+    contextWindow: 200_000,
+    maxOutput: 128_000,
+    pricing: { input: 0.5, output: 0.5, cacheWrite: 0, cacheRead: 0 },
+    supportsThinking: true,
+    provider: "zhipu",
+    supportsVision: true,
+    tier: "sonnet",
+    baseUrl: "https://open.bigmodel.cn/api/paas/v4",
   },
   "glm-4.5-air": {
     id: "glm-4.5-air",
@@ -215,9 +232,186 @@ export const MODELS: Record<string, ModelDefinition> = {
     supportsThinking: false,
     provider: "zhipu",
     supportsVision: false,
-    tier: "haiku", // GLM-4.5 Air is haiku-tier (fast/cheap)
+    tier: "haiku",
+    baseUrl: "https://open.bigmodel.cn/api/paas/v4",
+  },
+
+  // MiniMax API
+  "minimax/minimax-m2.5": {
+    id: "minimax/minimax-m2.5",
+    name: "MiniMax M2.5",
+    displayName: "MiniMax M2.5",
+    fullName: "MiniMax M2.5",
+    contextWindow: 128_000,
+    maxOutput: 8_192,
+    pricing: { input: 0.1, output: 0.1, cacheWrite: 0, cacheRead: 0 },
+    supportsThinking: false,
+    provider: "minimax",
+    supportsVision: true,
+    tier: "haiku",
+    baseUrl: "https://api.minimax.chat/v1",
+  },
+
+  // OpenRouter - Claude models via OpenRouter
+  "openrouter/claude-sonnet-4-6": {
+    id: "openrouter/claude-sonnet-4-6",
+    name: "Claude Sonnet 4.6 (OpenRouter)",
+    displayName: "Sonnet 4.6 OR",
+    fullName: "Claude Sonnet 4.6 via OpenRouter",
+    contextWindow: 200_000,
+    maxOutput: 16_000,
+    pricing: { input: 3, output: 15, cacheWrite: 3.75, cacheRead: 0.3 },
+    supportsThinking: true,
+    provider: "openrouter",
+    supportsVision: true,
+    tier: "sonnet",
+    baseUrl: "https://openrouter.ai/api/v1",
+  },
+  "openrouter/claude-haiku-4-5": {
+    id: "openrouter/claude-haiku-4-5",
+    name: "Claude Haiku 4.5 (OpenRouter)",
+    displayName: "Haiku 4.5 OR",
+    fullName: "Claude Haiku 4.5 via OpenRouter",
+    contextWindow: 200_000,
+    maxOutput: 8_000,
+    pricing: { input: 0.8, output: 4, cacheWrite: 1, cacheRead: 0.08 },
+    supportsThinking: true,
+    provider: "openrouter",
+    supportsVision: true,
+    tier: "haiku",
+    baseUrl: "https://openrouter.ai/api/v1",
   },
 };
+
+// ============================================
+// PROVIDER CONFIGURATIONS
+// ============================================
+
+export interface ProviderConfig {
+  /** Provider name */
+  name: string;
+  /** API base URL */
+  baseUrl: string;
+  /** Environment variable for API key */
+  apiKeyEnv: string;
+  /** API format (anthropic or openai) */
+  apiFormat: "anthropic" | "openai";
+  /** Whether provider supports streaming */
+  supportsStreaming: boolean;
+  /** Default model for this provider */
+  defaultModel: string;
+}
+
+/** Provider configurations for different API backends */
+export const PROVIDER_CONFIGS: Record<string, ProviderConfig> = {
+  anthropic: {
+    name: "Anthropic",
+    baseUrl: "https://api.anthropic.com",
+    apiKeyEnv: "ANTHROPIC_API_KEY",
+    apiFormat: "anthropic",
+    supportsStreaming: true,
+    defaultModel: "claude-sonnet-4-6",
+  },
+  zhipu: {
+    name: "Zhipu AI (GLM)",
+    baseUrl: "https://open.bigmodel.cn/api/paas/v4",
+    apiKeyEnv: "ZHIPU_API_KEY",
+    apiFormat: "openai",
+    supportsStreaming: true,
+    defaultModel: "glm-5",
+  },
+  minimax: {
+    name: "MiniMax",
+    baseUrl: "https://api.minimax.chat/v1",
+    apiKeyEnv: "MINIMAX_API_KEY",
+    apiFormat: "openai",
+    supportsStreaming: true,
+    defaultModel: "minimax/minimax-m2.5",
+  },
+  openrouter: {
+    name: "OpenRouter",
+    baseUrl: "https://openrouter.ai/api/v1",
+    apiKeyEnv: "OPENROUTER_API_KEY",
+    apiFormat: "openai",
+    supportsStreaming: true,
+    defaultModel: "openrouter/claude-sonnet-4-6",
+  },
+};
+
+// ============================================
+// MODEL PLANS (for different use cases)
+// ============================================
+
+export interface ModelPlan {
+  /** Plan name */
+  name: string;
+  /** Description */
+  description: string;
+  /** Model for primary work */
+  primary: string;
+  /** Model for fast/cheap operations */
+  fast: string;
+  /** Model for high-quality operations */
+  quality: string;
+  /** Model for background tasks */
+  background: string;
+}
+
+/** Predefined model plans for different use cases */
+export const MODEL_PLANS: Record<string, ModelPlan> = {
+  balanced: {
+    name: "Balanced",
+    description: "Good balance of speed, quality, and cost",
+    primary: "claude-sonnet-4-6",
+    fast: "claude-haiku-4-5",
+    quality: "claude-opus-4-6",
+    background: "glm-4.5-air",
+  },
+  quality: {
+    name: "Quality First",
+    description: "Best quality, higher cost",
+    primary: "claude-opus-4-6",
+    fast: "claude-sonnet-4-6",
+    quality: "claude-opus-4-6",
+    background: "claude-sonnet-4-6",
+  },
+  fast: {
+    name: "Speed First",
+    description: "Fast responses, lower cost",
+    primary: "claude-haiku-4-5",
+    fast: "glm-4.5-air",
+    quality: "claude-sonnet-4-6",
+    background: "glm-4.5-air",
+  },
+  budget: {
+    name: "Budget",
+    description: "Minimize cost using alternative providers",
+    primary: "glm-5",
+    fast: "glm-4.5-air",
+    quality: "glm-5",
+    background: "glm-4.5-air",
+  },
+  openrouter: {
+    name: "OpenRouter",
+    description: "Use OpenRouter for all models",
+    primary: "openrouter/claude-sonnet-4-6",
+    fast: "openrouter/claude-haiku-4-5",
+    quality: "openrouter/claude-sonnet-4-6",
+    background: "openrouter/claude-haiku-4-5",
+  },
+};
+
+/** Get current model plan from environment or default */
+export function getCurrentModelPlan(): ModelPlan {
+  const planName = process.env.CODER_MODEL_PLAN || "balanced";
+  return MODEL_PLANS[planName] ?? MODEL_PLANS.balanced!;
+}
+
+/** Get model for a specific use case within current plan */
+export function getModelForUseCase(useCase: "primary" | "fast" | "quality" | "background"): string {
+  const plan = getCurrentModelPlan();
+  return plan[useCase];
+}
 
 // ============================================
 // MODEL LISTS
@@ -413,48 +607,155 @@ export function resolveModelAlias(alias: string): string {
   return MODEL_ALIASES[alias as keyof typeof MODEL_ALIASES] || alias;
 }
 
-// ============================================
-// LEGACY TYPE EXPORTS (for backwards compatibility)
-// ============================================
+/**
+ * Get all models by provider
+ */
+export function getModelsByProvider(provider: ModelDefinition["provider"]): ModelDefinition[] {
+  return Object.values(MODELS).filter((m) => m.provider === provider);
+}
 
-/** Claude model type (for TypeScript type checking) */
-export type ClaudeModel =
-  | "claude-opus-4-6"
-  | "claude-sonnet-4-6"
-  | "claude-haiku-4-5"
-  | "claude-haiku-4-5-20251001"
-  | "claude-opus-4-5"
-  | "claude-sonnet-4-5"
-  | "claude-3-5-sonnet"
-  | "claude-3-5-haiku"
-  | "claude-3-opus"
-  | "claude-3-sonnet"
-  | "claude-3-haiku"
-  | "glm-5"
-  | "glm-4.5-air"
-  | string;
+/**
+ * Get all available providers
+ */
+export function getProviders(): ModelDefinition["provider"][] {
+  return ["anthropic", "zhipu", "openai", "other"];
+}
 
-// ============================================
-// LEGACY CONSTANTS (for backwards compatibility)
-// ============================================
+/**
+ * Get provider configuration by name
+ */
+export function getProviderConfig(providerName: string): ProviderConfig | undefined {
+  return PROVIDER_CONFIGS[providerName];
+}
 
-/** @deprecated Use getModelPricing() instead */
-export const MODEL_PRICING: Record<
-  string,
-  { input: number; output: number; cache_write: number; cache_read: number }
-> = Object.fromEntries(
-  Object.entries(MODELS).map(([id, m]) => [
-    id,
-    { input: m.pricing.input, output: m.pricing.output, cache_write: m.pricing.cacheWrite, cache_read: m.pricing.cacheRead },
-  ])
-);
+/**
+ * Get all available provider names
+ */
+export function getProviderNames(): string[] {
+  return Object.keys(PROVIDER_CONFIGS);
+}
 
-/** @deprecated Use getContextWindow() instead */
-export const MODEL_CONTEXT_WINDOWS: Record<string, number> = Object.fromEntries(
-  Object.entries(MODELS).map(([id, m]) => [id, m.contextWindow])
-);
+/**
+ * Get all available model plan names
+ */
+export function getModelPlanNames(): string[] {
+  return Object.keys(MODEL_PLANS);
+}
 
-/** @deprecated Use getModelDisplayName() instead */
-export const MODEL_DISPLAY_NAMES: Record<string, string> = Object.fromEntries(
-  Object.entries(MODELS).map(([id, m]) => [id, m.name])
-);
+/**
+ * List all models with their provider and baseUrl for display
+ */
+export function listAllModels(): Array<{
+  id: string;
+  name: string;
+  provider: string;
+  baseUrl?: string;
+  tier: string;
+}> {
+  return Object.values(MODELS).map((m) => ({
+    id: m.id,
+    name: m.name,
+    provider: m.provider,
+    baseUrl: m.baseUrl,
+    tier: m.tier,
+  }));
+}
+
+/**
+ * Get current configuration summary (for debugging/display)
+ */
+export function getConfigSummary(): {
+  defaultModel: string;
+  currentPlan: string;
+  planConfig: ModelPlan;
+  availableProviders: string[];
+  availablePlans: string[];
+  modelCount: number;
+} {
+  return {
+    defaultModel: DEFAULT_MODEL,
+    currentPlan: process.env.CODER_MODEL_PLAN || "balanced",
+    planConfig: getCurrentModelPlan(),
+    availableProviders: getProviderNames(),
+    availablePlans: getModelPlanNames(),
+    modelCount: Object.keys(MODELS).length,
+  };
+}
+
+/**
+ * OpenRouter model response type
+ */
+export interface OpenRouterModel {
+  id: string;
+  name: string;
+  description?: string;
+  context_length: number;
+  pricing: {
+    prompt: string;
+    completion: string;
+  };
+  top_provider?: {
+    max_completion_tokens?: number;
+  };
+}
+
+/**
+ * Fetch available models from OpenRouter API
+ * Requires OPENROUTER_API_KEY environment variable
+ */
+export async function fetchOpenRouterModels(): Promise<OpenRouterModel[]> {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) {
+    throw new Error("OPENROUTER_API_KEY environment variable not set");
+  }
+
+  const response = await fetch("https://openrouter.ai/api/v1/models", {
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`OpenRouter API error: ${response.status} ${response.statusText}`);
+  }
+
+  const data = (await response.json()) as { data: OpenRouterModel[] };
+  return data.data;
+}
+
+/**
+ * Get configured OpenRouter models (from MODELS registry)
+ */
+export function getConfiguredOpenRouterModels(): ModelDefinition[] {
+  return getModelsByProvider("openrouter");
+}
+
+/**
+ * Get model configuration summary for display
+ */
+export function getModelConfigSummary(modelId: string): {
+  id: string;
+  name: string;
+  provider: string;
+  baseUrl?: string;
+  contextWindow: number;
+  maxOutput: number;
+  supportsThinking: boolean;
+  supportsVision: boolean;
+  tier: string;
+} | undefined {
+  const model = MODELS[modelId];
+  if (!model) return undefined;
+
+  return {
+    id: model.id,
+    name: model.name,
+    provider: model.provider,
+    baseUrl: model.baseUrl,
+    contextWindow: model.contextWindow,
+    maxOutput: model.maxOutput ?? Math.floor(model.contextWindow / 4),
+    supportsThinking: model.supportsThinking,
+    supportsVision: model.supportsVision,
+    tier: model.tier,
+  };
+}
