@@ -30,7 +30,7 @@ export interface ModelDefinition {
   /** Whether model supports extended thinking */
   supportsThinking: boolean;
   /** Model provider */
-  provider: "anthropic" | "zhipu" | "openai" | "other";
+  provider: "anthropic" | "zhipu" | "openai" | "minimax" | "openrouter" | "other";
   /** Whether model supports vision/images */
   supportsVision: boolean;
   /** Model tier (haiku, sonnet, opus) */
