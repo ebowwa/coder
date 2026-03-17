@@ -226,6 +226,24 @@ async function runInteractiveMode(
 // ============================================
 
 main().catch((error) => {
+  // Handle ENAMETOOLONG gracefully - occurs with deeply nested node_modules
+  if (error instanceof Error && error.message.includes("ENAMETOOLONG")) {
+    console.error("\x1b[31mError: Path too long encountered during directory scan.\x1b[0m");
+    console.error("\x1b[90mThis usually happens with deeply nested node_modules.\x1b[0m");
+    console.error("\x1b[90mTry running Coder from a different directory or clean up nested node_modules.\x1b[0m");
+    process.exit(1);
+  }
   console.error("Fatal error:", error);
   process.exit(1);
+});
+
+// Handle uncaught ENAMETOOLONG errors from bundled dependencies
+process.on("uncaughtException", (error) => {
+  if (error instanceof Error && error.message.includes("ENAMETOOLONG")) {
+    console.error("\x1b[31mError: Path too long encountered during directory scan.\x1b[0m");
+    console.error("\x1b[90mThis usually happens with deeply nested node_modules.\x1b[0m");
+    console.error("\x1b[90mTry running Coder from a different directory or clean up nested node_modules.\x1b[0m");
+    process.exit(1);
+  }
+  throw error;
 });

@@ -362,6 +362,13 @@ export const GlobTool: ToolDefinition = {
         cwd: searchPath,
         absolute: true,
         nodir: true,
+        ignore: [
+          "**/node_modules/**",
+          "**/.git/**",
+          "**/dist/**",
+          "**/.next/**",
+          "**/build/**",
+        ],
       });
 
       if (files.length === 0) {
