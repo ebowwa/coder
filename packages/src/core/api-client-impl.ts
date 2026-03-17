@@ -35,10 +35,18 @@ import {
   DEFAULT_MODEL,
   supportsExtendedThinking,
   getModel,
+  getBackupModel,
+  getBackupApiKey,
+  getBackupBaseUrl,
+  isBackupModelAvailable,
+  BACKUP_MODEL_MAX_ATTEMPTS,
 } from "./models.js";
 
 // Re-export types for backward compatibility
 export type { StreamOptions, StreamResult } from "../schemas/index.js";
+
+// Backup model attempt counter (module-level for tracking across calls)
+let backupModelAttempts = 0;
 
 /**
  * Calculate cost for API usage including cache metrics
@@ -391,36 +399,130 @@ export async function createMessageStream(
     headers["anthropic-beta"] = "max-tokens-3-5-sonnet-2024-07-15";
   }
 
-  // Make API request with retry logic
-  const retryOptions: RetryOptions = {
-    maxRetries: 3,
-    baseDelayMs: 1000,
-    maxDelayMs: 30000,
-    retryableStatusCodes: [429, 500, 502, 503, 504, 529],
-    onRetry: (attempt, error, delayMs) => {
-      console.log(`\x1b[33mAPI retry ${attempt}/3 after ${delayMs}ms: ${error.message}\x1b[0m`);
-    },
-  };
+  // Try main model first, then backup model if available and main fails
+  let response: Response;
+  let usedBackupModel = false;
 
-  const response = await withRetry(
-    async () => {
-      const res = await fetch(apiEndpoint, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(apiFormat === "openai" ? openaiRequest : request),
-        signal,
-      });
+  try {
+    // Make API request with retry logic - 10 retries with fixed 15 second delay
+    const retryOptions: RetryOptions = {
+      maxRetries: 10,
+      baseDelayMs: 15000,
+      maxDelayMs: 15000, // Fixed delay - same as base
+      jitterFactor: 0, // No jitter - fixed delay
+      retryableStatusCodes: [429, 500, 502, 503, 504, 529],
+      onRetry: (attempt, error, delayMs) => {
+        console.log(`\x1b[33mAPI retry ${attempt}/10 after 15s: ${error.message}\x1b[0m`);
+      },
+    };
 
-      // Throw for retryable status codes so withRetry can handle them
-      if (!res.ok && retryOptions.retryableStatusCodes?.includes(res.status)) {
-        const errorText = await res.text();
-        throw new Error(`API error: ${res.status} - ${errorText}`);
+    response = await withRetry(
+      async () => {
+        const res = await fetch(apiEndpoint, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(apiFormat === "openai" ? openaiRequest : request),
+          signal,
+        });
+
+        // Throw for retryable status codes so withRetry can handle them
+        if (!res.ok && retryOptions.retryableStatusCodes?.includes(res.status)) {
+          const errorText = await res.text();
+          throw new Error(`API error: ${res.status} - ${errorText}`);
+        }
+
+        return res;
+      },
+      retryOptions
+    );
+  } catch (mainError) {
+    // Main model failed - try backup model if available
+    const backupModel = getBackupModel();
+    const canUseBackup = backupModel && backupModelAttempts < BACKUP_MODEL_MAX_ATTEMPTS;
+
+    if (backupModel && canUseBackup) {
+      console.log(`\x1b[33mMain model failed, attempting backup model: ${backupModel}\x1b[0m`);
+      console.log(`\x1b[33mBackup model attempt ${backupModelAttempts + 1}/${BACKUP_MODEL_MAX_ATTEMPTS}\x1b[0m`);
+
+      usedBackupModel = true;
+      backupModelAttempts++;
+
+      // Get backup model info
+      const backupModelDef = getModel(backupModel);
+      if (!backupModelDef) {
+        throw new Error(`Backup model ${backupModel} not found in model registry`);
       }
 
-      return res;
-    },
-    retryOptions
-  );
+      // Build backup endpoint URL - use backup-specific base URL if provided
+      const backupBaseUrl = getBackupBaseUrl() || backupModelDef.baseUrl || baseUrl;
+      const backupApiFormat = backupModelDef.provider === "anthropic" ? "anthropic" : "openai";
+      const backupEndpoint = backupApiFormat === "openai"
+        ? `${backupBaseUrl}/chat/completions`
+        : `${backupBaseUrl}/v1/messages`;
+
+      // Use backup-specific API key if provided, otherwise fall back to main API key
+      const backupApiKey = getBackupApiKey() || apiKey;
+
+      // Build backup headers
+      const backupHeaders: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (backupApiFormat === "openai") {
+        backupHeaders["Authorization"] = `Bearer ${backupApiKey}`;
+      } else {
+        backupHeaders["x-api-key"] = backupApiKey;
+        backupHeaders["anthropic-version"] = "2023-06-01";
+      }
+
+      // Update request with backup model
+      const backupRequest =
+        backupApiFormat === "openai"
+          ? { ...openaiRequest, model: backupModel }
+          : { ...request, model: backupModel };
+
+      const backupRetryOptions: RetryOptions = {
+        maxRetries: 10, // Same retry count as primary
+        baseDelayMs: 15000,
+        maxDelayMs: 15000, // Fixed delay - same as base
+        jitterFactor: 0, // No jitter - fixed delay
+        retryableStatusCodes: [429, 500, 502, 503, 504, 529],
+        onRetry: (attempt, error, delayMs) => {
+          console.log(
+            `\x1b[33mBackup model retry ${attempt}/10 after 15s: ${error.message}\x1b[0m`
+          );
+        },
+      };
+
+      response = await withRetry(
+        async () => {
+          const res = await fetch(backupEndpoint, {
+            method: "POST",
+            headers: backupHeaders,
+            body: JSON.stringify(backupApiFormat === "openai" ? backupRequest : request),
+            signal,
+          });
+
+          if (!res.ok && backupRetryOptions.retryableStatusCodes?.includes(res.status)) {
+            const errorText = await res.text();
+            throw new Error(`Backup API error: ${res.status} - ${errorText}`);
+          }
+
+          return res;
+        },
+        backupRetryOptions
+      );
+
+      console.log(`\x1b[32mBackup model succeeded\x1b[0m`);
+    } else {
+      // No backup model available or attempts exhausted
+      if (backupModel && !canUseBackup) {
+        console.log(
+          `\x1b[33mBackup model available but max attempts (${BACKUP_MODEL_MAX_ATTEMPTS}) exhausted\x1b[0m`
+        );
+      }
+      throw mainError;
+    }
+  }
 
   if (!response.ok) {
     const error = await response.text();
@@ -429,6 +531,12 @@ export async function createMessageStream(
 
   if (!response.body) {
     throw new Error("No response body");
+  }
+
+  if (usedBackupModel) {
+    console.log(
+      `\x1b[36m⚠ Used backup model for this request. ${BACKUP_MODEL_MAX_ATTEMPTS - backupModelAttempts} backup attempts remaining this session.\x1b[0m`
+    );
   }
 
   // Parse SSE stream
@@ -770,6 +878,23 @@ export async function createMessageStream(
     ttftMs: ttft || durationMs,
     thinkingTokens: totalThinkingTokens,
   };
+}
+
+/**
+ * Get backup model usage statistics for the current session
+ */
+export function getBackupModelStats(): { attempts: number; maxAttempts: number } {
+  return {
+    attempts: backupModelAttempts,
+    maxAttempts: BACKUP_MODEL_MAX_ATTEMPTS,
+  };
+}
+
+/**
+ * Reset backup model attempt counter (call at session start)
+ */
+export function resetBackupModelCounter(): void {
+  backupModelAttempts = 0;
 }
 
 // Re-export types

@@ -369,6 +369,18 @@ export const DEFAULT_MODEL = process.env.CODER_DEFAULT_MODEL || "claude-sonnet-4
 /** Default model for summarization (fast/cheap) */
 export const SUMMARIZATION_MODEL = process.env.ANTHROPIC_DEFAULT_HAIKU_MODEL || "glm-4.5-air";
 
+/** Backup model to use if primary model fails all retries (read from Doppler) */
+export const BACKUP_MODEL = process.env.CODER_BACKUP_MODEL;
+
+/** API key for backup model (separate from primary API key) */
+export const BACKUP_MODEL_API_KEY = process.env.CODER_BACKUP_MODEL_API_KEY;
+
+/** Base URL for backup model API (separate from primary API) */
+export const BACKUP_MODEL_BASE_URL = process.env.CODER_BACKUP_MODEL_BASE_URL;
+
+/** Maximum times to use backup model per session (default: 1) */
+export const BACKUP_MODEL_MAX_ATTEMPTS = parseInt(process.env.CODER_BACKUP_MODEL_MAX_ATTEMPTS || "1", 10);
+
 /** Default context window if model not found */
 export const DEFAULT_CONTEXT_WINDOW = 200_000;
 
@@ -670,4 +682,39 @@ export function getModelConfigSummary(modelId: string): {
     supportsVision: model.supportsVision,
     tier: model.tier,
   };
+}
+
+/**
+ * Get backup model if configured
+ * Returns the backup model ID or undefined if not configured
+ */
+export function getBackupModel(): string | undefined {
+  return BACKUP_MODEL;
+}
+
+/**
+ * Get backup model API key
+ * Returns the backup-specific API key or falls back to the main API key
+ */
+export function getBackupApiKey(): string | undefined {
+  return BACKUP_MODEL_API_KEY;
+}
+
+/**
+ * Get backup model base URL
+ * Returns the backup-specific base URL or undefined
+ */
+export function getBackupBaseUrl(): string | undefined {
+  return BACKUP_MODEL_BASE_URL;
+}
+
+/**
+ * Check if backup model is available and valid
+ */
+export function isBackupModelAvailable(): boolean {
+  if (!BACKUP_MODEL) {
+    return false;
+  }
+  // Verify the backup model exists in our registry
+  return !!MODELS[BACKUP_MODEL];
 }
