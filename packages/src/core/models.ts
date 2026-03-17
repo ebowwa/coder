@@ -192,7 +192,7 @@ export const MODELS: Record<string, ModelDefinition> = {
     tier: "haiku",
   },
 
-  // GLM Series (Zhipu AI)
+  // GLM Series (Z.AI Coding Plan - api.z.ai)
   "glm-5": {
     id: "glm-5",
     name: "GLM-5",
@@ -205,7 +205,7 @@ export const MODELS: Record<string, ModelDefinition> = {
     provider: "zhipu",
     supportsVision: true,
     tier: "sonnet",
-    baseUrl: "https://open.bigmodel.cn/api/paas/v4",
+    baseUrl: "https://api.z.ai/api/coding/paas/v4",
   },
   "glm-5-turbo": {
     id: "glm-5-turbo",
@@ -219,7 +219,7 @@ export const MODELS: Record<string, ModelDefinition> = {
     provider: "zhipu",
     supportsVision: true,
     tier: "sonnet",
-    baseUrl: "https://open.bigmodel.cn/api/paas/v4",
+    baseUrl: "https://api.z.ai/api/coding/paas/v4",
   },
   "glm-4.5-air": {
     id: "glm-4.5-air",
@@ -233,10 +233,10 @@ export const MODELS: Record<string, ModelDefinition> = {
     provider: "zhipu",
     supportsVision: false,
     tier: "haiku",
-    baseUrl: "https://open.bigmodel.cn/api/paas/v4",
+    baseUrl: "https://api.z.ai/api/coding/paas/v4",
   },
 
-  // MiniMax API
+  // MiniMax API (Anthropic-compatible endpoint)
   "minimax/minimax-m2.5": {
     id: "minimax/minimax-m2.5",
     name: "MiniMax M2.5",
@@ -249,7 +249,22 @@ export const MODELS: Record<string, ModelDefinition> = {
     provider: "minimax",
     supportsVision: true,
     tier: "haiku",
-    baseUrl: "https://api.minimax.chat/v1",
+    baseUrl: "https://api.minimax.io/anthropic",
+  },
+  // Alias for MiniMax M2.5 (common naming variant)
+  "MiniMax-M2.5": {
+    id: "MiniMax-M2.5",
+    name: "MiniMax M2.5",
+    displayName: "MiniMax M2.5",
+    fullName: "MiniMax M2.5",
+    contextWindow: 128_000,
+    maxOutput: 8_192,
+    pricing: { input: 0.1, output: 0.1, cacheWrite: 0, cacheRead: 0 },
+    supportsThinking: false,
+    provider: "minimax",
+    supportsVision: true,
+    tier: "haiku",
+    baseUrl: "https://api.minimax.io/anthropic",
   },
 
   // OpenRouter - Claude models via OpenRouter
@@ -313,8 +328,8 @@ export const PROVIDER_CONFIGS: Record<string, ProviderConfig> = {
     defaultModel: "claude-sonnet-4-6",
   },
   zhipu: {
-    name: "Zhipu AI (GLM)",
-    baseUrl: "https://open.bigmodel.cn/api/paas/v4",
+    name: "Z.AI (GLM Coding Plan)",
+    baseUrl: "https://api.z.ai/api/coding/paas/v4",
     apiKeyEnv: "ZHIPU_API_KEY",
     apiFormat: "openai",
     supportsStreaming: true,
