@@ -6,7 +6,7 @@
   "main": "dist/mcp/index.js",
   "types": "dist/mcp/index.d.ts",
   "bin": {
-    "crm-mcp": "./dist/mcp/cli.js"
+    "crm-mcp": "./dist/cli.js"
   },
   "exports": {
     ".": {
@@ -38,7 +38,7 @@
   "scripts": {
     "build": "bun run build:ts",
     "build:ts": "tsc",
-    "build:native": "echo 'Native module disabled for now' && exit 0",
+    "build:native": "cd rust && cargo build --release 2>/dev/null && (cp target/release/libcrm_native.dylib ../native/crm-native.darwin-arm64.node 2>/dev/null || cp target/release/libcrm_native.so ../native/crm-native.linux-arm64.node 2>/dev/null || cp target/release/crm_native.dll ../native/crm-native.win32-x64.node 2>/dev/null) || echo 'Native build skipped - using JS fallbacks'",
     "build:native:debug": "cd rust && cargo build",
     "dev": "bun --hot src/mcp/cli.ts",
     "start": "node dist/mcp/cli.js",
@@ -68,6 +68,7 @@
     "directory": "packages/src/coder/assignments/crm"
   },
   "dependencies": {
+    "@ebowwa/crm-primitives": "^0.1.0",
     "@modelcontextprotocol/sdk": "^1.0.4",
     "lmdb": "^3.5.1",
     "zod": "^3.24.2"
