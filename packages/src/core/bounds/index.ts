@@ -49,8 +49,12 @@ export type {
   BoundsHookOutput,
 } from "./types.js";
 
+// Import types for internal use
+import type { BoundaryRegistryConfig } from "./types.js";
+
 // Registry
 export { BoundaryRegistry, getRegistry, resetRegistry } from "./registry.js";
+import { getRegistry, type BoundaryRegistry } from "./registry.js";
 
 // Enforcer
 export {
@@ -61,6 +65,7 @@ export {
   createPostFailureHandler,
   type EnforcerConfig,
 } from "./enforcer.js";
+import { getEnforcer, type BoundaryEnforcer } from "./enforcer.js";
 
 // Signal analysis
 export {
@@ -79,6 +84,7 @@ export {
   type PatchRule,
   type PatchGenerator,
 } from "./patcher.js";
+import { getPatcher } from "./patcher.js";
 
 // Built-in boundaries
 export {
@@ -94,6 +100,9 @@ export {
   contextWallsBoundary,
   strictContextWallsBoundary,
 } from "./builtins/index.js";
+
+// Types are already exported from registry.ts and enforcer.ts
+
 
 /**
  * Initialize the bounds system with default configuration

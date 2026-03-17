@@ -220,8 +220,8 @@ export type BoundsHookHandler = (
  * Input to bounds hooks
  */
 export interface BoundsHookInput {
-  tool_name: string;
-  tool_input: Record<string, unknown>;
+  tool_name?: string;
+  tool_input?: Record<string, unknown>;
   tool_result?: unknown;
   tool_result_is_error?: boolean;
   error?: string;

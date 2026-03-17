@@ -94,8 +94,8 @@ function extractSignal(input: BoundsHookInput): FailureSignal | null {
   return {
     id: generateId(),
     timestamp: Date.now(),
-    tool_name: input.tool_name,
-    tool_input: input.tool_input,
+    tool_name: input.tool_name || "unknown",
+    tool_input: input.tool_input || {},
     error: input.error || String(input.tool_result),
     errorType: classifyError(input.error || input.tool_result),
     debugInfo: input.tool_result ? JSON.stringify(input.tool_result, null, 2) : undefined,
@@ -110,8 +110,8 @@ function extractSignal(input: BoundsHookInput): FailureSignal | null {
  */
 function buildContext(input: BoundsHookInput): BoundaryContext {
   return {
-    tool_name: input.tool_name,
-    tool_input: input.tool_input,
+    tool_name: input.tool_name || "unknown",
+    tool_input: input.tool_input || {},
     workingDirectory: input.working_directory || process.cwd(),
     sessionId: input.session_id,
     timestamp: Date.now(),
@@ -188,10 +188,10 @@ export function createPreToolUseHandler(
  */
 export function createPostFailureHandler(
   registry: BoundaryRegistry = getRegistry()
-): (input: BoundsHookInput) => Promise<void> {
-  return async (input: BoundsHookInput): Promise<void> => {
+): (input: BoundsHookInput) => Promise<BoundsHookOutput> {
+  return async (input: BoundsHookInput): Promise<BoundsHookOutput> => {
     const signal = extractSignal(input);
-    if (!signal) return;
+    if (!signal) return { decision: "allow" };
 
     try {
       registry.recordSignal(signal);
@@ -203,6 +203,8 @@ export function createPostFailureHandler(
     } catch (err) {
       console.error("[Bounds] Error recording signal:", err);
     }
+
+    return { decision: "allow" };
   };
 }
 
