@@ -363,8 +363,8 @@ export const MODEL_ALIASES = {
 // DEFAULTS
 // ============================================
 
-/** Default model for interactive use */
-export const DEFAULT_MODEL = "claude-sonnet-4-6";
+/** Default model for interactive use (configurable via CODER_DEFAULT_MODEL env var) */
+export const DEFAULT_MODEL = process.env.CODER_DEFAULT_MODEL || "claude-sonnet-4-6";
 
 /** Default model for summarization (fast/cheap) */
 export const SUMMARIZATION_MODEL = process.env.ANTHROPIC_DEFAULT_HAIKU_MODEL || "glm-4.5-air";

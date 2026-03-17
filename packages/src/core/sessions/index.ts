@@ -28,6 +28,7 @@ import type {
 } from "./types.js";
 import { SessionPersistence } from "./persistence.js";
 import { SessionMetadataManager } from "./metadata.js";
+import { DEFAULT_MODEL } from "../models.js";
 import { SessionExporter } from "./export.js";
 
 // Re-export types for convenience
@@ -237,7 +238,7 @@ export class SessionStore {
 
     if (!metadata) {
       metadata = this.metadataManager.createMetadata({
-        model: "claude-sonnet-4-6",
+        model: DEFAULT_MODEL,
         workingDirectory: process.cwd(),
       });
     }

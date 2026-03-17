@@ -187,7 +187,7 @@ export async function createMessageStream(
 ): Promise<StreamResult> {
   const {
     apiKey,
-    model = "claude-sonnet-4-6",
+    model = DEFAULT_MODEL,
     maxTokens = 4096,
     tools,
     apiFormat: providedApiFormat,

@@ -9,20 +9,29 @@
  * - Message building (message-builder.ts)
  * - Formatting utilities (formatters.ts)
  * - Loop behavior from teammate templates
+ * - Persistence for long-running loops (loop-persistence.ts)
  */
 
+import { homedir } from "os";
+import { join } from "path";
 import type { Message } from "../../schemas/index.js";
 import { DEFAULT_CACHE_CONFIG } from "../../schemas/index.js";
 import { PermissionManager } from "../permissions.js";
 import { DEFAULT_REMINDER_CONFIG } from "../system-reminders.js";
+import { DEFAULT_MODEL } from "../models.js";
 import type { HookManager } from "../../ecosystem/hooks/index.js";
 
-import type { AgentLoopOptions, AgentLoopResult } from "./types.js";
+import type { AgentLoopOptions, AgentLoopResult, LoopPersistenceConfig } from "./types.js";
 import { LoopState, type LoopStateOptions } from "./loop-state.js";
 import { executeTurn, type TurnExecutorOptions } from "./turn-executor.js";
+import {
+  LoopPersistence,
+  DEFAULT_PERSISTENCE_CONFIG,
+  type PersistedLoopState,
+} from "./loop-persistence.js";
 
 // Re-export types and utilities
-export type { AgentLoopOptions, AgentLoopResult } from "./types.js";
+export type { AgentLoopOptions, AgentLoopResult, LoopPersistenceConfig } from "./types.js";
 export type { LoopStateOptions } from "./loop-state.js";
 export { formatCost, formatMetrics, formatCostBrief, formatCacheMetrics } from "./formatters.js";
 export { LoopState } from "./loop-state.js";
@@ -79,8 +88,59 @@ export {
   EXAMPLE_CONDITIONS,
 } from "./result-conditions.js";
 
+// Re-export persistence module
+export {
+  LoopPersistence,
+  DEFAULT_PERSISTENCE_CONFIG,
+  type PersistedLoopState,
+  type LoopCheckpoint,
+  type LoopManifest,
+  type LoopRecoveryResult,
+} from "./loop-persistence.js";
+
+export {
+  SERIALIZER_VERSION,
+  type PersistedLoopState as SerializedLoopState,
+  type LoopCheckpoint as Checkpoint,
+  validatePersistedState,
+  generateCheckpointId,
+  createStateSummary,
+} from "./loop-serializer.js";
+
+/**
+ * Generate a unique session ID
+ */
+function generateSessionId(): string {
+  const timestamp = Date.now().toString(36);
+  const random = Math.random().toString(36).substring(2, 8);
+  return `${timestamp}-${random}`;
+}
+
 /**
  * Main agent loop - processes messages in turns until completion
+ *
+ * With persistence enabled, the loop state is automatically saved at
+ * configurable intervals, allowing resumption from interrupted loops.
+ *
+ * @example
+ * ```typescript
+ * // Basic usage (no persistence)
+ * const result = await agentLoop(messages, { apiKey, ... });
+ *
+ * // With persistence enabled
+ * const result = await agentLoop(messages, {
+ *   apiKey,
+ *   persistence: { enabled: true, autoSaveInterval: 30000 },
+ *   ...
+ * });
+ *
+ * // Resume from interrupted loop
+ * const result = await agentLoop([], {
+ *   apiKey,
+ *   resumeFrom: { sessionId: "abc123" },
+ *   ...
+ * });
+ * ```
  */
 export async function agentLoop(
   initialMessages: Message[],
@@ -88,7 +148,7 @@ export async function agentLoop(
 ): Promise<AgentLoopResult> {
   const {
     apiKey,
-    model = "claude-sonnet-4-6",
+    model = DEFAULT_MODEL,
     maxTokens = 4096,
     systemPrompt,
     tools,
@@ -100,7 +160,7 @@ export async function agentLoop(
     thinking,
     extendedThinking,
     hookManager,
-    sessionId,
+    sessionId = generateSessionId(),
     onText,
     onThinking,
     onToolUse,
@@ -112,10 +172,51 @@ export async function agentLoop(
     stopSequences,
     stopSequenceConfig,
     resultConditions,
+    persistence: persistenceOption,
+    resumeFrom,
+    onPersist,
   } = options;
 
-  // Initialize state
-  const state = new LoopState(initialMessages);
+  // Resolve persistence configuration
+  const persistenceConfig: LoopPersistenceConfig =
+    typeof persistenceOption === "boolean"
+      ? { ...DEFAULT_PERSISTENCE_CONFIG, enabled: persistenceOption }
+      : persistenceOption
+        ? { ...DEFAULT_PERSISTENCE_CONFIG, ...persistenceOption }
+        : { ...DEFAULT_PERSISTENCE_CONFIG, enabled: false };
+
+  // Initialize persistence manager if enabled
+  let persistence: LoopPersistence | null = null;
+  let state: LoopState;
+  let resumedFromCheckpoint = false;
+
+  if (persistenceConfig.enabled) {
+    persistence = new LoopPersistence(persistenceConfig);
+
+    // Handle resume from previous session
+    if (resumeFrom?.sessionId) {
+      const recovered = await persistence.recoverLoop(resumeFrom.sessionId);
+
+      if (recovered.success && recovered.state) {
+        // Restore state from persisted data
+        state = LoopState.deserialize(recovered.state);
+        resumedFromCheckpoint = true;
+
+        console.log(`Resumed loop from session ${resumeFrom.sessionId} at turn ${state.turnNumber}`);
+      } else {
+        // Failed to recover, start fresh
+        console.warn(`Failed to resume session ${resumeFrom.sessionId}: ${recovered.error}`);
+        state = new LoopState(initialMessages);
+      }
+    } else {
+      // Start fresh
+      state = new LoopState(initialMessages);
+    }
+  } else {
+    // No persistence, use in-memory state
+    state = new LoopState(initialMessages);
+  }
+
   const permissionManager = new PermissionManager(permissionMode, onPermissionRequest);
   const mergedReminderConfig = { ...DEFAULT_REMINDER_CONFIG, ...reminderConfig };
 
@@ -126,51 +227,101 @@ export async function agentLoop(
     });
   }
 
-  let shouldContinue = true;
-
-  while (shouldContinue) {
-    if (signal?.aborted) {
-      break;
-    }
-
-    // Build turn executor options
-    const turnOptions: TurnExecutorOptions = {
-      apiKey,
-      model,
-      maxTokens,
-      systemPrompt,
-      tools,
-      cacheConfig,
-      thinking,
-      extendedThinking,
+  // Start loop persistence if enabled
+  if (persistence && !resumedFromCheckpoint) {
+    const initialState = state.serialize(sessionId);
+    await persistence.startLoop(sessionId, initialState, {
       workingDirectory,
-      gitStatus,
-      reminderConfig: mergedReminderConfig,
-      hookManager,
-      sessionId,
-      signal,
-      onText,
-      onThinking,
-      onToolUse,
-      onReminder,
-      permissionMode,
-      permissionManager,
-      onMetrics,
-      onToolResult,
-      stopSequences,
-      stopSequenceConfig,
-      resultConditions,
-    };
+      model,
+    });
+  }
 
-    // Execute a single turn
-    const turnResult = await executeTurn(state, turnOptions);
+  // Start auto-save timer if persistence is enabled
+  if (persistence) {
+    persistence.startAutoSaveTimer(sessionId, () => state.serialize(sessionId));
+  }
 
-    shouldContinue = turnResult.shouldContinue;
+  let shouldContinue = true;
+  let lastError: Error | null = null;
 
-    // Call onMetrics callback with the latest metrics
-    if (turnResult.metrics && onMetrics) {
-      onMetrics(turnResult.metrics);
+  try {
+    while (shouldContinue) {
+      if (signal?.aborted) {
+        break;
+      }
+
+      // Build turn executor options
+      const turnOptions: TurnExecutorOptions = {
+        apiKey,
+        model,
+        maxTokens,
+        systemPrompt,
+        tools,
+        cacheConfig,
+        thinking,
+        extendedThinking,
+        workingDirectory,
+        gitStatus,
+        reminderConfig: mergedReminderConfig,
+        hookManager,
+        sessionId,
+        signal,
+        onText,
+        onThinking,
+        onToolUse,
+        onReminder,
+        permissionMode,
+        permissionManager,
+        onMetrics,
+        onToolResult,
+        stopSequences,
+        stopSequenceConfig,
+        resultConditions,
+      };
+
+      // Execute a single turn
+      const turnResult = await executeTurn(state, turnOptions);
+
+      shouldContinue = turnResult.shouldContinue;
+
+      // Call onMetrics callback with the latest metrics
+      if (turnResult.metrics && onMetrics) {
+        onMetrics(turnResult.metrics);
+      }
+
+      // Auto-save check after each turn if persistence is enabled
+      if (persistence && persistence.shouldAutoSave(sessionId)) {
+        await persistence.save(sessionId, state.serialize(sessionId));
+        if (onPersist) {
+          onPersist(sessionId, state.turnNumber);
+        }
+      }
     }
+  } catch (error) {
+    lastError = error as Error;
+
+    // Save state on error (mark as interrupted) if persistence is enabled
+    if (persistence) {
+      const interruptedState = state.serialize(sessionId, {
+        interrupted: true,
+        endReason: `Error: ${(error as Error).message}`,
+      });
+      await persistence.save(sessionId, interruptedState);
+    }
+
+    throw error;
+  } finally {
+    // Stop auto-save timer
+    if (persistence) {
+      persistence.stopAutoSaveTimer(sessionId);
+    }
+  }
+
+  // End loop persistence
+  if (persistence) {
+    await persistence.endLoop(sessionId, {
+      endReason: shouldContinue ? "stopped" : "completed",
+    });
   }
 
   // Execute SessionEnd hook
@@ -181,4 +332,59 @@ export async function agentLoop(
   }
 
   return state.toResult();
+}
+
+/**
+ * Find all interrupted loops that can be resumed
+ *
+ * @param storageDir - Optional custom storage directory
+ * @returns Array of session IDs for interrupted loops
+ */
+export async function findInterruptedLoops(
+  storageDir?: string
+): Promise<string[]> {
+  const persistence = new LoopPersistence(
+    storageDir ? { ...DEFAULT_PERSISTENCE_CONFIG, storageDir } : DEFAULT_PERSISTENCE_CONFIG
+  );
+  return persistence.findInterruptedLoops();
+}
+
+/**
+ * Get the most recent interrupted loop
+ *
+ * @param storageDir - Optional custom storage directory
+ * @returns Session ID of the most recent interrupted loop, or null
+ */
+export async function getMostRecentInterruptedLoop(
+  storageDir?: string
+): Promise<string | null> {
+  const persistence = new LoopPersistence(
+    storageDir ? { ...DEFAULT_PERSISTENCE_CONFIG, storageDir } : DEFAULT_PERSISTENCE_CONFIG
+  );
+  return persistence.getMostRecentInterruptedLoop();
+}
+
+/**
+ * Get summary of a persisted loop
+ *
+ * @param sessionId - The session ID to get summary for
+ * @param storageDir - Optional custom storage directory
+ * @returns Summary object or null if not found
+ */
+export async function getLoopSummary(
+  sessionId: string,
+  storageDir?: string
+): Promise<{
+  sessionId: string;
+  turnNumber: number;
+  totalCost: number;
+  duration: string;
+  checkpointCount: number;
+  templateName: string | null;
+  interrupted: boolean;
+} | null> {
+  const persistence = new LoopPersistence(
+    storageDir ? { ...DEFAULT_PERSISTENCE_CONFIG, storageDir } : DEFAULT_PERSISTENCE_CONFIG
+  );
+  return persistence.getSummary(sessionId);
 }
