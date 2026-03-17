@@ -339,81 +339,6 @@ export const PROVIDER_CONFIGS: Record<string, ProviderConfig> = {
 };
 
 // ============================================
-// MODEL PLANS (for different use cases)
-// ============================================
-
-export interface ModelPlan {
-  /** Plan name */
-  name: string;
-  /** Description */
-  description: string;
-  /** Model for primary work */
-  primary: string;
-  /** Model for fast/cheap operations */
-  fast: string;
-  /** Model for high-quality operations */
-  quality: string;
-  /** Model for background tasks */
-  background: string;
-}
-
-/** Predefined model plans for different use cases */
-export const MODEL_PLANS: Record<string, ModelPlan> = {
-  balanced: {
-    name: "Balanced",
-    description: "Good balance of speed, quality, and cost",
-    primary: "claude-sonnet-4-6",
-    fast: "claude-haiku-4-5",
-    quality: "claude-opus-4-6",
-    background: "glm-4.5-air",
-  },
-  quality: {
-    name: "Quality First",
-    description: "Best quality, higher cost",
-    primary: "claude-opus-4-6",
-    fast: "claude-sonnet-4-6",
-    quality: "claude-opus-4-6",
-    background: "claude-sonnet-4-6",
-  },
-  fast: {
-    name: "Speed First",
-    description: "Fast responses, lower cost",
-    primary: "claude-haiku-4-5",
-    fast: "glm-4.5-air",
-    quality: "claude-sonnet-4-6",
-    background: "glm-4.5-air",
-  },
-  budget: {
-    name: "Budget",
-    description: "Minimize cost using alternative providers",
-    primary: "glm-5",
-    fast: "glm-4.5-air",
-    quality: "glm-5",
-    background: "glm-4.5-air",
-  },
-  openrouter: {
-    name: "OpenRouter",
-    description: "Use OpenRouter for all models",
-    primary: "openrouter/claude-sonnet-4-6",
-    fast: "openrouter/claude-haiku-4-5",
-    quality: "openrouter/claude-sonnet-4-6",
-    background: "openrouter/claude-haiku-4-5",
-  },
-};
-
-/** Get current model plan from environment or default */
-export function getCurrentModelPlan(): ModelPlan {
-  const planName = process.env.CODER_MODEL_PLAN || "balanced";
-  return MODEL_PLANS[planName] ?? MODEL_PLANS.balanced!;
-}
-
-/** Get model for a specific use case within current plan */
-export function getModelForUseCase(useCase: "primary" | "fast" | "quality" | "background"): string {
-  const plan = getCurrentModelPlan();
-  return plan[useCase];
-}
-
-// ============================================
 // MODEL LISTS
 // ============================================
 
@@ -636,13 +561,6 @@ export function getProviderNames(): string[] {
 }
 
 /**
- * Get all available model plan names
- */
-export function getModelPlanNames(): string[] {
-  return Object.keys(MODEL_PLANS);
-}
-
-/**
  * List all models with their provider and baseUrl for display
  */
 export function listAllModels(): Array<{
@@ -666,18 +584,12 @@ export function listAllModels(): Array<{
  */
 export function getConfigSummary(): {
   defaultModel: string;
-  currentPlan: string;
-  planConfig: ModelPlan;
   availableProviders: string[];
-  availablePlans: string[];
   modelCount: number;
 } {
   return {
     defaultModel: DEFAULT_MODEL,
-    currentPlan: process.env.CODER_MODEL_PLAN || "balanced",
-    planConfig: getCurrentModelPlan(),
     availableProviders: getProviderNames(),
-    availablePlans: getModelPlanNames(),
     modelCount: Object.keys(MODELS).length,
   };
 }
