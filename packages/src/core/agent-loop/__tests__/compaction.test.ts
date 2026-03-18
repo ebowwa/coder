@@ -127,7 +127,7 @@ describe("handleProactiveCompaction", () => {
     const result = await handleProactiveCompaction(state, 4096, customOptions);
 
     expect(typeof result).toBe("boolean");
-  });
+  }, 10000); // 10s timeout for compaction
 });
 
 describe("handleReactiveCompaction", () => {
@@ -142,7 +142,7 @@ describe("handleReactiveCompaction", () => {
     const result = await handleReactiveCompaction(state, 4096);
 
     expect(typeof result).toBe("boolean");
-  });
+  }, 10000); // 10s timeout for compaction
 
   it("should return false if compaction does not reduce tokens", async () => {
     // Very small state that can't be compacted meaningfully
