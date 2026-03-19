@@ -85,13 +85,13 @@ export class InputManager {
     // Move to older entry
     if (this.historyIndex < this.history.length - 1) {
       this.historyIndex++;
-      const value = this.history[this.history.length - 1 - this.historyIndex];
+      const value = this.history[this.history.length - 1 - this.historyIndex] as string;
       return { value, navigated: true };
     }
 
     // Already at oldest entry
     return {
-      value: this.history[0],
+      value: this.history[0] as string,
       navigated: false,
     };
   }
@@ -113,7 +113,7 @@ export class InputManager {
       return { value: this.savedInput, navigated: true };
     }
 
-    const value = this.history[this.history.length - 1 - this.historyIndex];
+    const value = this.history[this.history.length - 1 - this.historyIndex] as string;
     return { value, navigated: true };
   }
 

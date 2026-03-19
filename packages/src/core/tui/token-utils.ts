@@ -77,7 +77,8 @@ function estimateBlockTokens(block: ContentBlock): number {
       if (typeof block.content === "string") {
         return estimateTokens(block.content);
       } else if (Array.isArray(block.content)) {
-        return block.content.reduce((sum, b) => sum + estimateBlockTokens(b), 0);
+        // Type assertion needed since tool_result content is z.array(z.unknown())
+        return (block.content as ContentBlock[]).reduce((sum: number, b: ContentBlock) => sum + estimateBlockTokens(b), 0);
       }
       return 10;
     case "thinking":
