@@ -65,21 +65,22 @@ describe("InputManager", () => {
     // Start with empty input
     const result1 = manager.navigateUp("");
     expect(result1.navigated).toBe(true);
-    expect(result1.value).toBe("first"); // Oldest entry (index 0)
+    expect(result1.value).toBe("third"); // Newest entry (standard shell behavior)
   });
 
   test("should navigate down through history", () => {
     manager.addToHistory("first");
     manager.addToHistory("second");
 
-    // Navigate up first
+    // Navigate up first (to newest = "second")
     manager.navigateUp("");
-    manager.navigateUp("first");
+    // Navigate up again (to older = "first")
+    manager.navigateUp("second");
 
-    // Then navigate down
+    // Then navigate down (back to "second")
     const result1 = manager.navigateDown();
     expect(result1.navigated).toBe(true);
-    expect(result1.value).toBe("first");
+    expect(result1.value).toBe("second");
 
     const result2 = manager.navigateDown();
     expect(result2.navigated).toBe(true);
@@ -148,9 +149,11 @@ describe("InputManager", () => {
 
   test("should move cursor right by word", () => {
     const text = "hello world test";
-    expect(manager.moveWordRight(text, 0)).toBe(6);  // "hello" -> "world"
-    expect(manager.moveWordRight(text, 6)).toBe(12); // "world " -> "test"
-    expect(manager.moveWordRight(text, 11)).toBe(16); // End of text
+    // positions: h(0)e(1)l(2)l(3)o(4) (5)w(6)o(7)r(8)l(9)d(10) (11)t(12)e(13)s(14)t(15)
+    expect(manager.moveWordRight(text, 0)).toBe(6);  // "hello" -> skip spaces -> "world" starts at 6
+    expect(manager.moveWordRight(text, 6)).toBe(12); // "world" -> skip spaces -> "test" starts at 12
+    expect(manager.moveWordRight(text, 11)).toBe(12); // Position 11 is space, skip to "test" at 12
+    expect(manager.moveWordRight(text, 12)).toBe(16); // "test" -> end of text (16)
   });
 
   // ============================================
