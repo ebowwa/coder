@@ -8,22 +8,30 @@
  * - Alternate screen buffer (isolation from pre-app terminal)
  * - Internal scrolling (Up/Down/PageUp/PageDown/Mouse wheel)
  * - Messages stored in memory, viewport renders visible portion
- * - Hybrid rendering: Ink for UI, native Rust TUI for performance-critical components
+ * - Uses @ebowwa/tui-core for UI rendering
+ * - Uses core/tui module for shared logic
  */
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { render, Box, Text, useInput, useApp } from "ink";
-import type { Key } from "ink";
-import type { PermissionMode, Message as ApiMessage, ToolDefinition, QueryMetrics } from "../../../../schemas/index.js";
+import {
+  render,
+  Box,
+  Text,
+  useInput,
+  useApp,
+  useTerminalSize,
+} from "@ebowwa/tui-core";
+import type { Key } from "@ebowwa/tui-core";
+import { getVisibleRange } from "@ebowwa/tui-core/algorithms";
+import type { PermissionMode, Message as ApiMessage, ToolDefinition } from "../../../../schemas/index.js";
 import type { HookManager } from "../../../../ecosystem/hooks/index.js";
 import { agentLoop } from "../../../../core/agent-loop.js";
 import { getGitStatus } from "../../../../core/git-status.js";
 import { calculateContextInfo, VERSION, getModelDisplayName, formatTokenCount } from "../shared/status-line.js";
 import { formatCost } from "../../../../core/agent-loop/formatters.js";
 import { spinnerFrames } from "./spinner.js";
-import type { SessionStore } from "./types.js";
+import type { SessionStore, UIMessage } from "./types.js";
 import type { InteractiveTUIProps } from "./InteractiveTUI.js";
-import { useTerminalSize } from "./useTerminalSize.js";
 import {
   suppressConsole,
   restoreConsole,
@@ -31,69 +39,34 @@ import {
   type SuppressOptions,
 } from "./console.js";
 
-// Native TUI rendering bridge (Rust-backed)
+// Import from core/tui module
 import {
-  Terminal,
-  renderStatusBar,
-  renderMessage,
-  Styles,
-  type TuiStyle,
-} from "./tui-renderer.js";
+  genId,
+  estimateMessagesTokens,
+  apiToText,
+  HELP_TEXT,
+  TerminalControl,
+  CommandHandler,
+  type CommandContext,
+} from "../../../../core/tui/index.js";
 
 // Debug options
 const DEBUG_TUI_BUFFER = process.env.DEBUG_TUI_BUFFER === "true";
 const DEBUG_TUI_LOG = process.env.DEBUG_TUI_LOG;
 
-// Use native Rust TUI for terminal control (replaces manual ANSI codes)
-const NativeTerminal = {
-  enterAltScreen: () => { process.stdout.write(Terminal.enterAltScreen()); },
-  exitAltScreen: () => { process.stdout.write(Terminal.exitAltScreen()); },
-  clearScreen: () => { process.stdout.write(Terminal.clearScreen()); },
-  hideCursor: () => { process.stdout.write(Terminal.hideCursor()); },
-  showCursor: () => { process.stdout.write(Terminal.showCursor()); },
-};
+// NOTE: TerminalControl is now imported from core/tui
 
-// Mouse scroll (still using ANSI codes for now - native doesn't have this yet)
+// Mouse scroll (SGR extended mode)
 const ENABLE_MOUSE_SCROLL = "\x1b[?1000h\x1b[?1006h";
 const DISABLE_MOUSE_SCROLL = "\x1b[?1000l\x1b[?1006l";
-
-// Colors (keeping for compatibility with any remaining direct ANSI usage)
-const C = {
-  cyan: "\x1b[36m",
-  magenta: "\x1b[35m",
-  yellow: "\x1b[33m",
-  green: "\x1b[32m",
-  red: "\x1b[31m",
-  gray: "\x1b[90m",
-  bold: "\x1b[1m",
-  dim: "\x1b[2m",
-  reset: "\x1b[0m",
-  clearLine: "\x1b[2K",
-  cursorUp: (n: number) => `\x1b[${n}A`,
-  cursorDown: (n: number) => `\x1b[${n}B`,
-};
 
 // ============================================
 // MESSAGE STORE (in memory)
 // ============================================
 
-interface Message {
-  id: string;
-  role: "user" | "assistant" | "system";
-  content: string;
-  toolName?: string;
-  type?: "tool_call" | "tool_result" | "text";
-  isError?: boolean;
-  timestamp: number;
-}
+const messages: UIMessage[] = [];
 
-let msgId = 0;
-const genId = () => `msg-${++msgId}-${Date.now()}`;
-
-// Global message store
-const messages: Message[] = [];
-
-function addMessage(msg: Omit<Message, "id" | "timestamp">) {
+function addMessage(msg: Omit<UIMessage, "id" | "timestamp">) {
   messages.push({
     ...msg,
     id: genId(),
@@ -101,25 +74,15 @@ function addMessage(msg: Omit<Message, "id" | "timestamp">) {
   });
 }
 
+function clearMessages() {
+  messages.length = 0;
+}
+
 // ============================================
 // SCROLLABLE TUI COMPONENT
 // ============================================
 
-interface ScrollableViewProps {
-  apiKey: string;
-  model: string;
-  permissionMode: PermissionMode;
-  maxTokens: number;
-  systemPrompt?: string;
-  tools?: ToolDefinition[];
-  hookManager: HookManager;
-  sessionStore: SessionStore;
-  sessionId: string;
-  setSessionId: (id: string) => void;
-  workingDirectory: string;
-  onExit?: () => void;
-  initialMessages?: ApiMessage[];
-}
+interface ScrollableViewProps extends InteractiveTUIProps {}
 
 function ScrollableView({
   apiKey,
@@ -143,16 +106,30 @@ function ScrollableView({
   const [spinnerFrame, setSpinnerFrame] = useState(0);
   const [tokenCount, setTokenCount] = useState(0);
   const [model, setModel] = useState(initialModel);
+  const [totalCost, setTotalCost] = useState(0);
 
   // Scroll state
   const [scrollOffset, setScrollOffset] = useState(0);
   const [forceUpdate, setForceUpdate] = useState(0);
+
+  // Virtual scroll config
+  const itemHeight = 1; // Each message takes 1 line minimum
+  const overscan = 5; // Extra items to render above/below viewport for smooth scrolling
 
   const { exit } = useApp();
   const { height: terminalHeight, width: terminalWidth } = useTerminalSize();
 
   // Reserve space for status bar + input (3 lines)
   const viewportHeight = terminalHeight - 3;
+
+  // Calculate visible range using virtual scroll algorithm
+  const virtualScrollResult = getVisibleRange({
+    totalCount: messages.length,
+    viewportHeight,
+    itemHeight,
+    scrollTop: scrollOffset * itemHeight,
+    overscan,
+  });
 
   const historyRef = useRef<string[]>([]);
   const historyIdxRef = useRef(-1);
@@ -171,10 +148,18 @@ function ScrollableView({
     const maxOffset = Math.max(0, messages.length - viewportHeight);
     setScrollOffset(maxOffset);
     setForceUpdate(n => n + 1);
-  }, [messages.length, viewportHeight]);
+  }, [messages.length, viewportHeight, itemHeight]);
 
-  // Render messages in viewport
-  const visibleMessages = messages.slice(scrollOffset, scrollOffset + viewportHeight);
+  // Calculate visible start/end for display
+  const displayStart = virtualScrollResult ? virtualScrollResult.startIndex + 1 : scrollOffset + 1;
+  const displayEnd = virtualScrollResult
+    ? Math.min(virtualScrollResult.endIndex, messages.length)
+    : Math.min(scrollOffset + viewportHeight, messages.length);
+
+  // Render messages in viewport using virtual scroll
+  const visibleMessages = virtualScrollResult
+    ? messages.slice(virtualScrollResult.startIndex, virtualScrollResult.endIndex)
+    : messages.slice(scrollOffset, scrollOffset + viewportHeight);
 
   // Context info
   const contextInfo = calculateContextInfo(tokenCount, model);
@@ -215,7 +200,7 @@ function ScrollableView({
             role: "system",
             content: preview,
             toolName: tu.name,
-            type: "tool_call",
+            subType: "tool_call",
           });
           setForceUpdate(n => n + 1);
         },
@@ -227,7 +212,7 @@ function ScrollableView({
             role: "system",
             content: preview,
             toolName: "result",
-            type: "tool_result",
+            subType: "tool_result",
             isError: tr.result.is_error,
           });
           setForceUpdate(n => n + 1);
@@ -235,6 +220,7 @@ function ScrollableView({
         onMetrics: async (m) => {
           const tokens = m.usage.input_tokens + m.usage.output_tokens;
           if (tokens > 0) setTokenCount(tokens);
+          setTotalCost(prev => prev + (m.costUSD ?? 0));
           await sessionStore.saveMetrics(m);
         },
       });
@@ -255,6 +241,7 @@ function ScrollableView({
       addMessage({
         role: "system",
         content: `Error: ${err instanceof Error ? err.message : String(err)}`,
+        subType: "error",
       });
       setForceUpdate(n => n + 1);
     } finally {
@@ -273,13 +260,19 @@ function ScrollableView({
         addMessage({ role: "system", content: HELP_TEXT });
         break;
       case "clear":
-        messages.length = 0;
+        clearMessages();
         addMessage({ role: "system", content: "[Cleared]" });
         break;
       case "exit":
       case "quit":
         onExit?.();
         exit();
+        break;
+      case "cost":
+        addMessage({
+          role: "system",
+          content: `Session Cost: ${formatCost(totalCost)}\nTokens: ${tokenCount}`,
+        });
         break;
       case "model":
         if (args) {
@@ -292,14 +285,14 @@ function ScrollableView({
       case "status":
         addMessage({
           role: "system",
-          content: `Session: ${sessionId.slice(0, 8)}... | Model: ${getModelDisplayName(model)} | Context: ${contextInfo.percentRemaining.toFixed(0)}%`,
+          content: `Session: ${sessionId.slice(0, 8)}... | Model: ${getModelDisplayName(model)} | Context: ${contextInfo.percentRemaining.toFixed(0)}% | Cost: ${formatCost(totalCost)}`,
         });
         break;
       default:
         addMessage({ role: "system", content: `Unknown: /${command}` });
     }
     setForceUpdate(n => n + 1);
-  }, [onExit, exit, model, sessionId, contextInfo.percentRemaining]);
+  }, [onExit, exit, model, sessionId, contextInfo.percentRemaining, totalCost, tokenCount]);
 
   // Keyboard + mouse input
   useInput((input: string, key: Key) => {
@@ -446,8 +439,8 @@ function ScrollableView({
           </Text>
         )}
 
-        {visibleMessages.map((msg, idx) => {
-          if (msg.type === "tool_call") {
+        {visibleMessages.map((msg) => {
+          if (msg.subType === "tool_call") {
             return (
               <Box key={msg.id} flexDirection="column">
                 <Text bold color="yellow">▶ {msg.toolName}</Text>
@@ -455,7 +448,7 @@ function ScrollableView({
               </Box>
             );
           }
-          if (msg.type === "tool_result") {
+          if (msg.subType === "tool_result") {
             return (
               <Box key={msg.id} flexDirection="column">
                 <Text bold color={msg.isError ? "red" : "green"}>
@@ -487,7 +480,8 @@ function ScrollableView({
       {/* Scroll indicator */}
       {messages.length > viewportHeight && (
         <Text dimColor>
-          [{scrollOffset + 1}-{Math.min(scrollOffset + viewportHeight, messages.length)}/{messages.length}] ↑↓ PgUp/PgDn
+          [{displayStart}-{displayEnd}/{messages.length}] ↑↓ PgUp/PgDn
+          {virtualScrollResult && <Text dimColor> | Virtual Scroll</Text>}
         </Text>
       )}
 
@@ -516,58 +510,6 @@ function ScrollableView({
 }
 
 // ============================================
-// HELPERS
-// ============================================
-
-const HELP_TEXT = `
-Commands:
-  /help              Show help
-  /clear             Clear messages
-  /model [name]      Switch model
-  /status            Session info
-  /exit              Exit
-
-Navigation:
-  ↑/↓                Scroll one line
-  PgUp/PgDn          Scroll one page
-  Mouse wheel        Scroll
-  Ctrl+↑/↓           History nav
-`;
-
-function estimateTokens(text: string): number {
-  return Math.ceil((text?.length || 1) / 4);
-}
-
-function estimateMessagesTokens(msgs: ApiMessage[]): number {
-  let total = 0;
-  for (const msg of msgs) {
-    if (typeof msg.content === "string") {
-      total += estimateTokens(msg.content);
-    } else if (Array.isArray(msg.content)) {
-      for (const block of msg.content) {
-        if (block.type === "text") total += estimateTokens(block.text);
-        else if (block.type === "tool_use") total += estimateTokens(JSON.stringify(block.input));
-        else if (block.type === "tool_result" && typeof block.content === "string") {
-          total += estimateTokens(block.content);
-        }
-      }
-    }
-  }
-  return total;
-}
-
-function apiToText(msg: ApiMessage): string {
-  if (typeof msg.content === "string") return msg.content;
-  if (!Array.isArray(msg.content)) return "";
-  return msg.content.map(b => {
-    if (b.type === "text") return b.text;
-    if (b.type === "tool_use") return `[${b.name}]`;
-    if (b.type === "tool_result") return b.is_error ? "[Error]" : "[Result]";
-    return "";
-  }).join("\n");
-}
-
-// ============================================
 // RUNNER
 // ============================================
 
@@ -583,9 +525,9 @@ export async function runScrollableTUI(
 
   suppressConsole(opts);
 
-  // Enter alternate screen buffer using native Rust TUI
-  NativeTerminal.enterAltScreen();
-  NativeTerminal.hideCursor();
+  // Enter alternate screen buffer
+  TerminalControl.enterAltScreen();
+  TerminalControl.hideCursor();
   process.stdout.write(ENABLE_MOUSE_SCROLL);
 
   try {
@@ -602,10 +544,10 @@ export async function runScrollableTUI(
     await waitUntilExit();
     unmount();
   } finally {
-    // Disable mouse + exit alternate screen buffer using native Rust TUI
+    // Disable mouse + exit alternate screen buffer
     process.stdout.write(DISABLE_MOUSE_SCROLL);
-    NativeTerminal.showCursor();
-    NativeTerminal.exitAltScreen();
+    TerminalControl.showCursor();
+    TerminalControl.exitAltScreen();
     restoreConsole();
 
     if (opts.buffer) {

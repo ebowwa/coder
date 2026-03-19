@@ -13,6 +13,7 @@ import type { PermissionMode } from "../../../../schemas/index.js";
 import {
   getContextWindow as getContextWindowBase,
   getModelDisplayName as getModelDisplayNameBase,
+  MODEL_DISPLAY_NAMES,
 } from "../../../../core/models.js";
 import { VERSION, BUILD_TIME } from "../../../../core/version.js";
 

@@ -7,6 +7,8 @@ export type {
   InteractiveTUIProps,
   SessionStore,
   ContextInfo,
+  UIMessage,
+  MessageSubType,
 } from "./types.js";
 
 // Console utilities
@@ -14,6 +16,7 @@ export { suppressConsole, restoreConsole, withSuppressedConsole } from "./consol
 
 // Spinner utilities
 export {
+  SPINNERS,
   spinnerFrames,
   dotSpinnerFrames,
   asciiSpinnerFrames,
@@ -23,6 +26,17 @@ export {
   getFrame,
   createSpinnerIterator,
 } from "./spinner.js";
+
+// Shared helpers
+export {
+  genId,
+  estimateTokens,
+  estimateMessagesTokens,
+  apiToText,
+  HELP_TEXT,
+  useTokenCount,
+  wrapText,
+} from "./helpers.js";
 
 // Terminal size hook
 export { useTerminalSize, type TerminalSize, type UseTerminalSizeOptions } from "./useTerminalSize.js";
@@ -34,11 +48,18 @@ export {
   type InteractiveTUIHandle,
 } from "./InteractiveTUI.js";
 
-// Scrollable TUI component
+// Scrollable TUI component - Removed (file was orphaned, logic moved to core/tui)
+// Runners
+
+// Suggestion agent (Cursor-style autocomplete)
 export {
-  default as ScrollableTUI,
-  type ScrollableTUIProps,
-} from "./ScrollableTUI.js";
+  SuggestionAgent,
+  getSuggestionAgent,
+  destroySuggestionAgent,
+  type SuggestionAgentOptions,
+  type SuggestionContext,
+  type SuggestionResult,
+} from "./suggestion-agent.js";
 
 // Runners
 export { runInteractiveTUI, runScrollableTUI } from "./run.js";

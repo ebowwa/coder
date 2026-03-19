@@ -2,6 +2,7 @@
  * Native TUI Runner (Simplified)
  *
  * Full native Rust TUI rendering without Ink.
+ * Uses core/tui module for shared logic.
  */
 
 import type { InteractiveTUIProps } from "./InteractiveTUI.js";
@@ -25,6 +26,17 @@ import { spinnerFrames } from "./spinner.js";
 import { agentLoop, createResultConditionsConfig, type ResultConditionsConfig } from "../../../../core/agent-loop.js";
 import { getGitStatus } from "../../../../core/git-status.js";
 
+// Import from core/tui module
+import {
+  genId,
+  estimateTokens,
+  estimateMessagesTokens,
+  HELP_TEXT,
+  TerminalControl,
+  CommandHandler,
+  type CommandContext,
+} from "../../../../core/tui/index.js";
+
 // ============================================
 // TYPES
 // ============================================
@@ -45,50 +57,7 @@ interface DisplayMessage {
 
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
-const HELP_TEXT = `
-Commands:
-  /help              Show help
-  /clear             Clear messages
-  /model [name]      Switch model
-  /status            Session info
-  /exit              Exit
-
-Navigation:
-  ↑/↓                Scroll one line
-  PgUp/PgDn          Scroll one page (coming soon)
-  Ctrl+↑/↓           History nav
-`;
-
-let msgId = 0;
-const genId = () => `msg-${++msgId}-${Date.now()}`;
-
-// ============================================
-// HELPERS
-// ============================================
-
-function estimateTokens(text: string): number {
-  return Math.ceil((text?.length || 1) / 4);
-}
-
-function estimateMessagesTokens(messages: ApiMessage[]): number {
-  let total = 0;
-  for (const msg of messages) {
-    if (typeof msg.content === "string") {
-      total += estimateTokens(msg.content);
-    } else if (Array.isArray(msg.content)) {
-      for (const block of msg.content) {
-        if (block.type === "text") total += estimateTokens(block.text);
-      }
-    }
-  }
-  return total;
-}
-
-function truncateContent(content: string, maxLength: number): string {
-  // For TUI, we want wrapping not truncation
-  // Return content as-is and let the native renderer handle wrapping
-  return content;
-}
+// NOTE: HELP_TEXT, genId, estimateTokens, estimateMessagesTokens are now imported from core/tui
 
 // ============================================
 // STATE INTERFACE
@@ -125,6 +94,7 @@ export class NativeTUI {
   }
   private state: TUIState;
   private streamingMessageId: string | null = null;
+  private streamingThinkingId: string | null = null;
 
   constructor(props: InteractiveTUIProps) {
     this.props = props;
@@ -442,17 +412,24 @@ export class NativeTUI {
         permissionMode: this.props.permissionMode,
         workingDirectory: this.props.workingDirectory,
         gitStatus: await getGitStatus(this.props.workingDirectory),
-        extendedThinking: undefined,
+        extendedThinking: this.props.extendedThinking
+          ? {
+              enabled: true,
+              effort: this.props.effort ?? "medium",
+              interleaved: this.props.interleaved ?? true,
+            }
+          : undefined,
         hookManager: this.props.hookManager,
         sessionId: this.props.sessionId,
         stopSequences: this.props.stopSequences,
         resultConditions: this.parseResultConditions(),
         onText: (text) => {
-          // Update or create streaming message
+          // Update or create streaming message with [Response] label
+          const labeledText = `\x1b[1m\x1b[36m[Response]\x1b[0m\n${text}`;
           if (this.streamingMessageId) {
             const msg = this.messages.find(m => m.id === this.streamingMessageId);
             if (msg) {
-              msg.content = text;
+              msg.content = labeledText;
               this.render();
               return;
             }
@@ -463,7 +440,32 @@ export class NativeTUI {
           this.messages.push({
             id,
             role: "assistant",
-            content: text,
+            content: labeledText,
+            timestamp: Date.now(),
+          });
+          const viewportHeight = this.terminalHeight - 4;
+          const maxOffset = Math.max(0, this.messages.length - viewportHeight);
+          this.state.scrollOffset = maxOffset;
+          this.render();
+        },
+        onThinking: (thinking) => {
+          // Update or create streaming thinking message with [Thinking] label
+          const labeledThinking = `\x1b[90m\x1b[3m[Thinking]\x1b[0m\n${thinking}`;
+          if (this.streamingThinkingId) {
+            const msg = this.messages.find(m => m.id === this.streamingThinkingId);
+            if (msg) {
+              msg.content = labeledThinking;
+              this.render();
+              return;
+            }
+          }
+          // Create new streaming thinking message
+          const id = genId();
+          this.streamingThinkingId = id;
+          this.messages.push({
+            id,
+            role: "assistant",
+            content: labeledThinking,
             timestamp: Date.now(),
           });
           const viewportHeight = this.terminalHeight - 4;
@@ -507,9 +509,13 @@ export class NativeTUI {
           ? lastAssistant.content
           : Array.isArray(lastAssistant.content)
             ? lastAssistant.content
-                .filter((b): b is { type: "text"; text: string } => b.type === "text")
-                .map(b => b.text)
-                .join("")
+                .map((b) => {
+                  if (b.type === "text") return `\x1b[1m\x1b[36m[Response]\x1b[0m\n${b.text}`;
+                  if (b.type === "thinking") return `\x1b[90m\x1b[3m[Thinking]\x1b[0m\n${b.thinking}`;
+                  if (b.type === "redacted_thinking") return "\x1b[90m[Redacted Thinking]\x1b[0m";
+                  return "";
+                })
+                .join("\n\n")
             : "";
         if (text) {
           // Update the streaming message with final content

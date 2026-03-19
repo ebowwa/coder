@@ -1,122 +1,62 @@
 /**
- * InteractiveTUI - Enhanced terminal UI
+ * InteractiveTUI - Terminal UI built on @ebowwa/tui-core
  *
- * Principles:
- * 1. Use Ink's useInput directly (no native polling)
- * 2. Single state source (no dual message tracking)
- * 3. No context providers
- * 4. No global state hacks
- * 5. Show tool calls and results in UI
- * 6. Extended thinking block support
- * 7. Cost tracking per session
- * 8. Enhanced slash commands
- * 9. Hybrid rendering: Ink for UI, native Rust TUI for performance-critical components
+ * Clean implementation following tui-core patterns.
+ * Uses core/tui module for shared logic (CommandHandler, InputManager, TerminalControl).
  */
 
-import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { render, Box, Text, useInput, useApp } from "ink";
-import type { Key } from "ink";
-import type { PermissionMode, Message as ApiMessage, ToolDefinition, QueryMetrics } from "../../../../schemas/index.js";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import {
+  render,
+  Box,
+  Text,
+  Bold,
+  Muted,
+  ErrorText,
+  Success,
+  Warning,
+  Info,
+  App,
+  useAppContext,
+  Panel,
+  StatusBar,
+  useInput,
+  useTerminalSize,
+} from "@ebowwa/tui-core";
+import type { Key } from "@ebowwa/tui-core";
+import { SPINNERS, getFrame, nextFrame } from "@ebowwa/tui-core/algorithms";
+
+import type { PermissionMode, Message as ApiMessage, ToolDefinition } from "../../../../schemas/index.js";
 import type { HookManager } from "../../../../ecosystem/hooks/index.js";
 import { agentLoop } from "../../../../core/agent-loop.js";
 import { getGitStatus } from "../../../../core/git-status.js";
-import { calculateContextInfo, VERSION, getModelDisplayName, formatTokenCount } from "../shared/status-line.js";
-import { formatCost, formatCostBrief } from "../../../../core/agent-loop/formatters.js";
-import { spinnerFrames } from "./spinner.js";
-import type { SessionStore, ContextInfo } from "./types.js";
-import { useTerminalSize } from "./useTerminalSize.js";
-// Native TUI rendering bridge (Rust-backed)
+import { calculateContextInfo, VERSION, getModelDisplayName } from "../shared/status-line.js";
+import { formatCost } from "../../../../core/agent-loop/formatters.js";
+import type { SessionStore, UIMessage } from "./types.js";
+
+// Import from core/tui module
 import {
-  Terminal,
-  Styles,
-  Render,
-  Draw,
-  renderMessage,
-  renderStatusBar,
-  type TuiStyle,
-  type TuiRgb,
-  type TuiModifiers,
-  type TuiTextSegment,
-  type TuiTextLine,
-  type TuiTextBlock,
-} from "./tui-renderer.js";
+  genId,
+  estimateTokens,
+  apiToText,
+  HELP_TEXT,
+  formatTokenCount as useTokenCount,
+  TerminalControl,
+  InputManager,
+  CommandHandler,
+  type CommandContext,
+} from "../../../../core/tui/index.js";
+import { SuggestionAgent } from "./suggestion-agent.js";
+
+// ============================================
+// CONSTANTS
+// ============================================
+
+const IDLE_DELAY_MS = 2500; // Show proactive suggestions after 2.5s of idle
 
 // ============================================
 // TYPES
 // ============================================
-
-interface UIMessage {
-  id: string;
-  role: "user" | "assistant" | "system";
-  content: string;
-  /** Tool name if this is a tool call/result */
-  toolName?: string;
-  /** Tool input preview */
-  toolInput?: string;
-  /** Tool output preview */
-  toolOutput?: string;
-  /** Whether tool result was an error */
-  isError?: boolean;
-  /** Message type for styling */
-  type?: "tool_call" | "tool_result" | "text" | "thinking";
-  /** Cost of this message (if applicable) */
-  costUSD?: number;
-  /** Token usage for this message */
-  tokens?: number;
-  /** Timestamp */
-  timestamp: number;
-}
-
-/** Session cost tracking */
-interface SessionCost {
-  totalCost: number;
-  inputTokens: number;
-  outputTokens: number;
-  cacheReadTokens: number;
-  cacheWriteTokens: number;
-}
-
-// ============================================
-// NATIVE TUI STATUS BAR
-// ============================================
-
-/**
- * Status bar component using native Rust TUI rendering
- * Provides better performance for frequently-updated status displays
- */
-interface NativeStatusBarProps {
-  isLoading: boolean;
-  spinnerFrame: number;
-  tokenCount: number;
-  permissionMode: string;
-  model: string;
-  cost: QueryMetrics;
-  width: number;
-}
-
-function NativeStatusBar({
-  isLoading,
-  spinnerFrame,
-  tokenCount,
-  permissionMode,
-  model,
-  cost,
-  width,
-}: NativeStatusBarProps) {
-  const left = isLoading
-    ? `${spinnerFrames[spinnerFrame]} Processing...`
-    : `${getModelDisplayName(model)} | ${permissionMode}`;
-  const right = `${formatTokenCount(tokenCount)} | ${formatCostBrief(cost)}`;
-
-  // Use native Rust TUI rendering for status bar
-  const statusBarAnsi = renderStatusBar(left, right, width);
-
-  return (
-    <Text>
-      {statusBarAnsi}
-    </Text>
-  );
-}
 
 export interface InteractiveTUIProps {
   apiKey: string;
@@ -132,12 +72,15 @@ export interface InteractiveTUIProps {
   workingDirectory: string;
   onExit?: () => void;
   initialMessages?: ApiMessage[];
-  /** Custom stop sequences that will cause the model to stop generating */
   stopSequences?: string[];
-  /** Result conditions as JSON string (parsed at runtime) */
   resultConditions?: string;
-  /** Stop loop on unhandled tool errors */
   stopOnUnhandledError?: boolean;
+  /** Enable extended thinking */
+  extendedThinking?: boolean;
+  /** Thinking effort level */
+  effort?: "low" | "medium" | "high" | "max";
+  /** Enable interleaved thinking */
+  interleaved?: boolean;
 }
 
 export interface InteractiveTUIHandle {
@@ -147,140 +90,53 @@ export interface InteractiveTUIHandle {
 }
 
 // ============================================
-// HELPERS
+// MESSAGE VIEW COMPONENT
 // ============================================
 
-let msgId = 0;
-const genId = () => `msg-${++msgId}-${Date.now()}`;
-
-function estimateTokens(text: string): number {
-  return Math.ceil((text?.length || 1) / 4);
+interface MessageViewProps {
+  msg: UIMessage;
 }
 
-function estimateMessagesTokens(messages: ApiMessage[]): number {
-  let total = 0;
-  for (const msg of messages) {
-    if (typeof msg.content === "string") {
-      total += estimateTokens(msg.content);
-    } else if (Array.isArray(msg.content)) {
-      for (const block of msg.content) {
-        if (block.type === "text") total += estimateTokens(block.text);
-        else if (block.type === "tool_use") total += estimateTokens(JSON.stringify(block.input));
-        else if (block.type === "tool_result" && typeof block.content === "string") {
-          total += estimateTokens(block.content);
-        }
-      }
-    }
+function MessageView({ msg }: MessageViewProps): React.ReactElement {
+  if (msg.subType === "tool_call") {
+    return (
+      <Box flexDirection="column">
+        <Warning>▶ {msg.toolName}</Warning>
+        {msg.content && <Muted>  {msg.content.slice(0, 200)}</Muted>}
+      </Box>
+    );
   }
-  return total;
-}
-
-function apiToText(msg: ApiMessage): string {
-  if (typeof msg.content === "string") return msg.content;
-  if (!Array.isArray(msg.content)) return "";
-  return msg.content.map(b => {
-    if (b.type === "text") return b.text;
-    if (b.type === "tool_use") return `[Tool: ${b.name}]`;
-    if (b.type === "tool_result") return b.is_error ? "[Error]" : "[Result]";
-    if (b.type === "thinking") return `[Thinking: ${b.thinking.slice(0, 50)}...]`;
-    if (b.type === "redacted_thinking") return "[Redacted Thinking]";
-    return "";
-  }).join("\n");
-}
-
-/**
- * Truncate content intelligently, preserving code blocks
- */
-function truncateContent(content: string, maxLength: number): string {
-  if (content.length <= maxLength) return content;
-
-  // Check if content has code blocks
-  const codeBlockMatch = content.match(/```[\s\S]*?```/g);
-  if (codeBlockMatch && codeBlockMatch.length > 0) {
-    // Preserve first code block if it fits
-    const firstBlock = codeBlockMatch[0];
-    if (firstBlock.length <= maxLength) {
-      const beforeBlock = content.slice(0, content.indexOf(firstBlock));
-      const afterBlockStart = content.indexOf(firstBlock) + firstBlock.length;
-      const remaining = maxLength - firstBlock.length - beforeBlock.length;
-      const afterBlock = content.slice(afterBlockStart, afterBlockStart + Math.max(0, remaining - 3));
-      return beforeBlock + firstBlock + afterBlock + (afterBlockStart + remaining < content.length ? "..." : "");
-    }
+  if (msg.subType === "tool_result") {
+    return (
+      <Box flexDirection="column">
+        {msg.isError ? (
+          <ErrorText>✗ {msg.toolName}</ErrorText>
+        ) : (
+          <Success>✓ {msg.toolName}</Success>
+        )}
+        {msg.content && <Muted>  {msg.content.slice(0, 200)}</Muted>}
+      </Box>
+    );
   }
-
-  // Default truncation
-  return content.slice(0, maxLength - 3) + "...";
+  return (
+    <Box>
+      {msg.role === "user" ? (
+        <Text bold color="cyan">You: </Text>
+      ) : msg.role === "assistant" ? (
+        <Text bold color="magenta">Claude: </Text>
+      ) : (
+        <Info>System: </Info>
+      )}
+      <Muted>{msg.content}</Muted>
+    </Box>
+  );
 }
-
-/**
- * Format thinking block for display
- */
-function formatThinkingBlock(thinking: string, maxWidth: number): string {
-  const lines = thinking.split("\n");
-  const truncated = lines.slice(0, 3).join("\n");
-  if (lines.length > 3 || truncated.length > maxWidth) {
-    return truncateContent(truncated, maxWidth);
-  }
-  return truncated;
-}
-
-/**
- * Create empty session cost
- */
-function createEmptySessionCost(): SessionCost {
-  return {
-    totalCost: 0,
-    inputTokens: 0,
-    outputTokens: 0,
-    cacheReadTokens: 0,
-    cacheWriteTokens: 0,
-  };
-}
-
-/**
- * Update session cost from metrics
- */
-function updateSessionCost(cost: SessionCost, metrics: QueryMetrics): SessionCost {
-  return {
-    totalCost: cost.totalCost + (metrics.costUSD ?? 0),
-    inputTokens: cost.inputTokens + (metrics.usage?.input_tokens ?? 0),
-    outputTokens: cost.outputTokens + (metrics.usage?.output_tokens ?? 0),
-    cacheReadTokens: cost.cacheReadTokens + (metrics.usage?.cache_read_input_tokens ?? 0),
-    cacheWriteTokens: cost.cacheWriteTokens + (metrics.usage?.cache_creation_input_tokens ?? 0),
-  };
-}
-
-const HELP_TEXT = `
-Commands:
-  /help              - Show this help
-  /clear             - Clear messages
-  /compact           - Compact context
-  /cost              - Show session cost breakdown
-  /model [name]      - Show or switch model
-  /status            - Show session status
-  /checkpoint [name] - Save checkpoint
-  /checkpoints       - List checkpoints
-  /undo              - Undo last action
-  /redo              - Redo action
-  /skills [search]   - Search skills marketplace
-  /skills-installed  - List installed skills
-  /exit              - Exit Coder
-
-Keyboard Shortcuts:
-  Ctrl+C             - Exit Coder
-  Ctrl+L             - Clear screen
-  Ctrl+U             - Clear input line
-  Ctrl+A             - Move to start of line
-  Ctrl+E             - Move to end of line
-  Up/Down            - History navigation
-  Tab                - Show command completions
-`;
 
 // ============================================
-// COMPONENT
+// MAIN TUI COMPONENT
 // ============================================
 
-function InteractiveTUI({
+function InteractiveTUIContent({
   apiKey,
   model: initialModel,
   permissionMode,
@@ -294,60 +150,214 @@ function InteractiveTUI({
   workingDirectory,
   onExit,
   initialMessages = [],
-}: InteractiveTUIProps) {
-  // Single state source
+  extendedThinking,
+  effort,
+  interleaved,
+}: InteractiveTUIProps): React.ReactElement {
+  const app = useAppContext();
+  const size = useTerminalSize();
+
   const [messages, setMessages] = useState<UIMessage[]>([]);
   const [apiMessages, setApiMessages] = useState<ApiMessage[]>(initialMessages);
   const [inputValue, setInputValue] = useState("");
-  const [cursorPos, setCursorPos] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [streamingText, setStreamingText] = useState("");
-  const [streamingThinking, setStreamingThinking] = useState("");
-  const [spinnerFrame, setSpinnerFrame] = useState(0);
+  const [streamingThinking, setStreamingThinking] = useState<string | null>(null);
+  const [spinnerIndex, setSpinnerIndex] = useState(0);
   const [tokenCount, setTokenCount] = useState(0);
-
-  // Enhanced state
   const [model, setModel] = useState(initialModel);
-  const [sessionCost, setSessionCost] = useState<SessionCost>(createEmptySessionCost());
-  const [checkpointHistory, setCheckpointHistory] = useState<Array<{ id: string; label: string; messages: ApiMessage[]; timestamp: number }>>([]);
-  const [checkpointIndex, setCheckpointIndex] = useState(-1);
-  const [showCommandHints, setShowCommandHints] = useState(false);
+  const [totalCost, setTotalCost] = useState(0);
+  const [suggestion, setSuggestion] = useState<string | null>(null);
+  const [suggestionSource, setSuggestionSource] = useState<"local" | "ai" | null>(null);
+  const [suggestionIndex, setSuggestionIndex] = useState(0);
+  const [isFetchingSuggestion, setIsFetchingSuggestion] = useState(false);
 
-  // Refs for history (no re-renders needed)
   const historyRef = useRef<string[]>([]);
   const historyIdxRef = useRef(-1);
   const savedInputRef = useRef("");
   const isProcessingRef = useRef(false);
+  const suggestionsRef = useRef<string[]>([]);
 
-  const { exit } = useApp();
+  // Rich context for suggestions
+  const [gitBranch, setGitBranch] = useState<string | undefined>();
+  const [gitDirty, setGitDirty] = useState(false);
+  const [recentFiles, setRecentFiles] = useState<string[]>([]);
+  const idleTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Track terminal dimensions with resize support
-  const { width: terminalWidth } = useTerminalSize();
+  // Suggestion agent instance
+  const suggestionAgentRef = useRef<SuggestionAgent | null>(null);
 
-  // Dynamic limits based on terminal size
-  const maxContentWidth = Math.max(terminalWidth - 20, 40); // Reserve space for labels/padding
-  const maxToolPreview = Math.floor(maxContentWidth * 2); // Tool previews can span ~2 lines
-  const maxMessageLength = Math.floor(maxContentWidth * 10); // Messages can span ~10 lines
-  const maxThinkingLength = Math.floor(maxContentWidth * 3); // Thinking previews are shorter
+  // Initialize suggestion agent with glm-5-turbo for faster suggestions
+  useEffect(() => {
+    suggestionAgentRef.current = new SuggestionAgent({
+      apiKey,
+      model: "glm-5-turbo", // Use turbo model for faster suggestions
+      minInputLength: 2,
+      debounceMs: 400,
+      maxTokens: 30,
+      contextSize: 4,
+    });
 
-  // NOTE: We render ALL messages to enable terminal scrollback.
-  // The terminal's native scroll (mouse wheel, Shift+PageUp/Down) handles history.
+    return () => {
+      suggestionAgentRef.current?.destroy();
+    };
+  }, [apiKey]); // Only re-create if apiKey changes
+
+  // Update agent config when apiKey changes
+  useEffect(() => {
+    suggestionAgentRef.current?.updateConfig({ apiKey });
+  }, [apiKey]);
+
+  // Fetch rich context (git status, recent files) for better suggestions
+  useEffect(() => {
+    const fetchContext = async () => {
+      try {
+        // Get git status
+        const gitStatus = await getGitStatus(workingDirectory);
+        if (gitStatus) {
+          setGitBranch(gitStatus.branch);
+          setGitDirty(!gitStatus.clean);
+        }
+
+        // Get recent files (last 10 from current directory)
+        const fs = await import("fs/promises");
+        const files = await fs.readdir(workingDirectory).catch(() => [] as string[]);
+        const recentFilesList = files.slice(0, 10);
+        setRecentFiles(recentFilesList);
+      } catch {
+        // Silently fail - context is optional
+      }
+    };
+
+    fetchContext();
+  }, [workingDirectory]);
+
+  // Update suggestions using the suggestion agent (AI only)
+  const updateSuggestions = useCallback(async (input: string) => {
+    const agent = suggestionAgentRef.current;
+    if (!agent) return;
+
+    // Clear suggestion while fetching
+    setSuggestion(null);
+    setSuggestionSource(null);
+    setSuggestionIndex(0);
+    suggestionsRef.current = [];
+
+    // Fetch AI suggestion (debounced internally by agent)
+    if (input.length >= 2 && !input.startsWith("/") && !isProcessingRef.current && agent) {
+      setIsFetchingSuggestion(true);
+      try {
+        const aiResult = await agent.fetchAISuggestion({
+          input,
+          messages: apiMessages,
+          history: historyRef.current,
+          // Rich context for better suggestions
+          workingDirectory: {
+            path: workingDirectory,
+            gitBranch,
+            gitDirty,
+            recentFiles,
+          },
+        });
+
+        if (aiResult && aiResult.source === "ai") {
+          suggestionsRef.current = [aiResult.text];
+          setSuggestion(aiResult.text);
+          setSuggestionSource("ai");
+          setSuggestionIndex(0);
+        }
+      } finally {
+        setIsFetchingSuggestion(false);
+      }
+    }
+  }, [apiMessages, workingDirectory, gitBranch, gitDirty, recentFiles]);
+
+  // Idle suggestions - show suggestions when user stops typing (not during typing)
+  const IDLE_DELAY_MS = 1500; // Wait 1.5s after last keystroke
+
+  const scheduleIdleSuggestion = useCallback((input: string) => {
+    // Clear any existing timer
+    if (idleTimerRef.current) {
+      clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = null;
+    }
+
+    // Don't schedule if processing or input is a command
+    if (isProcessingRef.current || input.startsWith("/")) return;
+
+    // Schedule idle suggestion
+    idleTimerRef.current = setTimeout(async () => {
+      const agent = suggestionAgentRef.current;
+      if (!agent || isProcessingRef.current) return;
+
+      setIsFetchingSuggestion(true);
+      try {
+        // For idle suggestions, we can suggest even with shorter input
+        // because the user has paused - they might want help
+        const aiResult = await agent.fetchAISuggestion({
+          input: input || " ", // Use space for empty input to trigger context-based suggestion
+          messages: apiMessages,
+          history: historyRef.current,
+          workingDirectory: {
+            path: workingDirectory,
+            gitBranch,
+            gitDirty,
+            recentFiles,
+          },
+        });
+
+        if (aiResult && aiResult.source === "ai") {
+          suggestionsRef.current = [aiResult.text];
+          setSuggestion(aiResult.text);
+          setSuggestionSource("ai");
+          setSuggestionIndex(0);
+        }
+      } finally {
+        setIsFetchingSuggestion(false);
+        idleTimerRef.current = null;
+      }
+    }, IDLE_DELAY_MS);
+  }, [apiMessages, workingDirectory, gitBranch, gitDirty, recentFiles]);
+
+  // Cleanup idle timer on unmount
+  useEffect(() => {
+    return () => {
+      if (idleTimerRef.current) {
+        clearTimeout(idleTimerRef.current);
+      }
+    };
+  }, []);
+
+  // Start idle suggestion timer on mount (for empty input suggestions)
+  useEffect(() => {
+    if (!isLoading && !isProcessingRef.current) {
+      scheduleIdleSuggestion("");
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Get spinner frames
+  const spinnerFrames = SPINNERS.dots?.[0]?.frames ?? ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
   // Spinner animation
   useEffect(() => {
     if (!isLoading) return;
-    const iv = setInterval(() => setSpinnerFrame(f => (f + 1) % spinnerFrames.length), 80);
+    const iv = setInterval(() => {
+      setSpinnerIndex(i => nextFrame(i, spinnerFrames));
+    }, 80);
     return () => clearInterval(iv);
-  }, [isLoading]);
+  }, [isLoading, spinnerFrames]);
 
   // Process message
   const processMessage = useCallback(async (input: string) => {
     if (isProcessingRef.current) return;
     isProcessingRef.current = true;
 
-    // Add user message
-    setMessages(prev => [...prev, { id: genId(), role: "user", content: input, timestamp: Date.now() }]);
-
+    setMessages(prev => [...prev, {
+      id: genId(),
+      role: "user",
+      content: input,
+      timestamp: Date.now(),
+    }]);
     setIsLoading(true);
     setStreamingText("");
 
@@ -367,56 +377,51 @@ function InteractiveTUI({
         permissionMode,
         workingDirectory,
         gitStatus: await getGitStatus(workingDirectory),
-        extendedThinking: undefined,
+        extendedThinking: extendedThinking
+          ? {
+              enabled: true,
+              effort: effort ?? "medium",
+              interleaved: interleaved ?? true,
+            }
+          : undefined,
         hookManager,
         sessionId,
         onText: (text) => setStreamingText(prev => prev + text),
+        onThinking: (thinking) => setStreamingThinking(prev => (prev ?? "") + thinking),
         onToolUse: (tu) => {
-          // Show tool call with input preview
-          const inputPreview = typeof tu.input === "object"
-            ? JSON.stringify(tu.input, null, 2).slice(0, maxToolPreview)
-            : String(tu.input).slice(0, maxToolPreview);
           setMessages(prev => [...prev, {
             id: genId(),
             role: "system",
-            content: inputPreview,
+            content: JSON.stringify(tu.input).slice(0, 200),
             toolName: tu.name,
-            type: "tool_call",
+            subType: "tool_call",
             timestamp: Date.now(),
           }]);
         },
         onToolResult: (tr) => {
-          // Show tool result with output preview
-          let outputPreview = "";
-          const resultMaxLen = tr.result.is_error ? maxMessageLength : maxToolPreview;
-          if (tr.result.is_error) {
-            outputPreview = typeof tr.result.content === "string"
-              ? tr.result.content.slice(0, resultMaxLen)
-              : JSON.stringify(tr.result.content).slice(0, resultMaxLen);
-          } else {
-            outputPreview = typeof tr.result.content === "string"
-              ? tr.result.content.slice(0, resultMaxLen)
-              : JSON.stringify(tr.result.content).slice(0, resultMaxLen);
-          }
+          const output = typeof tr.result.content === "string"
+            ? tr.result.content.slice(0, 200)
+            : JSON.stringify(tr.result.content).slice(0, 200);
           setMessages(prev => [...prev, {
             id: genId(),
             role: "system",
-            content: outputPreview,
-            toolName: "tool",
+            content: output,
+            toolName: "result",
             isError: tr.result.is_error,
-            type: "tool_result",
+            subType: "tool_result",
             timestamp: Date.now(),
           }]);
         },
         onMetrics: async (m) => {
           const tokens = m.usage.input_tokens + m.usage.output_tokens;
           if (tokens > 0) setTokenCount(tokens);
+          setTotalCost(prev => prev + (m.costUSD ?? 0));
           await sessionStore.saveMetrics(m);
         },
       });
 
       setApiMessages(result.messages);
-      setTokenCount(estimateMessagesTokens(result.messages));
+      setTokenCount(estimateTokens(JSON.stringify(result.messages)));
 
       const lastAssistant = result.messages.filter(m => m.role === "assistant").pop();
       if (lastAssistant) {
@@ -430,11 +435,18 @@ function InteractiveTUI({
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
-      setMessages(prev => [...prev, { id: genId(), role: "system", content: `Error: ${errorMessage}`, timestamp: Date.now() }]);
+      setMessages(prev => [...prev, {
+        id: genId(),
+        role: "system",
+        content: `Error: ${errorMessage}`,
+        subType: "error",
+        timestamp: Date.now(),
+      }]);
     } finally {
       setIsLoading(false);
       isProcessingRef.current = false;
       setStreamingText("");
+      setStreamingThinking(null);
     }
   }, [apiMessages, apiKey, model, maxTokens, systemPrompt, tools, permissionMode, workingDirectory, hookManager, sessionId, sessionStore]);
 
@@ -442,326 +454,74 @@ function InteractiveTUI({
   const handleCommand = useCallback(async (cmd: string) => {
     const parts = cmd.slice(1).split(" ");
     const command = parts[0]?.toLowerCase();
-    const args = parts.slice(1).join(" ");
     const now = Date.now();
 
     switch (command) {
       case "help":
         setMessages(prev => [...prev, { id: genId(), role: "system", content: HELP_TEXT, timestamp: now }]);
         break;
-
       case "clear":
         setMessages([]);
         setApiMessages([]);
         setTokenCount(0);
         break;
-
       case "exit":
       case "quit":
         onExit?.();
-        exit();
+        app.exit(0);
         break;
-
       case "compact":
         setMessages([]);
         setApiMessages([]);
-        setTokenCount(1);
         break;
-
-      case "sessions": {
-        const sessions = await sessionStore.listSessions();
+      case "cost":
         setMessages(prev => [...prev, {
           id: genId(),
           role: "system",
-          content: sessions.map((s, i) => `${i + 1}. ${s.metadata?.preview || ""} (${s.messageCount} msgs)`).join("\n") || "No sessions",
+          content: `Session Cost: ${formatCost(totalCost)}\nTokens: ${tokenCount}`,
           timestamp: now,
         }]);
         break;
-      }
-
-      case "resume": {
-        if (args) {
-          const session = await sessionStore.resumeSession(args);
-          if (session) {
-            setMessages([]);
-            setApiMessages(session.messages);
-            setSessionId(session.metadata.id);
-          }
-        }
-        break;
-      }
-
-      case "cost": {
-        const costBreakdown = [
-          `Session Cost Summary`,
-          `━━━━━━━━━━━━━━━━━━━━`,
-          `Total Cost: ${formatCost(sessionCost.totalCost)}`,
-          `Input Tokens: ${sessionCost.inputTokens.toLocaleString()}`,
-          `Output Tokens: ${sessionCost.outputTokens.toLocaleString()}`,
-          `Cache Read: ${sessionCost.cacheReadTokens.toLocaleString()} tokens`,
-          `Cache Write: ${sessionCost.cacheWriteTokens.toLocaleString()} tokens`,
-          ``,
-          `Model: ${getModelDisplayName(model)}`,
-          `Context: ${formatTokenCount(tokenCount)}`,
-        ].join("\n");
-        setMessages(prev => [...prev, { id: genId(), role: "system", content: costBreakdown, timestamp: now }]);
-        break;
-      }
-
-      case "status": {
-        // Calculate context info inline since it's defined later in the component
-        const statusContextInfo = calculateContextInfo(tokenCount, model);
-        const statusInfo = [
-          `Session Status`,
-          `━━━━━━━━━━━━━━━━━━━━`,
-          `Session ID: ${sessionId.slice(0, 8)}...`,
-          `Model: ${getModelDisplayName(model)}`,
-          `Permission Mode: ${permissionMode}`,
-          `Context: ${statusContextInfo.percentRemaining.toFixed(1)}% remaining`,
-          `Messages: ${apiMessages.length}`,
-          `Working Dir: ${workingDirectory.split("/").pop()}`,
-          `Total Cost: ${formatCost(sessionCost.totalCost)}`,
-        ].join("\n");
-        setMessages(prev => [...prev, { id: genId(), role: "system", content: statusInfo, timestamp: now }]);
-        break;
-      }
-
-      case "model": {
-        if (args) {
-          // Switch model
-          setModel(args);
-          setMessages(prev => [...prev, {
-            id: genId(),
-            role: "system",
-            content: `Model switched to: ${getModelDisplayName(args)}`,
-            timestamp: now,
-          }]);
-        } else {
-          // Show current model
-          setMessages(prev => [...prev, {
-            id: genId(),
-            role: "system",
-            content: `Current model: ${getModelDisplayName(model)}\n\nAvailable models:\n  - claude-opus-4-6 (Opus 4.6)\n  - claude-sonnet-4-6 (Sonnet 4.6)\n  - claude-haiku-4-5-20251001 (Haiku 4.5)\n  - glm-5 (GLM-5)`,
-            timestamp: now,
-          }]);
-        }
-        break;
-      }
-
-      case "checkpoint": {
-        const label = args || `Checkpoint ${checkpointHistory.length + 1}`;
-        const checkpoint = {
-          id: genId(),
-          label,
-          messages: [...apiMessages],
-          timestamp: Date.now(),
-        };
-        setCheckpointHistory(prev => [...prev.slice(-19), checkpoint]); // Keep last 20
-        setCheckpointIndex(checkpointHistory.length); // Point to new checkpoint
+      case "status":
+        const contextInfo = calculateContextInfo(tokenCount, model);
         setMessages(prev => [...prev, {
           id: genId(),
           role: "system",
-          content: `Checkpoint saved: "${label}" (${apiMessages.length} messages)`,
+          content: `Session: ${sessionId.slice(0, 8)}...\nModel: ${getModelDisplayName(model)}\nContext: ${contextInfo.percentRemaining.toFixed(0)}% remaining\nCost: ${formatCost(totalCost)}`,
           timestamp: now,
         }]);
         break;
-      }
-
-      case "checkpoints": {
-        if (checkpointHistory.length === 0) {
-          setMessages(prev => [...prev, {
-            id: genId(),
-            role: "system",
-            content: "No checkpoints saved. Use /checkpoint <name> to create one.",
-            timestamp: now,
-          }]);
-        } else {
-          const list = checkpointHistory.map((cp, i) => {
-            const time = new Date(cp.timestamp).toLocaleTimeString();
-            const current = i === checkpointIndex ? " ← current" : "";
-            return `${i + 1}. ${cp.label} (${cp.messages.length} msgs, ${time})${current}`;
-          }).join("\n");
-          setMessages(prev => [...prev, {
-            id: genId(),
-            role: "system",
-            content: `Checkpoints:\n${list}\n\nUse /undo and /redo to navigate.`,
-            timestamp: now,
-          }]);
-        }
-        break;
-      }
-
-      case "undo": {
-        if (checkpointIndex > 0) {
-          const newIndex = checkpointIndex - 1;
-          const checkpoint = checkpointHistory[newIndex];
-          if (checkpoint) {
-            setCheckpointIndex(newIndex);
-            setApiMessages(checkpoint.messages);
-            setTokenCount(estimateMessagesTokens(checkpoint.messages));
-            setMessages(prev => [...prev, {
-              id: genId(),
-              role: "system",
-              content: `Restored: "${checkpoint.label}"`,
-              timestamp: now,
-            }]);
-          }
-        } else {
-          setMessages(prev => [...prev, {
-            id: genId(),
-            role: "system",
-            content: "Nothing to undo. Use /checkpoint to save states first.",
-            timestamp: now,
-          }]);
-        }
-        break;
-      }
-
-      case "redo": {
-        if (checkpointIndex < checkpointHistory.length - 1) {
-          const newIndex = checkpointIndex + 1;
-          const checkpoint = checkpointHistory[newIndex];
-          if (checkpoint) {
-            setCheckpointIndex(newIndex);
-            setApiMessages(checkpoint.messages);
-            setTokenCount(estimateMessagesTokens(checkpoint.messages));
-            setMessages(prev => [...prev, {
-              id: genId(),
-              role: "system",
-              content: `Restored: "${checkpoint.label}"`,
-              timestamp: now,
-            }]);
-          }
-        } else {
-          setMessages(prev => [...prev, {
-            id: genId(),
-            role: "system",
-            content: "Nothing to redo.",
-            timestamp: now,
-          }]);
-        }
-        break;
-      }
-
-      case "skills": {
-        // Skills marketplace search
-        const searchQuery = args || "";
-
-        try {
-          // Dynamically import the skills client
-          const { SkillsClient } = await import("../../../../ecosystem/skills/skills-client.js");
-          const client = new SkillsClient(apiKey);
-
-          setMessages(prev => [...prev, {
-            id: genId(),
-            role: "system",
-            content: searchQuery ? `Searching marketplace for "${searchQuery}"...` : "Loading skills marketplace...",
-            timestamp: now,
-          }]);
-
-          const { skills } = await client.list({ search: searchQuery, limit: 20 });
-
-          if (skills.length === 0) {
-            setMessages(prev => [...prev, {
-              id: genId(),
-              role: "system",
-              content: searchQuery
-                ? `No skills found matching "${searchQuery}"\n\nTry a different search or use /skills to browse all.`
-                : "No skills available in marketplace.",
-              timestamp: now,
-            }]);
-          } else {
-            const skillList = skills.map((s, i) => {
-              const author = s.author ? ` by ${s.author}` : "";
-              return `${i + 1}. \x1b[1m${s.name}\x1b[0m${author}\n   ${s.description}`;
-            }).join("\n\n");
-
-            setMessages(prev => [...prev, {
-              id: genId(),
-              role: "system",
-              content: `Skills Marketplace (${skills.length} results)\n\n${skillList}\n\nUse skills with /<skill-name> or invoke via the Skill tool.`,
-              timestamp: now,
-            }]);
-          }
-        } catch (error) {
-          const errorMsg = error instanceof Error ? error.message : String(error);
-          setMessages(prev => [...prev, {
-            id: genId(),
-            role: "system",
-            content: `Failed to search marketplace: ${errorMsg}\n\nCheck your API key and network connection.`,
-            timestamp: now,
-          }]);
-        }
-        break;
-      }
-
-      case "skills-installed": {
-        // List installed/local skills
-        const { SkillManager } = await import("../../../../ecosystem/skills/index.js");
-        const manager = new SkillManager();
-
-        // Load from common locations
-        const home = process.env.HOME || "";
-        manager.loadFromDirectory(`${home}/.claude/skills`, "user");
-        manager.loadFromDirectory(`${workingDirectory}/.claude/skills`, "project");
-
-        const localSkills = manager.getAll();
-
-        if (localSkills.length === 0) {
-          setMessages(prev => [...prev, {
-            id: genId(),
-            role: "system",
-            content: `No local skills installed.\n\nInstall skills by:\n  - Creating .claude/skills/<name>.md\n  - Or use /skills to browse the marketplace`,
-            timestamp: now,
-          }]);
-        } else {
-          const skillList = localSkills.map((s, i) => {
-            const source = s.source === "user" ? "global" : s.source;
-            return `${i + 1}. \x1b[1m${s.name}\x1b[0m (${source})\n   ${s.description || "No description"}`;
-          }).join("\n\n");
-
-          setMessages(prev => [...prev, {
-            id: genId(),
-            role: "system",
-            content: `Installed Skills (${localSkills.length})\n\n${skillList}\n\nUse skills with /<skill-name>`,
-            timestamp: now,
-          }]);
-        }
-        break;
-      }
-
       default:
-        setMessages(prev => [...prev, { id: genId(), role: "system", content: `Unknown command: /${command}\n\nType /help to see available commands.`, timestamp: now }]);
+        setMessages(prev => [...prev, { id: genId(), role: "system", content: `Unknown command: /${command}`, timestamp: now }]);
     }
-  }, [onExit, exit, sessionStore, setSessionId, sessionCost, model, permissionMode, tokenCount, apiMessages, checkpointHistory, checkpointIndex, workingDirectory, sessionId]);
+  }, [onExit, app, totalCost, tokenCount, model, sessionId]);
 
-  // Keyboard input using Ink's useInput
+  // Keyboard input
   useInput((input: string, key: Key) => {
-    // Exit on Ctrl+C
+    // Clear idle timer on any keystroke
+    if (idleTimerRef.current) {
+      clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = null;
+    }
+
     if (key.ctrl && input === "c") {
       onExit?.();
-      exit();
+      app.exit(0);
       return;
     }
 
     if (isLoading) return;
 
-    // Submit on Enter
     if (key.return) {
       const value = inputValue.trim();
       if (!value) return;
-
-      // Clear immediately
       setInputValue("");
-      setCursorPos(0);
+      setSuggestion(null);
+      setSuggestionIndex(0);
       historyIdxRef.current = -1;
-
-      // Add to history
       if (!value.startsWith("/") && value !== historyRef.current[0]) {
         historyRef.current = [value, ...historyRef.current].slice(0, 100);
       }
-
-      // Process
       setTimeout(() => {
         if (value.startsWith("/")) {
           handleCommand(value);
@@ -772,16 +532,12 @@ function InteractiveTUI({
       return;
     }
 
-    // History up
     if (key.upArrow) {
       if (historyRef.current.length > 0) {
-        if (historyIdxRef.current === -1) {
-          savedInputRef.current = inputValue;
-        }
+        if (historyIdxRef.current === -1) savedInputRef.current = inputValue;
         const newIdx = Math.min(historyIdxRef.current + 1, historyRef.current.length - 1);
         historyIdxRef.current = newIdx;
-        setInputValue(historyRef.current[newIdx] || "");
-        setCursorPos((historyRef.current[newIdx] || "").length);
+        setInputValue(historyRef.current[newIdx] ?? "");
       }
       return;
     }
@@ -790,55 +546,57 @@ function InteractiveTUI({
       if (historyIdxRef.current > 0) {
         const newIdx = historyIdxRef.current - 1;
         historyIdxRef.current = newIdx;
-        setInputValue(historyRef.current[newIdx] || "");
-        setCursorPos((historyRef.current[newIdx] || "").length);
+        setInputValue(historyRef.current[newIdx] ?? "");
       } else if (historyIdxRef.current === 0) {
         historyIdxRef.current = -1;
         setInputValue(savedInputRef.current);
-        setCursorPos(savedInputRef.current.length);
       }
       return;
     }
 
-    // Backspace
     if (key.backspace || key.delete) {
-      if (cursorPos > 0) {
-        setInputValue(prev => prev.slice(0, cursorPos - 1) + prev.slice(cursorPos));
-        setCursorPos(p => p - 1);
+      const newValue = inputValue.slice(0, -1);
+      setInputValue(newValue);
+      // Update suggestions (debounced, includes AI)
+      updateSuggestions(newValue);
+      // Schedule idle suggestion for after user stops typing
+      scheduleIdleSuggestion(newValue);
+      return;
+    }
+
+    if (key.leftArrow || key.rightArrow) {
+      setSuggestion(null);
+      setSuggestionIndex(0);
+      return;
+    }
+
+    // Tab to accept AI suggestion (append completion part only)
+    if (key.tab && suggestion && suggestionSource === "ai") {
+      // Only append the part that hasn't been typed yet
+      if (suggestion.startsWith(inputValue)) {
+        const completion = suggestion.slice(inputValue.length);
+        if (completion) {
+          setInputValue(suggestion);
+        }
+      } else {
+        // Suggestion doesn't match input, use full suggestion
+        setInputValue(suggestion);
       }
+      setSuggestion(null);
+      setSuggestionSource(null);
       return;
     }
 
-    // Arrow keys
-    if (key.leftArrow) {
-      setCursorPos(p => Math.max(0, p - 1));
-      return;
-    }
-
-    if (key.rightArrow) {
-      setCursorPos(p => Math.min(inputValue.length, p + 1));
-      return;
-    }
-
-    // Home/End (Ctrl+A / Ctrl+E)
-    if (key.ctrl && input === "a") {
-      setCursorPos(0);
-      return;
-    }
-
-    if (key.ctrl && input === "e") {
-      setCursorPos(inputValue.length);
-      return;
-    }
-
-    // Regular character
     if (input && !key.ctrl && !key.meta) {
-      if (historyIdxRef.current !== -1) {
-        historyIdxRef.current = -1;
-        savedInputRef.current = "";
-      }
-      setInputValue(prev => prev.slice(0, cursorPos) + input + prev.slice(cursorPos));
-      setCursorPos(p => p + input.length);
+      historyIdxRef.current = -1;
+      const newValue = inputValue + input;
+      setInputValue(newValue);
+
+      // Update suggestions (debounced, includes AI)
+      updateSuggestions(newValue);
+
+      // Schedule idle suggestion for after user stops typing
+      scheduleIdleSuggestion(newValue);
     }
   }, { isActive: !isLoading });
 
@@ -846,94 +604,122 @@ function InteractiveTUI({
   const contextInfo = calculateContextInfo(tokenCount, model);
 
   return (
-    <Box flexDirection="column" width={terminalWidth}>
-      {/* Messages - render ALL to enable terminal scrollback */}
-      <Box flexDirection="column">
+    <Box flexDirection="column" height={size.height} width={size.width}>
+      {/* Header */}
+      <Box justifyContent="space-between" width="100%" paddingX={1}>
+        <Box>
+          <Text bold color="magenta">Coder v{VERSION}</Text>
+          <Text dimColor> | </Text>
+          <Text color="cyan">{getModelDisplayName(model)}</Text>
+          <Text dimColor> | </Text>
+          <Text color="yellow">{permissionMode}</Text>
+        </Box>
+        <Box>
+          <Text dimColor>Session: </Text>
+          <Text color="gray">{sessionId}</Text>
+        </Box>
+      </Box>
+
+      {/* Messages */}
+      <Box flexDirection="column" flexGrow={1}>
+        {/* Context warning */}
         {contextInfo.isLow && (
-          <Text color={contextInfo.isCritical ? "red" : "yellow"} bold>
-            Context: {contextInfo.percentRemaining.toFixed(0)}% remaining
-          </Text>
+          <Box>
+            <Warning>
+              <Bold>Context: {contextInfo.percentRemaining.toFixed(0)}% remaining</Bold>
+            </Warning>
+          </Box>
         )}
 
+        {/* Welcome */}
         {messages.length === 0 && !isLoading && !streamingText && (
-          <Text dimColor>
-            Welcome to Coder v{VERSION}. Type your message or /help for commands.
-          </Text>
+          <Muted>Type your message or /help for commands.</Muted>
         )}
 
-        {messages.map(msg => {
-          // Tool call
-          if (msg.type === "tool_call") {
-            return (
-              <Box key={msg.id} flexDirection="column">
-                <Text bold color="yellow">▶ {msg.toolName}</Text>
-                {msg.content && (
-                  <Text dimColor color="gray">  {msg.content}</Text>
-                )}
-              </Box>
-            );
-          }
-          // Tool result
-          if (msg.type === "tool_result") {
-            return (
-              <Box key={msg.id} flexDirection="column">
-                <Text bold color={msg.isError ? "red" : "green"}>
-                  {msg.isError ? "✗" : "✓"} {msg.toolName}
-                </Text>
-                {msg.content && (
-                  <Text dimColor color={msg.isError ? "red" : "green"}>  {msg.content}</Text>
-                )}
-              </Box>
-            );
-          }
-          // Regular message
-          return (
-            <Text key={msg.id}>
-              {msg.role === "user" ? (
-                <Text bold color="cyan">You: </Text>
-              ) : msg.role === "assistant" ? (
-                <Text bold color="magenta">Claude: </Text>
-              ) : (
-                <Text bold color="yellow">System: </Text>
-              )}
-              <Text dimColor={msg.role === "system"}>{msg.content.slice(0, maxMessageLength)}{msg.content.length > maxMessageLength ? "..." : ""}</Text>
-            </Text>
-          );
-        })}
+        {/* Messages */}
+        {messages.map(msg => <MessageView key={msg.id} msg={msg} />)}
 
+        {/* Streaming Thinking */}
+        {streamingThinking && (
+          <Box flexDirection="column">
+            <Text dimColor italic>[Thinking]</Text>
+            <Muted>{streamingThinking.slice(-500)}</Muted>
+          </Box>
+        )}
+
+        {/* Streaming */}
         {streamingText && (
-          <Text>
+          <Box>
             <Text bold color="magenta">Claude: </Text>
-            <Text dimColor>{streamingText.slice(-maxMessageLength)}</Text>
-          </Text>
+            <Muted>{streamingText.slice(-500)}</Muted>
+          </Box>
         )}
 
+        {/* Loading */}
         {isLoading && !streamingText && (
-          <Text color="cyan">{spinnerFrames[spinnerFrame]} Processing...</Text>
+          <Info>{getFrame(spinnerIndex, spinnerFrames)} Processing...</Info>
         )}
       </Box>
 
-      {/* Status bar */}
-      <Text dimColor>
-        {isLoading ? spinnerFrames[spinnerFrame] + " " : ""}Context: {tokenCount} tokens | {permissionMode}
-      </Text>
+      {/* Input panel */}
+      <Panel title="Input" borderStyle="round" borderColor={isLoading ? "gray" : "green"}>
+        <Box flexDirection="column" width="100%">
+          <Box justifyContent="space-between" width="100%">
+            <Box>
+              <Text bold color={isLoading ? "gray" : "cyan"}>&gt; </Text>
+              {inputValue.length > 0 ? (
+                <Text>
+                  {inputValue}
+                  {/* Show inline completion (suggestion suffix) in grey */}
+                  {suggestion && suggestionSource === "ai" && suggestion.startsWith(inputValue) && (
+                    <Text dimColor>{suggestion.slice(inputValue.length)}</Text>
+                  )}
+                  <Text backgroundColor="cyan" color="black"> </Text>
+                </Text>
+              ) : (
+                <Muted>Type your message...</Muted>
+              )}
+            </Box>
+            <Box>
+              {inputValue.length > 0 && (
+                <Text dimColor>{inputValue.length} chars</Text>
+              )}
+            </Box>
+          </Box>
+          {/* Loading indicator for suggestions */}
+          {isFetchingSuggestion && inputValue.length >= 2 && !inputValue.startsWith("/") && (
+            <Box marginTop={0}>
+              <Text dimColor color="yellow">✨ Thinking...</Text>
+            </Box>
+          )}
+        </Box>
+      </Panel>
 
-      {/* Input */}
-      <Text>
-        <Text bold color={isLoading ? "gray" : "cyan"}>You: </Text>
-        {inputValue.length > 0 ? (
-          <>
-            {inputValue.slice(0, cursorPos)}
-            <Text backgroundColor="cyan" color="black">
-              {cursorPos < inputValue.length ? inputValue[cursorPos] : " "}
-            </Text>
-            {inputValue.slice(cursorPos + 1)}
-          </>
-        ) : (
-          <Text dimColor>Type your message... (/help for commands)</Text>
-        )}
-      </Text>
+      {/* Status bar */}
+      <StatusBar
+        left={[
+          { content: "Coder", icon: "◉" },
+          { content: permissionMode, color: "yellow" },
+        ]}
+        right={[
+          { content: useTokenCount(tokenCount) },
+          { content: formatCost(totalCost), color: "green" },
+        ]}
+        showDivider
+      />
     </Box>
+  );
+}
+
+// ============================================
+// WRAPPER WITH APP CONTEXT
+// ============================================
+
+function InteractiveTUI(props: InteractiveTUIProps): React.ReactElement {
+  return (
+    <App>
+      <InteractiveTUIContent {...props} />
+    </App>
   );
 }
 
@@ -941,51 +727,30 @@ function InteractiveTUI({
 // RENDER FUNCTION
 // ============================================
 
-/**
- * Native terminal control using Rust TUI primitives
- * These replace manual ANSI escape codes with native implementations
- */
-const NativeTerminal = {
-  enterAltScreen: () => { process.stdout.write(Terminal.enterAltScreen()); },
-  exitAltScreen: () => { process.stdout.write(Terminal.exitAltScreen()); },
-  clearScreen: () => { process.stdout.write(Terminal.clearScreen()); },
-  hideCursor: () => { process.stdout.write(Terminal.hideCursor()); },
-  showCursor: () => { process.stdout.write(Terminal.showCursor()); },
-};
+// TerminalControl is now imported from core/tui
 
 export function createInteractiveTUI(
   initialProps: InteractiveTUIProps
 ): InteractiveTUIHandle {
   let currentProps = { ...initialProps };
-  let rerenderFn: ((node: React.ReactNode) => void) | null = null;
-  let unmountFn: (() => void) | null = null;
-  let waitFn: (() => Promise<void>) | null = null;
 
-  // Enter alternate screen buffer BEFORE render using native Rust TUI
-  // This isolates TUI from main terminal - no pre-app history visible
-  NativeTerminal.enterAltScreen();
+  TerminalControl.enterAltScreen();
 
-  // Small delay to ensure terminal processes the escape code
   const { rerender, unmount, waitUntilExit } = render(
     <InteractiveTUI {...currentProps} />,
     { exitOnCtrlC: false }
   );
 
-  rerenderFn = rerender;
-  unmountFn = unmount;
-  waitFn = waitUntilExit;
-
   return {
     rerender: (newProps) => {
       currentProps = { ...currentProps, ...newProps };
-      rerenderFn?.(<InteractiveTUI {...currentProps} />);
+      rerender(<InteractiveTUI {...currentProps} />);
     },
     unmount: () => {
-      unmountFn?.();
-      // Exit alternate screen buffer using native Rust TUI - restore original terminal
-      NativeTerminal.exitAltScreen();
+      unmount();
+      TerminalControl.exitAltScreen();
     },
-    waitUntilExit: () => waitFn?.() || Promise.resolve(),
+    waitUntilExit: () => waitUntilExit(),
   };
 }
 
