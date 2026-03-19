@@ -1,14 +1,14 @@
 /**
  * Pure Ink TUI Runner
  *
- * This is the fallback mode that uses pure Ink rendering.
+ * This is the fallback mode that uses @ebowwa/tui-core rendering.
  * Does NOT support terminal scrollback - only shows current state.
  *
  * Set TUI_MODE=ink to use this mode.
  */
 
 import React from "react";
-import { render } from "ink";
+import { render } from "@ebowwa/tui-core";
 import InteractiveTUI, { type InteractiveTUIProps } from "./InteractiveTUI.js";
 import {
   suppressConsole,

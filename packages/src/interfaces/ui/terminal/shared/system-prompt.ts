@@ -1,10 +1,13 @@
 /**
  * System Prompt Building
  * Shared between CLI and TUI modes
+ *
+ * Uses centralized prompts from core/prompts/ for consistency.
  */
 
 import { loadClaudeMd, buildClaudeMdPrompt } from "../../../../core/claude-md.js";
 import { getGitStatus } from "../../../../core/git-status.js";
+import { buildBaseSystemPrompt } from "../../../../core/prompts/index.js";
 
 // ============================================
 // GIT STATUS TYPE
@@ -25,6 +28,9 @@ export interface GitStatusInfo {
 
 /**
  * Build the default system prompt with optional git status and CLAUDE.md content
+ *
+ * Uses centralized prompts from core/prompts/ for the base identity,
+ * principles, directives, and behavioral patterns.
  */
 export async function buildDefaultSystemPrompt(
   workingDirectory: string,
@@ -37,30 +43,11 @@ export async function buildDefaultSystemPrompt(
     presetClaudeMd?: string;
   }
 ): Promise<string> {
-  let prompt = `You are Coder, an AI coding assistant.
+  // Start with the centralized base prompt (identity, principles, directives, etc.)
+  let prompt = buildBaseSystemPrompt();
 
-You help users with software engineering tasks:
-- Reading, writing, and editing code
-- Running commands and scripts
-- Searching and exploring codebases
-- Debugging and fixing issues
-
-Guidelines:
-1. Be helpful, direct, and thorough
-2. Explain your reasoning when asked
-3. Follow user preferences and project conventions
-4. Use tools effectively to accomplish tasks
-5. Ask clarifying questions when needed
-
-Available tools:
-- Read: Read file contents
-- Write: Write new files
-- Edit: Make precise edits to files
-- Bash: Execute shell commands
-- Glob: Find files by pattern
-- Grep: Search file contents
-
-Working directory: ${workingDirectory}`;
+  // Add working directory context
+  prompt += `\n\n# Environment\n\nWorking directory: ${workingDirectory}`;
 
   // Add git status information if available
   if (options?.gitStatus) {

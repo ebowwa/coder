@@ -29,10 +29,11 @@ export async function runInteractiveTUI(
   options: InteractiveTUIProps,
   suppressOptions?: SuppressOptions
 ): Promise<void> {
-  // Use native mode by default for best performance
+  // Use ink mode by default (built on @ebowwa/tui-core)
+  // Set TUI_MODE=native for Rust TUI rendering (best performance)
   // Set TUI_MODE=scrollable for Ink-based scrolling
   // Set TUI_MODE=ink for pure Ink mode (no scrollback)
-  const mode = process.env.TUI_MODE || "native";
+  const mode = process.env.TUI_MODE || "ink";
 
   if (mode === "native") {
     // Full native Rust TUI rendering

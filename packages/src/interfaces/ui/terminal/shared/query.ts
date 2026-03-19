@@ -76,6 +76,10 @@ export async function runSingleQuery(options: QueryOptions): Promise<void> {
   // Create stream highlighter for code blocks
   const highlighter = createStreamHighlighter();
 
+  // Track if we've printed labels for thinking/response
+  let thinkingLabeled = false;
+  let responseLabeled = false;
+
   // Build extended thinking config
   const extendedThinkingConfig: ExtendedThinkingConfig | undefined = args.extendedThinking
     ? {
@@ -105,12 +109,22 @@ export async function runSingleQuery(options: QueryOptions): Promise<void> {
           })
         : undefined,
       onText: (text) => {
+        // Label response on first text chunk
+        if (!responseLabeled) {
+          process.stdout.write(`\x1b[1m\x1b[36m[Response]\x1b[0m\n`);
+          responseLabeled = true;
+        }
         const highlighted = highlighter.process(text);
         if (highlighted) {
           process.stdout.write(highlighted);
         }
       },
       onThinking: (thinking) => {
+        // Label thinking on first thinking chunk
+        if (!thinkingLabeled) {
+          process.stdout.write(`\x1b[90m\x1b[3m[Thinking]\x1b[0m\n`);
+          thinkingLabeled = true;
+        }
         process.stdout.write(`\x1b[90m${thinking}\x1b[0m`);
       },
       onMetrics: async (metrics) => {

@@ -1,64 +1,61 @@
 /**
  * Spinner Animation
- * Provides animated spinner frames for loading indicators
+ * Re-exports from @ebowwa/tui-core/algorithms for backwards compatibility
  *
- * This is the single source of truth for all spinner frames in Coder.
- * Other modules should import from here rather than defining their own.
+ * This module provides animated spinner frames for loading indicators.
+ * All spinner implementations now come from @ebowwa/tui-core.
  */
 
+// Re-export from @ebowwa/tui-core/algorithms
+export {
+  SPINNERS,
+  getFrame,
+  nextFrame,
+} from "@ebowwa/tui-core/algorithms"
+
+// Import for local use
+import { SPINNERS, getFrame, nextFrame } from "@ebowwa/tui-core/algorithms"
+
 // ============================================
-// SPINNER FRAME DEFINITIONS
+// BACKWARDS COMPATIBILITY EXPORTS
 // ============================================
 
 /**
  * Standard braille spinner frames (default)
- * Used by: ora spinner, TUI footer, Ink components
+ * @deprecated Use SPINNERS.dots[0].frames from @ebowwa/tui-core/algorithms
  */
-export const spinnerFrames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"] as const;
+export const spinnerFrames = SPINNERS.dots?.[0]?.frames ?? ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 
 /**
  * Alternative dot spinner frames
- * Rising dots pattern
+ * @deprecated Use SPINNERS.dots2[0].frames from @ebowwa/tui-core/algorithms
  */
-export const dotSpinnerFrames = ["⠁", "⠂", "⠄", "⡀", "⢀", "⠠", "⠐", "⠈"] as const;
+export const dotSpinnerFrames = SPINNERS.dots2?.[0]?.frames ?? ["⠁", "⠂", "⠄", "⡀", "⢀", "⠠", "⠐", "⠈"]
 
 /**
  * Simple ASCII spinner frames
- * Fallback for limited terminal support
+ * @deprecated Use SPINNERS.line[0].frames from @ebowwa/tui-core/algorithms
  */
-export const asciiSpinnerFrames = ["|", "/", "-", "\\"] as const;
+export const asciiSpinnerFrames = SPINNERS.line?.[0]?.frames ?? ["|", "/", "-", "\\"]
 
 /**
  * Arrow spinner frames
- * Used for tool execution indicators
+ * @deprecated Use SPINNERS.arrow[0].frames from @ebowwa/tui-core/algorithms
  */
-export const arrowSpinnerFrames = ["←", "↖", "↑", "↗", "→", "↘", "↓", "↙"] as const;
+export const arrowSpinnerFrames = SPINNERS.arrow?.[0]?.frames ?? ["←", "↖", "↑", "↗", "→", "↘", "↓", "↙"]
 
 /**
  * Simple dots for minimal display
  */
-export const simpleDotFrames = [".  ", ".. ", "...", "   "] as const;
+export const simpleDotFrames = [".  ", ".. ", "...", "   "] as const
 
 // ============================================
-// FRAME ITERATION UTILITIES
+// LOCAL IMPLEMENTATIONS (not in tui-core)
 // ============================================
-
-/**
- * Get the next spinner frame index
- */
-export function nextFrame(currentIndex: number, frames: readonly string[] = spinnerFrames): number {
-  return (currentIndex + 1) % frames.length;
-}
-
-/**
- * Get a spinner frame by index (with wraparound)
- */
-export function getFrame(index: number, frames: readonly string[] = spinnerFrames): string {
-  return frames[index % frames.length] ?? frames[0] ?? "";
-}
 
 /**
  * Create a spinner iterator
+ * Local implementation for backwards compatibility
  */
 export function* createSpinnerIterator(frames: readonly string[] = spinnerFrames): Generator<string, never, unknown> {
   let index = 0;
