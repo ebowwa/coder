@@ -279,6 +279,11 @@ export class MCPClientImpl {
       params,
     };
 
+    // HTTP transport - stateless, make a new request each time
+    if (this.config.type === "http" || this.config.type === "sse") {
+      return this.requestHttp(request);
+    }
+
     return new Promise((resolve, reject) => {
       this.pendingRequests.set(id, { resolve, reject });
 
@@ -299,10 +304,40 @@ export class MCPClientImpl {
       setTimeout(() => {
         if (this.pendingRequests.has(id)) {
           this.pendingRequests.delete(id);
-          reject(new Error(`Request timeout for ${method}`));
+          reject(new Error("Request timeout for " + method));
         }
       }, this.config.timeout || 120000);
     });
+  }
+
+  /**
+   * Make a stateless HTTP request
+   */
+  private async requestHttp(request: JSONRPCRequest): Promise<unknown> {
+    if (!this.config.url) {
+      throw new Error("No URL specified for HTTP transport");
+    }
+
+    const response = await fetch(this.config.url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...this.config.headers,
+      },
+      body: JSON.stringify(request),
+    });
+
+    if (!response.ok) {
+      throw new Error("HTTP error: " + response.status);
+    }
+
+    const result = (await response.json()) as JSONRPCResponse;
+
+    if (result.error) {
+      throw new Error(result.error.message);
+    }
+
+    return result.result;
   }
 
   notify(method: string, params: unknown): void {
