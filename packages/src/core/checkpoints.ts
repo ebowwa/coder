@@ -1,39 +1,69 @@
 /**
- * Checkpoint Manager - Save and restore conversation states
- * Captures both chat context AND code/file changes
+ * Checkpoint Manager - Reference-based checkpoint system
+ *
+ * Lightweight checkpoints that reference data instead of duplicating:
+ * - Messages: Reference by index (stored in JSONL sessions)
+ * - Files: Hash only (content recoverable from git)
+ * - Git state: Full state (lightweight metadata)
+ *
+ * Old: 582MB per checkpoint
+ * New: ~1KB per checkpoint
  */
 
 import { randomUUID } from "crypto";
+import { createHash } from "crypto";
 import { execSync } from "child_process";
 import type {
-  Message,
-  FileSnapshot,
+  FileReference,
   GitState,
   Checkpoint,
-  CheckpointStore,
   CheckpointMetadata,
+  LegacyCheckpoint,
+  LegacyFileSnapshot,
 } from "../schemas/index.js";
 
 // Re-export types for backward compatibility
-export type { FileSnapshot, GitState, Checkpoint, CheckpointStore } from "../schemas/index.js";
+export type { FileReference, GitState, Checkpoint, CheckpointMetadata } from "../schemas/index.js";
 
 const CHECKPOINTS_DIR = process.env.CLAUDE_CHECKPOINTS_DIR || `${process.env.HOME}/.claude/checkpoints`;
 
+// ============================================
+// HASH UTILITIES
+// ============================================
+
 /**
- * Generate a simple hash for file content
+ * Generate SHA-256 hash for file content
  */
 function hashContent(content: string): string {
-  let hash = 0;
-  for (let i = 0; i < content.length; i++) {
-    const char = content.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
-  }
-  return Math.abs(hash).toString(16);
+  return createHash("sha256").update(content).digest("hex").slice(0, 16);
 }
 
 /**
- * Get current git state
+ * Hash a file by path
+ */
+async function hashFile(filePath: string): Promise<string | null> {
+  try {
+    const file = Bun.file(filePath);
+    if (await file.exists()) {
+      const content = await file.text();
+      return hashContent(content);
+    }
+  } catch (error) {
+    // File not readable - this is expected for deleted/removed files
+    // Log at debug level for troubleshooting
+    if (process.env.DEBUG_CHECKPOINTS) {
+      console.error("[checkpoints] Could not hash file " + filePath + ": " + (error as Error).message);
+    }
+  }
+  return null;
+}
+
+// ============================================
+// GIT STATE
+// ============================================
+
+/**
+ * Get current git state (lightweight - no file contents)
  */
 function getGitState(workingDir: string): GitState | undefined {
   try {
@@ -97,75 +127,36 @@ function getGitState(workingDir: string): GitState | undefined {
   }
 }
 
-/**
- * Create a git stash with checkpoint info
- */
-function createCheckpointStash(workingDir: string, checkpointId: string): string | undefined {
-  try {
-    const stashName = `claude-checkpoint-${checkpointId}`;
-    execSync(`git stash push -m "${stashName}" --include-untracked 2>/dev/null || true`, {
-      cwd: workingDir,
-      encoding: "utf-8",
-      stdio: ["pipe", "pipe", "pipe"]
-    });
-    return stashName;
-  } catch {
-    return undefined;
-  }
-}
+// ============================================
+// FILE REFERENCES (Hash-only, no content)
+// ============================================
 
 /**
- * Capture file snapshots for modified files
+ * Capture file references (hashes only, no content)
  */
-async function captureFileSnapshots(
+async function captureFileReferences(
   workingDir: string,
   filePaths: string[]
-): Promise<FileSnapshot[]> {
-  const snapshots: FileSnapshot[] = [];
+): Promise<FileReference[]> {
+  const references: FileReference[] = [];
 
   for (const filePath of filePaths) {
-    try {
-      const fullPath = `${workingDir}/${filePath}`;
-      const file = Bun.file(fullPath);
-
-      if (await file.exists()) {
-        const content = await file.text();
-        snapshots.push({
-          path: filePath,
-          content,
-          hash: hashContent(content),
-        });
-      }
-    } catch {
-      // Skip files that can't be read
+    const fullPath = `${workingDir}/${filePath}`;
+    const hash = await hashFile(fullPath);
+    if (hash) {
+      references.push({
+        path: filePath,
+        hash,
+      });
     }
   }
 
-  return snapshots;
+  return references;
 }
 
-/**
- * Restore files from snapshots
- */
-async function restoreFileSnapshots(
-  workingDir: string,
-  snapshots: FileSnapshot[]
-): Promise<{ restored: number; failed: number }> {
-  let restored = 0;
-  let failed = 0;
-
-  for (const snapshot of snapshots) {
-    try {
-      const fullPath = `${workingDir}/${snapshot.path}`;
-      await Bun.write(fullPath, snapshot.content);
-      restored++;
-    } catch {
-      failed++;
-    }
-  }
-
-  return { restored, failed };
-}
+// ============================================
+// CHECKPOINT STORAGE
+// ============================================
 
 /**
  * Ensure checkpoints directory exists
@@ -196,17 +187,66 @@ export async function loadCheckpoints(sessionId: string): Promise<Map<string, Ch
 
     if (await file.exists()) {
       const content = await file.text();
-      const data = JSON.parse(content) as Checkpoint[];
+      const data = JSON.parse(content);
 
-      for (const checkpoint of data) {
-        checkpoints.set(checkpoint.id, checkpoint);
+      // Handle both array format and object format
+      const checkpointList = Array.isArray(data) ? data : Object.values(data);
+
+      for (const checkpoint of checkpointList) {
+        // Migrate legacy checkpoints to new format
+        const migrated = migrateLegacyCheckpoint(checkpoint);
+        checkpoints.set(migrated.id, migrated);
       }
     }
   } catch (error) {
-    // Return empty map on error
+    // Log error for debugging but don't fail
+    console.error("[checkpoints] Error loading checkpoints from " + sessionId + ": " + (error as Error).message);
   }
 
   return checkpoints;
+}
+
+/**
+ * Migrate legacy checkpoint to reference-based format
+ */
+function migrateLegacyCheckpoint(legacy: LegacyCheckpoint | Checkpoint): Checkpoint {
+  // Check if already migrated (has messageIndex instead of messages)
+  if ("messageIndex" in legacy && !("messages" in legacy)) {
+    return legacy as Checkpoint;
+  }
+
+  // Convert legacy to new format
+  const legacyCp = legacy as LegacyCheckpoint;
+
+  // Convert file snapshots to file references
+  const fileRefs: FileReference[] = [];
+  if (legacyCp.files) {
+    for (const file of legacyCp.files) {
+      if ("content" in file && file.content) {
+        // Legacy format - extract hash, discard content
+        fileRefs.push({
+          path: file.path,
+          hash: file.hash,
+        });
+      } else {
+        // Already reference format
+        fileRefs.push(file as FileReference);
+      }
+    }
+  }
+
+  return {
+    id: legacyCp.id,
+    sessionId: legacyCp.sessionId,
+    timestamp: legacyCp.timestamp,
+    label: legacyCp.label,
+    description: legacyCp.description,
+    // Convert messages array to messageIndex
+    messageIndex: Array.isArray(legacyCp.messages) ? legacyCp.messages.length : 0,
+    files: fileRefs,
+    gitState: legacyCp.gitState,
+    metadata: legacyCp.metadata,
+  };
 }
 
 /**
@@ -224,12 +264,16 @@ export async function saveCheckpoints(
   await Bun.write(filePath, JSON.stringify(data, null, 2));
 }
 
+// ============================================
+// CHECKPOINT CREATION (Reference-based)
+// ============================================
+
 /**
- * Create a new checkpoint with file snapshots
+ * Create a new checkpoint (reference-based, ~1KB)
  */
 export async function createCheckpoint(
   sessionId: string,
-  messages: Message[],
+  messages: unknown[],  // Accept any message format
   options: {
     label?: string;
     description?: string;
@@ -245,15 +289,15 @@ export async function createCheckpoint(
   // Capture git state
   const gitState = getGitState(workingDir);
 
-  // Capture file snapshots for all changed files
-  let fileSnapshots: FileSnapshot[] = [];
+  // Capture file references (hashes only, no content)
+  let fileRefs: FileReference[] = [];
   if (options.trackFiles !== false && gitState) {
     const changedFiles = [
       ...gitState.staged,
       ...gitState.unstaged,
       ...gitState.untracked,
     ];
-    fileSnapshots = await captureFileSnapshots(workingDir, changedFiles);
+    fileRefs = await captureFileReferences(workingDir, changedFiles);
   }
 
   const checkpoint: Checkpoint = {
@@ -262,15 +306,17 @@ export async function createCheckpoint(
     timestamp: Date.now(),
     label: options.label || `Checkpoint ${checkpoints.size + 1}`,
     description: options.description,
-    messages: JSON.parse(JSON.stringify(messages)), // Deep copy
-    files: fileSnapshots,
+    // Reference: just the count, not full messages
+    messageIndex: Array.isArray(messages) ? messages.length : 0,
+    // Reference: just hashes, not content
+    files: fileRefs,
     gitState,
     metadata: {
       model: options.model,
       workingDirectory: workingDir,
       totalCost: options.totalCost || 0,
-      messageCount: messages.length,
-      fileCount: fileSnapshots.length,
+      messageCount: Array.isArray(messages) ? messages.length : 0,
+      fileCount: fileRefs.length,
     },
   };
 
@@ -279,6 +325,10 @@ export async function createCheckpoint(
 
   return checkpoint;
 }
+
+// ============================================
+// CHECKPOINT RESTORATION
+// ============================================
 
 /**
  * Restore a checkpoint (returns the checkpoint, doesn't apply it)
@@ -292,38 +342,115 @@ export async function restoreCheckpoint(
 }
 
 /**
- * Apply a checkpoint - restore files and return messages
+ * Apply a checkpoint - restore files via git and return message index
+ *
+ * Note: Messages must be loaded from JSONL session store using messageIndex
+ * Files must be restored via git checkout/reset
  */
 export async function applyCheckpoint(
   checkpoint: Checkpoint,
   options: {
     restoreFiles?: boolean;
-    restoreMessages?: boolean;
     workingDirectory?: string;
   } = {}
 ): Promise<{
-  messages: Message[];
+  messageIndex: number;
   filesRestored: number;
   filesFailed: number;
+  warning?: string;
 }> {
   const workingDir = options.workingDirectory || checkpoint.metadata.workingDirectory || process.cwd();
 
   let filesRestored = 0;
   let filesFailed = 0;
+  let warning: string | undefined;
 
-  // Restore files if requested
-  if (options.restoreFiles !== false && checkpoint.files.length > 0) {
-    const result = await restoreFileSnapshots(workingDir, checkpoint.files);
+  // Restore files via git if requested
+  if (options.restoreFiles !== false && checkpoint.gitState) {
+    const result = await restoreFilesViaGit(workingDir, checkpoint);
     filesRestored = result.restored;
     filesFailed = result.failed;
+    warning = result.warning;
   }
 
   return {
-    messages: options.restoreMessages !== false ? checkpoint.messages : [],
+    messageIndex: checkpoint.messageIndex,
     filesRestored,
     filesFailed,
+    warning,
   };
 }
+
+/**
+ * Restore files using git (not file contents)
+ */
+async function restoreFilesViaGit(
+  workingDir: string,
+  checkpoint: Checkpoint
+): Promise<{ restored: number; failed: number; warning?: string }> {
+  let restored = 0;
+  let failed = 0;
+  let warning: string | undefined;
+
+  if (!checkpoint.gitState) {
+    return { restored: 0, failed: 0, warning: "No git state in checkpoint" };
+  }
+
+  try {
+    // Check if we can use git to restore
+    execSync("git rev-parse --is-inside-work-tree", {
+      cwd: workingDir,
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"]
+    });
+
+    // Restore staged files
+    for (const file of checkpoint.gitState.staged) {
+      try {
+        execSync(`git checkout HEAD -- "${file}"`, {
+          cwd: workingDir,
+          encoding: "utf-8",
+          stdio: ["pipe", "pipe", "pipe"]
+        });
+        restored++;
+      } catch {
+        failed++;
+      }
+    }
+
+    // Restore unstaged files
+    for (const file of checkpoint.gitState.unstaged) {
+      try {
+        execSync(`git checkout HEAD -- "${file}"`, {
+          cwd: workingDir,
+          encoding: "utf-8",
+          stdio: ["pipe", "pipe", "pipe"]
+        });
+        restored++;
+      } catch {
+        failed++;
+      }
+    }
+
+    // Remove untracked files (they weren't in git at checkpoint time)
+    if (checkpoint.gitState.untracked.length > 0) {
+      warning = `${checkpoint.gitState.untracked.length} untracked files existed at checkpoint time but cannot be restored (no git history)`;
+    }
+
+  } catch {
+    return {
+      restored: 0,
+      failed: checkpoint.files.length,
+      warning: "Not in a git repo - cannot restore files"
+    };
+  }
+
+  return { restored, failed, warning };
+}
+
+// ============================================
+// CHECKPOINT MANAGEMENT
+// ============================================
 
 /**
  * Delete a checkpoint
@@ -368,14 +495,17 @@ export function formatCheckpoint(checkpoint: Checkpoint, verbose = false): strin
     output += ` \x1b[32m[${checkpoint.files.length} files]\x1b[0m`;
   }
 
+  // Show message index
+  output += ` \x1b[36m[msg #${checkpoint.messageIndex}]\x1b[0m`;
+
   // Show git branch if available
   if (checkpoint.gitState) {
     output += ` \x1b[34m(${checkpoint.gitState.branch})\x1b[0m`;
   }
 
   if (verbose) {
-    output += `\n  Messages: ${checkpoint.metadata.messageCount}`;
-    output += `\n  Files: ${checkpoint.metadata.fileCount}`;
+    output += `\n  Messages: ${checkpoint.metadata.messageCount} (restore to #${checkpoint.messageIndex})`;
+    output += `\n  Files: ${checkpoint.metadata.fileCount} (hash refs only)`;
     output += `\n  Cost: $${checkpoint.metadata.totalCost.toFixed(4)}`;
     if (checkpoint.gitState) {
       const changes = checkpoint.gitState.staged.length +
@@ -435,7 +565,7 @@ export function getCheckpointSummary(checkpoint: Checkpoint): string {
     parts.push(`${checkpoint.files.length} files`);
   }
 
-  parts.push(`${checkpoint.metadata.messageCount} msgs`);
+  parts.push(`msg #${checkpoint.messageIndex}`);
 
   if (checkpoint.gitState) {
     const changes = checkpoint.gitState.staged.length +
@@ -574,4 +704,70 @@ export async function getNavigationStatus(sessionId: string): Promise<{
     canRedo: nav.undoneIds.length > 0,
     currentId: nav.checkpointIds[nav.currentIndex],
   };
+}
+
+// ============================================
+// AUTO-CLEANUP
+// ============================================
+
+/**
+ * Clean up old checkpoints
+ * @param maxAge Max age in milliseconds (default: 7 days)
+ * @param maxPerSession Max checkpoints per session (default: 10)
+ */
+export async function cleanupOldCheckpoints(
+  options: {
+    maxAge?: number;
+    maxPerSession?: number;
+  } = {}
+): Promise<{ deleted: number; kept: number }> {
+  const maxAge = options.maxAge || 7 * 24 * 60 * 60 * 1000; // 7 days
+  const maxPerSession = options.maxPerSession || 10;
+  const now = Date.now();
+
+  let deleted = 0;
+  let kept = 0;
+
+  try {
+    const glob = new Bun.Glob("*.json");
+    const files = [...glob.scanSync(CHECKPOINTS_DIR)];
+
+    for (const file of files) {
+      if (file.endsWith("-nav.json")) continue; // Skip navigation files
+
+      const sessionId = file.replace(".json", "");
+      const checkpoints = await loadCheckpoints(sessionId);
+      const sorted = Array.from(checkpoints.values()).sort((a, b) => b.timestamp - a.timestamp);
+
+      const toKeep = new Set<string>();
+
+      for (let i = 0; i < sorted.length; i++) {
+        const cp = sorted[i];
+        if (!cp) continue;
+
+        const age = now - cp.timestamp;
+
+        // Keep if within age limit AND within count limit
+        if (age < maxAge && i < maxPerSession) {
+          toKeep.add(cp.id);
+          kept++;
+        } else {
+          deleted++;
+        }
+      }
+
+      // Save filtered checkpoints
+      const filtered = new Map<string, Checkpoint>();
+      for (const [id, cp] of checkpoints) {
+        if (toKeep.has(id)) {
+          filtered.set(id, cp);
+        }
+      }
+      await saveCheckpoints(sessionId, filtered);
+    }
+  } catch {
+    // Ignore cleanup errors
+  }
+
+  return { deleted, kept };
 }
