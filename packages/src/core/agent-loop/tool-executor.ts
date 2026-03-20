@@ -42,6 +42,25 @@ interface ToolExecutionResult {
 }
 
 /**
+ * Safely convert tool input to Record<string, unknown>
+ * Handles edge cases: null, undefined, non-object types
+ */
+function toInputRecord(input: unknown): Record<string, unknown> {
+  if (input === null || input === undefined) {
+    return {};
+  }
+  if (typeof input !== "object") {
+    // Primitive types wrapped in a generic key
+    return { value: input };
+  }
+  if (Array.isArray(input)) {
+    // Arrays wrapped in items key
+    return { items: input };
+  }
+  return input as Record<string, unknown>;
+}
+
+/**
  * Execute a single tool with permission checks and hooks
  */
 async function executeSingleTool(
@@ -102,7 +121,7 @@ async function executeSingleTool(
   // Check permissions using PermissionManager
   const permissionResult = await permissionManager.checkPermission(
     tool.name,
-    toolUse.input as Record<string, unknown>
+    toInputRecord(toolUse.input)
   );
 
   if (permissionResult.decision === "deny" || permissionResult.decision === "denyAlways") {
@@ -122,7 +141,7 @@ async function executeSingleTool(
   if (hookManager) {
     const hookResult = await hookManager.execute("PreToolUse", {
       tool_name: tool.name,
-      tool_input: toolUse.input as Record<string, unknown>,
+      tool_input: toInputRecord(toolUse.input),
       session_id: sessionId,
     });
 
@@ -161,7 +180,7 @@ async function executeSingleTool(
       };
     }
 
-    const handlerResult = await tool.handler(toolUse.input as Record<string, unknown>, {
+    const handlerResult = await tool.handler(toInputRecord(toolUse.input), {
       workingDirectory,
       permissionMode,
       abortSignal: signal,
@@ -172,7 +191,7 @@ async function executeSingleTool(
     if (hookManager) {
       const hookResult = await hookManager.execute("PostToolUse", {
         tool_name: tool.name,
-        tool_input: toolUse.input as Record<string, unknown>,
+        tool_input: toInputRecord(toolUse.input),
         tool_result: handlerResult,
         tool_result_is_error: handlerResult.is_error,
         session_id: sessionId,
@@ -217,7 +236,7 @@ async function executeSingleTool(
     if (hookManager) {
       await hookManager.execute("PostToolUseFailure", {
         tool_name: tool.name,
-        tool_input: toolUse.input as Record<string, unknown>,
+        tool_input: toInputRecord(toolUse.input),
         error: errorMessage,
         session_id: sessionId,
       });
