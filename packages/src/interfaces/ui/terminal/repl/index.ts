@@ -163,8 +163,8 @@ export class CoderREPL {
   async start(): Promise<void> {
     this.print(this.welcomeMessage);
     this.print("");
-    this.print(`\x1b[90mSession: ${this.state.sessionId}\x1b[0m`);
-    this.print(`\x1b[90mModel: ${this.model} | Tokens: 0/${getContextWindow(this.model)}\x1b[0m`);
+    this.print("\x1b[90mSession: " + this.state.sessionId + "\x1b[0m");
+    this.print("\x1b[90mModel: " + this.model + " | Tokens: 0/" + getContextWindow(this.model) + "\x1b[0m");
     this.print("\x1b[90mType your message, %help for commands.\x1b[0m\n");
 
     this.rl = readline.createInterface({
@@ -257,7 +257,7 @@ export class CoderREPL {
             else if (input.path) args = String(input.path).slice(0, 50);
             else if (input.url) args = String(input.url).slice(0, 50);
           }
-          this.print(`\n\x1b[90m[${toolUse.name}${args ? `: ${args}` : ""}]\x1b[0m`);
+          this.print("\n\x1b[90m[" + toolUse.name + (args ? ": " + args : "") + "]\x1b[0m");
         },
 
         onToolResult: (result: { id: string; result: { isError?: boolean; content: string | unknown[] } }) => {
@@ -270,7 +270,7 @@ export class CoderREPL {
             : String(content ?? "");
           const lines = contentStr.split("\n").length;
           const chars = contentStr.length;
-          this.print(`\x1b[90m → ${status} ${lines} lines, ${chars} chars\x1b[0m`);
+          this.print("\x1b[90m → " + status + " " + lines + " lines, " + chars + " chars\x1b[0m");
         },
 
         onMetrics: (metrics: import("../../../../schemas/index.js").QueryMetrics) => {
@@ -292,7 +292,7 @@ export class CoderREPL {
       if (lastMetrics) {
         const duration = Date.now() - startTime;
         this.print(
-          `\x1b[90m[${duration}ms | ${lastMetrics.usage.input_tokens}→${lastMetrics.usage.output_tokens} tokens | $${lastMetrics.costUSD.toFixed(4)}]\x1b[0m`
+          "\x1b[90m[" + duration + "ms | " + lastMetrics.usage.input_tokens + "→" + lastMetrics.usage.output_tokens + " tokens | $" + lastMetrics.costUSD.toFixed(4) + "]\x1b[0m"
         );
       }
 
@@ -330,7 +330,7 @@ export class CoderREPL {
       }
     } catch (error) {
       const err = error as Error;
-      this.print(`\n\x1b[31mError: ${err.message}\x1b[0m`);
+      this.print("\n\x1b[31mError: " + err.message + "\x1b[0m");
 
       // Remove the failed user message
       this.state.messages.pop();
@@ -414,9 +414,9 @@ export class CoderREPL {
         if (args[0]) {
           this.model = args[0];
           this.state.model = args[0];
-          this.print(`\x1b[90mSwitched to ${args[0]}\x1b[0m`);
+          this.print("\x1b[90mSwitched to " + args[0] + "\x1b[0m");
         } else {
-          this.print(`\x1b[90mCurrent model: ${this.model}\x1b[0m`);
+          this.print("\x1b[90mCurrent model: " + this.model + "\x1b[0m");
         }
         break;
 
@@ -448,7 +448,7 @@ export class CoderREPL {
         break;
 
       default:
-        this.print(`\x1b[31mUnknown command: ${cmd}\x1b[0m");
+        this.print("\x1b[31mUnknown command: " + cmd + "\x1b[0m");
         this.print("\x1b[90mType %help for available commands\x1b[0m");
     }
   }
@@ -512,8 +512,8 @@ export class CoderREPL {
       const entry = this.state.history[i];
       if (!entry) continue;
       const preview = entry.input.length > 60 ? entry.input.slice(0, 60) + "..." : entry.input;
-      const cost = entry.cost ? ` $${entry.cost.toFixed(4)}` : "";
-      this.print(`  \x1b[90m${i + 1}.\x1b[0m ${preview}${cost}`);
+      const cost = entry.cost ? " $" + entry.cost.toFixed(4) : "";
+      this.print("  \x1b[90m" + (i + 1) + ".\x1b[0m " + preview + cost);
     }
     this.print("");
   }
@@ -522,15 +522,17 @@ export class CoderREPL {
    * Show cost/usage
    */
   private showCost(): void {
-    this.print(`
-\x1b[1mSession Usage:\x1b[0m
-  Input tokens:  ${this.state.totalTokens.input.toLocaleString()}
-  Output tokens: ${this.state.totalTokens.output.toLocaleString()}
-  Total tokens:  ${(this.state.totalTokens.input + this.state.totalTokens.output).toLocaleString()}
-  Total cost:    $${this.state.totalCost.toFixed(4)}
-  Messages:      ${this.state.messages.length}
-  Turns:         ${this.state.history.length}
-`);
+    const lines = [
+      "",
+      "\x1b[1mSession Usage:\x1b[0m",
+      "  Input tokens:  " + this.state.totalTokens.input.toLocaleString(),
+      "  Output tokens: " + this.state.totalTokens.output.toLocaleString(),
+      "  Total tokens:  " + (this.state.totalTokens.input + this.state.totalTokens.output).toLocaleString(),
+      "  Total cost:    $" + this.state.totalCost.toFixed(4),
+      "  Messages:      " + this.state.messages.length,
+      "  Turns:         " + this.state.history.length,
+    ];
+    this.print(lines.join("\n"));
   }
 
   /**
@@ -541,15 +543,18 @@ export class CoderREPL {
     const usedTokens = this.state.totalTokens.input + this.state.totalTokens.output;
     const percent = ((usedTokens / contextWindow) * 100).toFixed(1);
 
-    this.print(`
-\x1b[1mSession Status:\x1b[0m
-  Session ID:    ${this.state.sessionId}
-  Model:         ${this.model}
-  Working dir:   ${this.state.workingDirectory}
-  Context:       ${usedTokens.toLocaleString()} / ${contextWindow.toLocaleString()} (${percent}%)
-  Cost:          $${this.state.totalCost.toFixed(4)}
-  Permission:    ${this.permissionMode}
-`);
+    const lines = [
+      "",
+      "\x1b[1mSession Status:\x1b[0m",
+      "  Session ID:    " + this.state.sessionId,
+      "  Model:         " + this.model,
+      "  Working dir:   " + this.state.workingDirectory,
+      "  Context:       " + usedTokens.toLocaleString() + " / " + contextWindow.toLocaleString() + " (" + percent + "%)",
+      "  Cost:          $" + this.state.totalCost.toFixed(4),
+      "  Permission:    " + this.permissionMode,
+      "",
+    ];
+    this.print(lines.join("\n"));
   }
 
   /**
@@ -557,7 +562,7 @@ export class CoderREPL {
    */
   private showMessages(): void {
     this.print(
-      `\x1b[90m${this.state.messages.length} messages in conversation\x1b[0m`
+      "\x1b[90m" + this.state.messages.length + " messages in conversation\x1b[0m"
     );
     for (let i = 0; i < Math.min(this.state.messages.length, 10); i++) {
       const msg = this.state.messages[i];
@@ -566,11 +571,11 @@ export class CoderREPL {
       const preview =
         typeof msg.content === "string"
           ? msg.content.slice(0, 50) + (msg.content.length > 50 ? "..." : "")
-          : `[${(msg.content as { type: string }[]).length} blocks]`;
-      this.print(`  ${i + 1}. ${role}: ${preview}`);
+          : "[" + (msg.content as { type: string }[]).length + " blocks]";
+      this.print("  " + (i + 1) + ". " + role + ": " + preview);
     }
     if (this.state.messages.length > 10) {
-      this.print(`  ... and ${this.state.messages.length - 10} more`);
+      this.print("  ... and " + (this.state.messages.length - 10) + " more");
     }
   }
 
@@ -602,7 +607,7 @@ export class CoderREPL {
     }
 
     this.print(
-      `\x1b[90mUndone: "${lastEntry.input.slice(0, 50)}..."\x1b[0m`
+      "\x1b[90mUndone: \"" + lastEntry.input.slice(0, 50) + "...\"\x1b[0m"
     );
   }
 
@@ -635,7 +640,7 @@ export class CoderREPL {
     };
 
     await fs.writeFile(file, JSON.stringify(data, null, 2));
-    this.print(`\x1b[90mSession saved to ${file}\x1b[0m`);
+    this.print("\x1b[90mSession saved to " + file + "\x1b[0m");
   }
 
   /**
@@ -656,12 +661,12 @@ export class CoderREPL {
       this.state.totalCost = data.totalCost ?? 0;
       this.state.totalTokens = data.totalTokens ?? { input: 0, output: 0 };
 
-      this.print(`\x1b[90mSession loaded from ${file}\x1b[0m`);
+      this.print("\x1b[90mSession loaded from " + file + "\x1b[0m");
       this.print(
-        `\x1b[90m${this.state.messages.length} messages | $${this.state.totalCost.toFixed(4)} total cost\x1b[0m`
+        "\x1b[90m" + this.state.messages.length + " messages | $" + this.state.totalCost.toFixed(4) + " total cost\x1b[0m"
       );
     } catch (error) {
-      this.print(`\x1b[31mFailed to load: ${(error as Error).message}\x1b[0m`);
+      this.print("\x1b[31mFailed to load: " + (error as Error).message + "\x1b[0m");
     }
   }
 
@@ -672,12 +677,12 @@ export class CoderREPL {
     const fs = await import("node:fs/promises");
     const file = filename ?? "coder-session.md";
 
-    let md = `# Coder Session Export\n\n`;
-    md += `**Session:** ${this.state.sessionId}\n`;
-    md += `**Model:** ${this.model}\n`;
-    md += `**Date:** ${new Date().toISOString()}\n`;
-    md += `**Cost:** $${this.state.totalCost.toFixed(4)}\n\n`;
-    md += `---\n\n`;
+    let md = "# Coder Session Export\n\n";
+    md += "**Session:** " + this.state.sessionId + "\n";
+    md += "**Model:** " + this.model + "\n";
+    md += "**Date:** " + new Date().toISOString() + "\n";
+    md += "**Cost:** $" + this.state.totalCost.toFixed(4) + "\n\n";
+    md += "---\n\n";
 
     for (const msg of this.state.messages) {
       const role = msg.role === "user" ? "## User" : "## Assistant";
@@ -685,11 +690,11 @@ export class CoderREPL {
         typeof msg.content === "string"
           ? msg.content
           : JSON.stringify(msg.content, null, 2);
-      md += `${role}\n\n${content}\n\n---\n\n`;
+      md += role + "\n\n" + content + "\n\n---\n\n";
     }
 
     await fs.writeFile(file, md);
-    this.print(`\x1b[90mExported to ${file}\x1b[0m`);
+    this.print("\x1b[90mExported to " + file + "\x1b[0m");
   }
 
   /**
@@ -712,14 +717,14 @@ export class CoderREPL {
       this.print("\n\x1b[1mRecent Sessions:\x1b[0m\n");
       for (const session of sessions) {
         const current = session.id === this.state.sessionId ? " \x1b[32m(current)\x1b[0m" : "";
-        const date = new Date(session.updatedAt).toLocaleString();
+        const date = new Date(session.updated).toLocaleString();
         this.print(
-          `  \x1b[90m${session.id.slice(0, 12)}\x1b[0m ${date} | ${session.messageCount} msgs | $${(session.totalCost ?? 0).toFixed(4)}${current}`
+          "  \x1b[90m" + session.id.slice(0, 12) + "\x1b[0m " + date + " | " + session.messageCount + " msgs | $" + session.totalCost.toFixed(4) + current
         );
       }
       this.print("\n\x1b[90mUse %resume <id> to resume a session\x1b[0m\n");
     } catch (error) {
-      this.print(`\x1b[31mError listing sessions: ${(error as Error).message}\x1b[0m`);
+      this.print("\x1b[31mError listing sessions: " + (error as Error).message + "\x1b[0m");
     }
   }
 
@@ -742,7 +747,7 @@ export class CoderREPL {
       const loaded = await this.sessionStore.resumeSession(sessionId);
 
       if (!loaded) {
-        this.print(`\x1b[31mSession not found: ${sessionId}\x1b[0m`);
+        this.print("\x1b[31mSession not found: " + sessionId + "\x1b[0m");
         return;
       }
 
@@ -756,10 +761,10 @@ export class CoderREPL {
         this.state.model = this.model;
       }
 
-      this.print(`\x1b[90mResumed session: ${sessionId}\x1b[0m`);
-      this.print(`\x1b[90mMessages: ${loaded.messages.length} | Model: ${this.model}\x1b[0m`);
+      this.print("\x1b[90mResumed session: " + sessionId + "\x1b[0m");
+      this.print("\x1b[90mMessages: " + loaded.messages.length + " | Model: " + this.model + "\x1b[0m");
     } catch (error) {
-      this.print(`\x1b[31mError resuming session: ${(error as Error).message}\x1b[0m`);
+      this.print("\x1b[31mError resuming session: " + (error as Error).message + "\x1b[0m");
     }
   }
 
@@ -772,7 +777,7 @@ export class CoderREPL {
    */
   private getPrompt(): string {
     const modelShort = this.model.replace(/^claude-/, "").slice(0, 10);
-    return `\x1b[90m[${modelShort}]\x1b[0m ${this.prompt}`;
+    return "\x1b[90m[" + modelShort + "]\x1b[0m " + this.prompt;
   }
 
   /**
