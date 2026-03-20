@@ -25,6 +25,12 @@ import {
   DEFAULT_LOOP_BEHAVIOR,
   TEAMMATE_TEMPLATES,
 } from "../../ecosystem/presets/types.js";
+import {
+  type PersistedLoopState,
+  type LoopCheckpoint,
+  SERIALIZER_VERSION,
+  pruneCheckpoints,
+} from "./loop-serializer.js";
 
 /**
  * Creates an initial cache metrics object
@@ -124,6 +130,9 @@ export class LoopState {
 
   // Result-based loop control
   retryCount = 0;
+
+  // Continuation tracking (for autonomous loops)
+  consecutiveContinuations = 0;
 
   // Dynamic configuration from template
   readonly template: TeammateTemplate | null;
@@ -414,12 +423,24 @@ export class LoopState {
   }
 
   /**
-   * Add user message (tool results) to history
+   * Add user message to history
+   * @param content - Tool results, text blocks, or string
    */
-  addUserMessage(content: import("../../schemas/index.js").ToolResultBlock[]): void {
+  addUserMessage(
+    content:
+      | import("../../schemas/index.js").ToolResultBlock[]
+      | import("../../schemas/index.js").TextBlock[]
+      | string
+  ): void {
+    let messageContent: import("../../schemas/index.js").ContentBlock[];
+    if (typeof content === "string") {
+      messageContent = [{ type: "text", text: content }];
+    } else {
+      messageContent = content as import("../../schemas/index.js").ContentBlock[];
+    }
     this.messages.push({
       role: "user",
-      content,
+      content: messageContent,
     });
   }
 
@@ -428,6 +449,17 @@ export class LoopState {
    */
   trackToolUse(toolUseBlocks: ToolUseBlock[]): void {
     this.allToolsUsed.push(...toolUseBlocks);
+    // Reset consecutive continuations when tools are used (progress made)
+    if (toolUseBlocks.length > 0) {
+      this.consecutiveContinuations = 0;
+    }
+  }
+
+  /**
+   * Reset consecutive continuations counter
+   */
+  resetConsecutiveContinuations(): void {
+    this.consecutiveContinuations = 0;
   }
 
   /**
@@ -524,5 +556,177 @@ export class LoopState {
    */
   get shouldExecuteToolsInParallel(): boolean {
     return this.loopBehavior.parallelTools;
+  }
+
+  // ============================================
+  // SERIALIZATION (for persistence)
+  // ============================================
+
+  /**
+   * Serialize the loop state for persistence
+   *
+   * This creates a PersistedLoopState that can be saved to disk
+   * and later restored with deserialize().
+   *
+   * @param sessionId - The session ID this loop belongs to
+   * @param options - Serialization options
+   * @returns PersistedLoopState ready for storage
+   */
+  serialize(sessionId: string, options?: {
+    interrupted?: boolean;
+    endedAt?: number;
+    endReason?: string;
+  }): PersistedLoopState {
+    return {
+      version: SERIALIZER_VERSION,
+      sessionId,
+      timestamp: Date.now(),
+
+      // Core state
+      messages: this.messages,
+      metrics: this.metrics,
+      allToolsUsed: this.allToolsUsed,
+
+      // Counters
+      totalCost: this.totalCost,
+      previousCost: this.previousCost,
+      totalDuration: this.totalDuration,
+      turnNumber: this.turnNumber,
+      compactionCount: this.compactionCount,
+      totalTokensCompacted: this.totalTokensCompacted,
+      retryCount: this.retryCount,
+      consecutiveContinuations: this.consecutiveContinuations,
+
+      // Cache metrics
+      cacheMetrics: this.cacheMetrics,
+
+      // Template info
+      templateName: this.template?.name ?? null,
+      loopBehavior: this.loopBehavior,
+
+      // Session timing
+      sessionStartTime: this.sessionStartTime,
+
+      // Checkpoints (empty by default, populated by createCheckpoint)
+      checkpoints: [],
+
+      // Resume metadata
+      interrupted: options?.interrupted,
+      endedAt: options?.endedAt,
+      endReason: options?.endReason,
+    };
+  }
+
+  /**
+   * Deserialize a persisted loop state back into a LoopState instance
+   *
+   * @param data - The persisted state data
+   * @returns A new LoopState instance with the restored state
+   */
+  static deserialize(data: PersistedLoopState): LoopState {
+    // Create LoopStateOptions from persisted data
+    const options: LoopStateOptions = {
+      initialMessages: data.messages,
+      templateName: data.templateName ?? undefined,
+      loopBehaviorOverrides: data.loopBehavior,
+      sessionStartTime: data.sessionStartTime,
+    };
+
+    const state = new LoopState(options);
+
+    // Restore counters
+    state.metrics = data.metrics;
+    state.allToolsUsed = data.allToolsUsed;
+    state.totalCost = data.totalCost;
+    state.previousCost = data.previousCost;
+    state.totalDuration = data.totalDuration;
+    state.turnNumber = data.turnNumber;
+    state.compactionCount = data.compactionCount;
+    state.totalTokensCompacted = data.totalTokensCompacted;
+    state.retryCount = data.retryCount;
+    state.consecutiveContinuations = data.consecutiveContinuations ?? 0;
+    state.cacheMetrics = data.cacheMetrics;
+
+    // Note: checkpoints are stored separately and managed by LoopPersistence
+
+    return state;
+  }
+
+  /**
+   * Create a checkpoint at the current state
+   *
+   * @param type - The type of checkpoint
+   * @param summary - Human-readable summary
+   * @param options - Optional checkpoint data
+   * @returns A LoopCheckpoint object
+   */
+  createCheckpoint(
+    type: "auto" | "manual" | "qc",
+    summary: string = "",
+    options?: {
+      fileSnapshots?: Record<string, string>;
+      qc?: LoopCheckpoint["qc"];
+    }
+  ): LoopCheckpoint {
+    const checkpoint: LoopCheckpoint = {
+      id: `cp_${String(this.turnNumber).padStart(4, "0")}_${Date.now()}`,
+      turnNumber: this.turnNumber,
+      timestamp: Date.now(),
+      type,
+      summary: summary || `Checkpoint at turn ${this.turnNumber}`,
+    };
+
+    if (options?.fileSnapshots) {
+      checkpoint.fileSnapshots = options.fileSnapshots;
+    }
+
+    if (options?.qc) {
+      checkpoint.qc = options.qc;
+    }
+
+    return checkpoint;
+  }
+
+  /**
+   * Get a summary of the current state for logging/display
+   */
+  getPersistenceSummary(): {
+    turnNumber: number;
+    totalCost: number;
+    duration: string;
+    toolUseCount: number;
+    messageCount: number;
+  } {
+    const durationMs = Date.now() - this.sessionStartTime;
+    const duration = this.formatDuration(durationMs);
+
+    return {
+      turnNumber: this.turnNumber,
+      totalCost: this.totalCost,
+      duration,
+      toolUseCount: this.allToolsUsed.length,
+      messageCount: this.messages.length,
+    };
+  }
+
+  /**
+   * Format duration in human-readable format
+   */
+  private formatDuration(ms: number): string {
+    const seconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    if (days > 0) {
+      return `${days}d ${hours % 24}h ${minutes % 60}m`;
+    }
+    if (hours > 0) {
+      return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
+    }
+    if (minutes > 0) {
+      return `${minutes}m ${seconds % 60}s`;
+    }
+    return `${seconds}s`;
   }
 }

@@ -1,5 +1,9 @@
 /**
  * Turn Executor - Single turn execution logic
+ *
+ * With continuation system for autonomous loops (Ralph-style).
+ * When model returns end_turn WITHOUT tools, we can inject continuation
+ * prompts to keep working until verified completion.
  */
 
 import type {
@@ -28,6 +32,14 @@ import {
   type ResultConditionsConfig,
   type ResultCondition,
 } from "./result-conditions.js";
+import {
+  checkContinuation,
+  buildContinuationMessage,
+  extractTextFromBlocks,
+  type ContinuationConfig,
+  type ContinuationContext,
+  type ContinuationCheckResult,
+} from "./continuation.js";
 
 /**
  * Options for turn execution
@@ -61,6 +73,8 @@ export interface TurnExecutorOptions {
   stopSequenceConfig?: StopSequenceConfig;
   /** Result-based loop control - checks actual tool results */
   resultConditions?: ResultConditionsConfig;
+  /** Continuation config - enables autonomous loop continuation (Ralph-style) */
+  continuation?: ContinuationConfig;
 }
 
 /**
@@ -73,6 +87,10 @@ export interface ExecuteTurnResult {
   stopReason?: StopReason;
   /** The metrics from this turn (if any) */
   metrics?: import("../../schemas/index.js").QueryMetrics;
+  /** Whether this turn triggered a continuation (autonomous loop) */
+  wasContinued?: boolean;
+  /** Number of consecutive continuations */
+  consecutiveContinuations?: number;
 }
 
 /**
@@ -183,6 +201,76 @@ export async function executeTurn(
 
   // Check stop reason
   if (message.stop_reason === "end_turn" || message.stop_reason === "stop_sequence") {
+    // Check for continuation (autonomous loops - Ralph style)
+    // This bridges the gap when model returns end_turn WITHOUT using tools
+    const toolUseBlocks = message.content.filter(
+      (block): block is ToolUseBlock => block.type === "tool_use"
+    );
+
+    if (toolUseBlocks.length === 0 && options.continuation?.enabled) {
+      // Model ended without tools - check if we should continue
+      const continuationResult = checkContinuation(
+        {
+          lastOutput: extractTextFromBlocks(message.content),
+          lastBlocks: message.content,
+          toolsUsedCount: 0,
+          turnNumber: state.turnNumber,
+          consecutiveContinuations: state.consecutiveContinuations ?? 0,
+          totalCost: state.totalCost,
+          workingDirectory,
+          gitStatus: gitStatus ? {
+            hasUncommittedChanges: !gitStatus.clean,
+            currentBranch: gitStatus.branch,
+          } : null,
+        },
+        options.continuation
+      );
+
+      if (continuationResult.shouldContinue && continuationResult.prompt) {
+        // Inject continuation prompt instead of stopping
+        console.log(
+          `[Continuation] Injecting prompt: ${continuationResult.reason}` +
+            (continuationResult.isStuck ? " (STUCK DETECTED)" : "")
+        );
+
+        // Add continuation message to state
+        const continuationMessage = buildContinuationMessage(
+          continuationResult.prompt,
+          {
+            ...continuationResult,
+            turnNumber: state.turnNumber,
+            consecutiveContinuations: (state.consecutiveContinuations ?? 0) + 1,
+            lastOutput: "",
+            lastBlocks: [],
+            toolsUsedCount: 0,
+            totalCost: state.totalCost,
+            workingDirectory,
+          }
+        );
+        // continuationMessage.content is TextBlock[], which is valid for addUserMessage
+        state.addUserMessage(continuationMessage.content as import("../../schemas/index.js").TextBlock[]);
+
+        // Track consecutive continuations
+        state.consecutiveContinuations = (state.consecutiveContinuations ?? 0) + 1;
+
+        return {
+          shouldContinue: true,
+          metrics: queryMetrics,
+          wasContinued: true,
+          consecutiveContinuations: state.consecutiveContinuations,
+        };
+      }
+
+      // No continuation - stop normally
+      return {
+        shouldContinue: false,
+        stopReason: message.stop_reason,
+        metrics: queryMetrics,
+        consecutiveContinuations: state.consecutiveContinuations,
+      };
+    }
+
+    // Normal stop - no continuation configured
     return {
       shouldContinue: false,
       stopReason: message.stop_reason,
@@ -219,9 +307,60 @@ export async function executeTurn(
   state.trackToolUse(toolUseBlocks);
 
   if (toolUseBlocks.length === 0) {
+    // No tools used - check continuation for autonomous loops
+    if (options.continuation?.enabled) {
+      const continuationResult = checkContinuation(
+        {
+          lastOutput: extractTextFromBlocks(message.content),
+          lastBlocks: message.content,
+          toolsUsedCount: 0,
+          turnNumber: state.turnNumber,
+          consecutiveContinuations: state.consecutiveContinuations ?? 0,
+          totalCost: state.totalCost,
+          workingDirectory,
+          gitStatus: gitStatus ? {
+            hasUncommittedChanges: !gitStatus.clean,
+            currentBranch: gitStatus.branch,
+          } : null,
+        },
+        options.continuation
+      );
+
+      if (continuationResult.shouldContinue && continuationResult.prompt) {
+        console.log(
+          `[Continuation] Injecting prompt (no tools): ${continuationResult.reason}`
+        );
+
+        const continuationMessage = buildContinuationMessage(
+          continuationResult.prompt,
+          {
+            ...continuationResult,
+            turnNumber: state.turnNumber,
+            consecutiveContinuations: (state.consecutiveContinuations ?? 0) + 1,
+            lastOutput: "",
+            lastBlocks: [],
+            toolsUsedCount: 0,
+            totalCost: state.totalCost,
+            workingDirectory,
+          }
+        );
+        // continuationMessage.content is TextBlock[], which is valid for addUserMessage
+        state.addUserMessage(continuationMessage.content as import("../../schemas/index.js").TextBlock[]);
+        state.consecutiveContinuations = (state.consecutiveContinuations ?? 0) + 1;
+
+        return {
+          shouldContinue: true,
+          metrics: queryMetrics,
+          wasContinued: true,
+          consecutiveContinuations: state.consecutiveContinuations,
+        };
+      }
+    }
+
     return {
       shouldContinue: false,
       metrics: queryMetrics,
+      consecutiveContinuations: state.consecutiveContinuations,
     };
   }
 
