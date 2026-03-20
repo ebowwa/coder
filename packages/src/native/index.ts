@@ -813,7 +813,24 @@ export function loadNative(): NativeModule {
             highlight_markdown: native.highlightMarkdown || native.highlight_markdown,
             highlight_diff: native.highlightDiff || native.highlight_diff,
             search_files: native.searchFiles || native.search_files,
-            grep_search: native.grepSearch || native.grep_search,
+            // Wrap grep_search to map Rust fields to TypeScript fields
+            // Rust GrepMatch: { line: u32, content: String }
+            // TS GrepSearchResult: { line_number: number, line: string }
+            grep_search: (pattern: string, path: string, options?: GrepOptions) => {
+              const rawFn = native.grepSearch || native.grep_search;
+              if (!rawFn) return [];
+              const results = rawFn(pattern, path, options || {});
+              const matches = Array.isArray(results) ? results : (results?.matches || []);
+              // Map Rust field names to TypeScript field names
+              return matches.map((m: Record<string, unknown>) => ({
+                path: String(m.path ?? ""),
+                line_number: typeof m.line === "number" ? m.line : (typeof m.line_number === "number" ? m.line_number : 0),
+                column: typeof m.column === "number" ? m.column : undefined,
+                line: String(m.content ?? m.line ?? ""),
+                context_before: Array.isArray(m.context_before) ? m.context_before as string[] : undefined,
+                context_after: Array.isArray(m.context_after) ? m.context_after as string[] : undefined,
+              }));
+            },
             // Wrap native grepCount to always return number (native returns [{path, count, lineCount}])
             grep_count: async (pattern: string, path: string, options?: GrepOptions): Promise<number> => {
               // If native grepCount exists, normalize its output
