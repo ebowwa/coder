@@ -28,6 +28,7 @@ import type {
 } from "./types.js";
 import { SessionPersistence } from "./persistence.js";
 import { SessionMetadataManager } from "./metadata.js";
+import { resetBackupModelCounter } from "../api-client-impl.js";
 import { DEFAULT_MODEL } from "../models.js";
 import { SessionExporter } from "./export.js";
 
@@ -154,6 +155,9 @@ export class SessionStore {
       id: sessionId,
       ...options,
     });
+
+    // Reset backup model counter for new session
+    resetBackupModelCounter();
 
     await this.persistence.append(sessionId, this.currentMetadata);
 
