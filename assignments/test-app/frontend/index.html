@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Counter App</title>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    body { font-family: system-ui; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background: #1a1a2e; }
+    #root { text-align: center; }
+    .counter { font-size: 4rem; color: #eaf6ff; margin: 1rem; }
+    button { font-size: 1.5rem; padding: 0.5rem 2rem; margin: 0.5rem; cursor: pointer; border: none; border-radius: 8px; }
+    .increment { background: #4ade80; color: #000; }
+    .decrement { background: #f87171; color: #000; }
+    h1 { color: #eaf6ff; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    function App() {
+      const [count, setCount] = useState(0);
+      const [loading, setLoading] = useState(true);
+
+      const fetchCount = async () => {
+        const res = await fetch("http://localhost:3001/api/counter");
+        const data = await res.json();
+        setCount(data.value);
+        setLoading(false);
+      };
+
+      useEffect(() => { fetchCount(); }, []);
+
+      const increment = async () => {
+        const res = await fetch("http://localhost:3001/api/counter/increment", { method: "POST" });
+        const data = await res.json();
+        setCount(data.value);
+      };
+
+      const decrement = async () => {
+        const res = await fetch("http://localhost:3001/api/counter/decrement", { method: "POST" });
+        const data = await res.json();
+        setCount(data.value);
+      };
+
+      if (loading) return <div style={{color: '#eaf6ff'}}>Loading...</div>;
+
+      return (
+        <div>
+          <h1>Counter App</h1>
+          <div className="counter">{count}</div>
+          <button className="increment" onClick={increment}>+</button>
+          <button className="decrement" onClick={decrement}>-</button>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
