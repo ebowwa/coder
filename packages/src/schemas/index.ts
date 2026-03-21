@@ -49,7 +49,6 @@ import {
   ThinkingConfigSchema,
   CacheConfigSchema,
   APICacheMetricsSchema,
-  BaseMessageSchema,
   // Cache metrics extended
   CacheMetricsSchema,
   // Effort levels
@@ -378,7 +377,7 @@ import {
 } from "./chrome-bridge.zod.js";
 
 import {
-  FileSnapshotSchema,
+  FileReferenceSchema,
   GitStateSchema,
   CheckpointMetadataSchema,
   CheckpointSchema,
@@ -778,7 +777,6 @@ export {
   ThinkingConfigSchema,
   CacheConfigSchema,
   APICacheMetricsSchema,
-  BaseMessageSchema,
   // Cache metrics extended
   CacheMetricsSchema,
   // Effort levels
@@ -1156,7 +1154,7 @@ export {
   StreamResultSchema,
 
   // Checkpoint schemas
-  FileSnapshotSchema,
+  FileReferenceSchema,
   GitStateSchema,
   CheckpointMetadataSchema,
   CheckpointSchema,
@@ -1823,7 +1821,7 @@ export type StreamOptions = z.infer<typeof StreamOptionsSchema>;
 export type StreamResult = z.infer<typeof StreamResultSchema>;
 
 // Checkpoint Types
-export type FileSnapshot = z.infer<typeof FileSnapshotSchema>;
+export type FileReference = z.infer<typeof FileReferenceSchema>;
 export type GitState = z.infer<typeof GitStateSchema>;
 export type CheckpointMetadata = z.infer<typeof CheckpointMetadataSchema>;
 export type Checkpoint = z.infer<typeof CheckpointSchema>;

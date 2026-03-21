@@ -515,25 +515,6 @@ export const THINKING_BETA_HEADERS = {
 } as const;
 
 // ============================================
-// LEGACY COMPATIBILITY SCHEMAS
-// ============================================
-
-/** @deprecated Use MessageRoleSchema instead */
-export const MessageRoleSchemaLegacy = z.enum(["user", "assistant", "system"]);
-
-/** @deprecated Use APIRequestSchema with proper typing */
-export const BaseMessageSchema = z.object({
-  id: z.string(),
-  type: z.enum(["message"]),
-  role: MessageRoleSchemaLegacy,
-  content: z.array(ContentBlockSchema),
-  model: z.string().optional(),
-  stop_reason: StopReasonSchema.optional(),
-  stop_sequence: z.string().optional(),
-  usage: UsageMetricsSchema.optional(),
-});
-
-// ============================================
 // QUERY METRICS
 // ============================================
 

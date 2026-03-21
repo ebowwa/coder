@@ -133,10 +133,12 @@ function messageToText(msg: ApiMessage): string {
   return msg.content
     .map((b) => {
       if (b.type === "text") return b.text;
-      if (b.type === "tool_use") return `[Tool: ${b.name}]`;
-      if (b.type === "tool_result") return b.is_error ? "[Error]" : "[Result]";
+      // Skip tool_use/tool_result blocks - they're displayed via UI callbacks
+      if (b.type === "tool_use") return "";
+      if (b.type === "tool_result") return "";
       return "";
     })
+    .filter(Boolean)
     .join(" ");
 }
 

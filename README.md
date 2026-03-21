@@ -28,6 +28,12 @@ coder -m glm-5 "Explain this codebase"
 
 # With permission mode
 coder --permission-mode acceptEdits "Add a test"
+
+# REPL mode (readline-based, no TUI)
+coder --repl
+
+# Piped input to REPL
+echo "run date" | coder --repl
 ```
 
 ### Programmatic
@@ -119,6 +125,7 @@ coder/
 | `--max-tokens` | Maximum output tokens | 4096 |
 | `--system-prompt` | Override system prompt | - |
 | `--mcp-config` | MCP server configuration | - |
+| `--repl` | Use readline-based REPL instead of TUI | - |
 
 ## Development
 

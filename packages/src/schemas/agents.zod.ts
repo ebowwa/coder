@@ -212,7 +212,7 @@ export function isPermissionMode(value: unknown): value is z.infer<typeof Permis
   return PermissionModeSchema.safeParse(value).success;
 }
 
-// Legacy type guards for backwards compatibility
+// Type guards for runtime validation
 export function isValidSessionType(type: unknown): type is z.infer<typeof SessionTypeSchema> {
   return SessionTypeSchema.safeParse(type).success;
 }

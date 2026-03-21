@@ -107,6 +107,22 @@ export {
   createStateSummary,
 } from "./loop-serializer.js";
 
+// Re-export continuation system for autonomous loops
+export {
+  type ContinuationConfig,
+  type ContinuationCondition,
+  type ContinuationContext,
+  type ContinuationCheckResult,
+  type ContinuationAction,
+  RALPH_CONTINUATION_CONFIG,
+  DEFAULT_CONTINUATION_CONFIG,
+  DEFAULT_CONTINUATION_PROMPT,
+  DEFAULT_STUCK_PROMPT,
+  checkContinuation,
+  buildContinuationMessage,
+  createContinuationConfig,
+} from "./continuation.js";
+
 /**
  * Generate a unique session ID
  */
@@ -175,6 +191,7 @@ export async function agentLoop(
     persistence: persistenceOption,
     resumeFrom,
     onPersist,
+    continuation,
   } = options;
 
   // Resolve persistence configuration
@@ -277,6 +294,7 @@ export async function agentLoop(
         stopSequences,
         stopSequenceConfig,
         resultConditions,
+        continuation,
       };
 
       // Execute a single turn

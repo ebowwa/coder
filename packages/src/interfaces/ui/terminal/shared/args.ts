@@ -59,6 +59,12 @@ export interface CLIArgs {
   /** Stop on unhandled tool errors */
   stopOnUnhandledError?: boolean;
 
+  /** Use readline-based REPL instead of Ink TUI */
+  repl?: boolean;
+
+  /** Enable autonomous loop continuation (Ralph-style) */
+  continuation?: boolean;
+
   // MCP server presets (from templates)
   /** Preset MCP servers from templates */
   presetMcpServers?: Record<string, MCPServerConfig>;
@@ -177,6 +183,13 @@ export function parseArgs(): CLIArgs {
       case "--stop-on-error":
         result.stopOnUnhandledError = true;
         break;
+      case "--repl":
+        result.repl = true;
+        break;
+      case "--continuation":
+      case "--ralph":
+        result.continuation = true;
+        break;
       case "--help":
       case "-h":
         printHelp();
@@ -245,6 +258,8 @@ Templates & Agents (Claude Code parity):
 Query:
   -q, --query <query>           Single query to execute
   --no-progress                 Disable progress indicators
+  --repl                        Use readline-based REPL instead of TUI
+  --continuation, --ralph       Enable autonomous loop continuation (keep working until done)
   -h, --help                    Show this help message
 
 EXAMPLES:

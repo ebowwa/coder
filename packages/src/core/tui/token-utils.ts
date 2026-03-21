@@ -113,9 +113,12 @@ export function apiToText(msg: ApiMessage): string {
         case "text":
           return block.text;
         case "tool_use":
-          return `[Tool: ${block.name}]`;
+          // Tool calls are displayed via onToolUse callback in UI components
+          // Return empty string here to avoid duplicate display
+          return "";
         case "tool_result":
-          return block.is_error ? "[Error]" : "[Result]";
+          // Tool results are displayed via onToolResult callback in UI components
+          return "";
         case "thinking":
           return `[Thinking: ${block.thinking.slice(0, 50)}...]`;
         case "redacted_thinking":
@@ -124,6 +127,7 @@ export function apiToText(msg: ApiMessage): string {
           return "";
       }
     })
+    .filter(Boolean)
     .join("\n");
 }
 

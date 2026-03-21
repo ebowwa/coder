@@ -90,7 +90,6 @@ export {
   streamingTips,
   type SpinnerOptions,
   type SpinnerColor,
-  type SpinnerState,
   LoadingState,
   getLoadingState,
   setLoading,

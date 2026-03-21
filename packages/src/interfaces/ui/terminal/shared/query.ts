@@ -4,7 +4,7 @@
  */
 
 import type { Message, ToolDefinition, ExtendedThinkingConfig, GitStatus } from "../../../../schemas/index.js";
-import { agentLoop, formatCost, formatCostBrief, createResultConditionsConfig, type ResultConditionsConfig } from "../../../../core/agent-loop.js";
+import { agentLoop, formatCost, formatCostBrief, createResultConditionsConfig, type ResultConditionsConfig, RALPH_CONTINUATION_CONFIG } from "../../../../core/agent-loop.js";
 import { HookManager } from "../../../../ecosystem/hooks/index.js";
 import { SessionStore } from "../../../../core/session-store.js";
 import { createStreamHighlighter } from "../../../../core/stream-highlighter.js";
@@ -108,6 +108,7 @@ export async function runSingleQuery(options: QueryOptions): Promise<void> {
             stopOnUnhandledError: args.stopOnUnhandledError,
           })
         : undefined,
+      continuation: args.continuation ? RALPH_CONTINUATION_CONFIG : undefined,
       onText: (text) => {
         // Label response on first text chunk
         if (!responseLabeled) {
@@ -126,6 +127,20 @@ export async function runSingleQuery(options: QueryOptions): Promise<void> {
           thinkingLabeled = true;
         }
         process.stdout.write(`\x1b[90m${thinking}\x1b[0m`);
+      },
+      onToolUse: (tu) => {
+        // Show tool use
+        const inputPreview = JSON.stringify(tu.input).slice(0, 100);
+        console.log(`\x1b[33m▶ ${tu.name}\x1b[0m ${inputPreview}${inputPreview.length >= 100 ? "..." : ""}`);
+      },
+      onToolResult: (tr) => {
+        // Show tool result
+        const output = typeof tr.result.content === "string"
+          ? tr.result.content.slice(0, 300)
+          : JSON.stringify(tr.result.content).slice(0, 300);
+        const isError = tr.result.is_error;
+        const prefix = isError ? "\x1b[31m✗ Error:\x1b[0m" : "\x1b[32m✓ Result:\x1b[0m";
+        console.log(`${prefix} ${output}${output.length >= 300 ? "..." : ""}`);
       },
       onMetrics: async (metrics) => {
         // Track tokens for final status

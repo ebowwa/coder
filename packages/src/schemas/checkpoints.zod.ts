@@ -1,18 +1,21 @@
 /**
  * Checkpoint Schemas
  * Zod schemas for conversation checkpoint management
+ *
+ * Reference-based approach:
+ * - Messages: Reference by index (stored in JSONL sessions)
+ * - Files: Hash only (content recoverable from git)
+ * - Git state: Full state (lightweight metadata)
  */
 
 import { z } from "zod";
-import { MessageSchema } from "./api.zod.js";
 
 // ============================================
-// FILE SNAPSHOT SCHEMA
+// FILE REFERENCE SCHEMA (hash only, no content)
 // ============================================
 
-export const FileSnapshotSchema = z.object({
+export const FileReferenceSchema = z.object({
   path: z.string(),
-  content: z.string(),
   hash: z.string(),
 });
 
@@ -43,17 +46,19 @@ export const CheckpointMetadataSchema = z.object({
 });
 
 // ============================================
-// CHECKPOINT SCHEMA
+// CHECKPOINT SCHEMA (reference-based)
 // ============================================
 
 export const CheckpointSchema = z.object({
-  id: z.string().uuid(),
+  id: z.string(),
   sessionId: z.string(),
   timestamp: z.number().positive(),
-  label: z.string(),
+  label: z.string().optional(),
   description: z.string().optional(),
-  messages: z.array(MessageSchema),
-  files: z.array(FileSnapshotSchema),
+  // Reference: just the index, not full messages
+  messageIndex: z.number().int().nonnegative(),
+  // Reference: just hashes, not content
+  files: z.array(FileReferenceSchema),
   gitState: GitStateSchema.optional(),
   metadata: CheckpointMetadataSchema,
 });
@@ -71,7 +76,7 @@ export const CheckpointStoreSchema = z.object({
 // TYPE EXPORTS
 // ============================================
 
-export type FileSnapshot = z.infer<typeof FileSnapshotSchema>;
+export type FileReference = z.infer<typeof FileReferenceSchema>;
 export type GitState = z.infer<typeof GitStateSchema>;
 export type CheckpointMetadata = z.infer<typeof CheckpointMetadataSchema>;
 export type Checkpoint = z.infer<typeof CheckpointSchema>;

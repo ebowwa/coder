@@ -24,10 +24,13 @@ import type { HookManager } from "../../ecosystem/hooks/index.js";
 import type { PermissionRequest, PermissionResult, PermissionManager } from "../permissions.js";
 import type { StopSequenceConfig, StopSequenceContext, StopSequenceOptions } from "./stop-sequences.js";
 import type { ResultConditionsConfig, ResultCondition } from "./result-conditions.js";
+import type { LoopPersistenceConfig } from "./loop-persistence.js";
+import type { ContinuationConfig } from "./continuation.js";
 
 // Re-export for convenience
 export type { StopSequenceConfig, StopSequenceContext, StopSequenceOptions } from "./stop-sequences.js";
 export type { ResultConditionsConfig, ResultCondition } from "./result-conditions.js";
+export type { LoopPersistenceConfig, LoopRecoveryResult } from "./loop-persistence.js";
 
 /**
  * Callback types for agent loop events
@@ -67,6 +70,14 @@ export interface AgentLoopOptions extends AgentLoopCallbacks {
   stopSequenceConfig?: StopSequenceConfig;
   /** Result-based loop control - checks actual tool results (Ralph Loop pattern) */
   resultConditions?: ResultConditionsConfig;
+  /** Persistence configuration for long-running loops */
+  persistence?: boolean | Partial<LoopPersistenceConfig>;
+  /** Resume from a previous interrupted loop */
+  resumeFrom?: { sessionId: string };
+  /** Callback when loop state is persisted */
+  onPersist?: (sessionId: string, turnNumber: number) => void;
+  /** Continuation config - enables autonomous loop continuation (Ralph-style) */
+  continuation?: ContinuationConfig;
 }
 
 /**

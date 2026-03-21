@@ -207,61 +207,68 @@ export async function executeTurn(
       (block): block is ToolUseBlock => block.type === "tool_use"
     );
 
-    if (toolUseBlocks.length === 0 && options.continuation?.enabled) {
-      // Model ended without tools - check if we should continue
-      const continuationResult = checkContinuation(
-        {
-          lastOutput: extractTextFromBlocks(message.content),
-          lastBlocks: message.content,
-          toolsUsedCount: 0,
-          turnNumber: state.turnNumber,
-          consecutiveContinuations: state.consecutiveContinuations ?? 0,
-          totalCost: state.totalCost,
-          workingDirectory,
-          gitStatus: gitStatus ? {
-            hasUncommittedChanges: !gitStatus.clean,
-            currentBranch: gitStatus.branch,
-          } : null,
-        },
-        options.continuation
-      );
-
-      if (continuationResult.shouldContinue && continuationResult.prompt) {
-        // Inject continuation prompt instead of stopping
-        console.log(
-          `[Continuation] Injecting prompt: ${continuationResult.reason}` +
-            (continuationResult.isStuck ? " (STUCK DETECTED)" : "")
-        );
-
-        // Add continuation message to state
-        const continuationMessage = buildContinuationMessage(
-          continuationResult.prompt,
+    // Only handle continuation/stopping if there are NO tools to execute
+    if (toolUseBlocks.length === 0) {
+      if (options.continuation?.enabled) {
+        // Model ended without tools - check if we should continue
+        const continuationResult = checkContinuation(
           {
-            ...continuationResult,
-            turnNumber: state.turnNumber,
-            consecutiveContinuations: (state.consecutiveContinuations ?? 0) + 1,
-            lastOutput: "",
-            lastBlocks: [],
+            lastOutput: extractTextFromBlocks(message.content),
+            lastBlocks: message.content,
             toolsUsedCount: 0,
+            toolsUsedNames: [], // No tools used this turn
+            recentToolNames: state.recentToolNames ?? [], // Tools from recent turns
+            turnNumber: state.turnNumber,
+            consecutiveContinuations: state.consecutiveContinuations ?? 0,
             totalCost: state.totalCost,
             workingDirectory,
-          }
+            gitStatus: gitStatus ? {
+              hasUncommittedChanges: !gitStatus.clean,
+              currentBranch: gitStatus.branch,
+            } : null,
+            wasCompacted: state.wasCompacted ?? false,
+            persistentGoal: options.continuation?.persistentGoal,
+          },
+          options.continuation
         );
-        // continuationMessage.content is TextBlock[], which is valid for addUserMessage
-        state.addUserMessage(continuationMessage.content as import("../../schemas/index.js").TextBlock[]);
 
-        // Track consecutive continuations
-        state.consecutiveContinuations = (state.consecutiveContinuations ?? 0) + 1;
+        if (continuationResult.shouldContinue && continuationResult.prompt) {
+          // Inject continuation prompt instead of stopping
+          console.log(
+            `[Continuation] Injecting prompt: ${continuationResult.reason}` +
+              (continuationResult.isStuck ? " (STUCK DETECTED)" : "")
+          );
 
-        return {
-          shouldContinue: true,
-          metrics: queryMetrics,
-          wasContinued: true,
-          consecutiveContinuations: state.consecutiveContinuations,
-        };
+          // Add continuation message to state
+          const continuationMessage = buildContinuationMessage(
+            continuationResult.prompt,
+            {
+              ...continuationResult,
+              turnNumber: state.turnNumber,
+              consecutiveContinuations: (state.consecutiveContinuations ?? 0) + 1,
+              lastOutput: "",
+              lastBlocks: [],
+              toolsUsedCount: 0,
+              totalCost: state.totalCost,
+              workingDirectory,
+            }
+          );
+          // continuationMessage.content is TextBlock[], which is valid for addUserMessage
+          state.addUserMessage(continuationMessage.content as import("../../schemas/index.js").TextBlock[]);
+
+          // Track consecutive continuations
+          state.consecutiveContinuations = (state.consecutiveContinuations ?? 0) + 1;
+
+          return {
+            shouldContinue: true,
+            metrics: queryMetrics,
+            wasContinued: true,
+            consecutiveContinuations: state.consecutiveContinuations,
+          };
+        }
       }
 
-      // No continuation - stop normally
+      // No tools and no continuation - stop normally
       return {
         shouldContinue: false,
         stopReason: message.stop_reason,
@@ -270,12 +277,7 @@ export async function executeTurn(
       };
     }
 
-    // Normal stop - no continuation configured
-    return {
-      shouldContinue: false,
-      stopReason: message.stop_reason,
-      metrics: queryMetrics,
-    };
+    // Tools present - continue to tool execution (fall through to line 300+)
   }
 
   if (message.stop_reason === "max_tokens") {
@@ -314,6 +316,8 @@ export async function executeTurn(
           lastOutput: extractTextFromBlocks(message.content),
           lastBlocks: message.content,
           toolsUsedCount: 0,
+          toolsUsedNames: [],
+          recentToolNames: state.recentToolNames ?? [],
           turnNumber: state.turnNumber,
           consecutiveContinuations: state.consecutiveContinuations ?? 0,
           totalCost: state.totalCost,
@@ -322,6 +326,8 @@ export async function executeTurn(
             hasUncommittedChanges: !gitStatus.clean,
             currentBranch: gitStatus.branch,
           } : null,
+          wasCompacted: state.wasCompacted ?? false,
+          persistentGoal: options.continuation?.persistentGoal,
         },
         options.continuation
       );

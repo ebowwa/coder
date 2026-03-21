@@ -194,3 +194,10 @@ export function formatDirectivesForPrompt(): string {
   const allDirectives = getAllDirectives();
   return allDirectives.join("\n");
 }
+
+/**
+ * Get git workflow directives as a flat array
+ */
+export function getGitWorkflowDirectives(): string[] {
+  return GIT_WORKFLOW_DIRECTIVES.flatMap((d) => d.rules);
+}

@@ -173,7 +173,7 @@ export function isCostCalculationInput(value: unknown): value is z.infer<typeof 
   return CostCalculationInputSchema.safeParse(value).success;
 }
 
-// Legacy type guards for backwards compatibility
+// Type guards for runtime validation
 export function isValidModelId(id: unknown): id is string {
   return z.string().safeParse(id).success;
 }

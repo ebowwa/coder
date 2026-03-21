@@ -29,3 +29,19 @@ export {
   createConfig as createResultConditionsConfig,
   EXAMPLE_CONDITIONS,
 } from "./agent-loop/result-conditions.js";
+
+// Re-export continuation system (autonomous loops - Ralph-style)
+export {
+  type ContinuationConfig,
+  type ContinuationCondition,
+  type ContinuationContext,
+  type ContinuationCheckResult,
+  type ContinuationAction,
+  RALPH_CONTINUATION_CONFIG,
+  DEFAULT_CONTINUATION_CONFIG,
+  DEFAULT_CONTINUATION_PROMPT,
+  DEFAULT_STUCK_PROMPT,
+  checkContinuation,
+  buildContinuationMessage,
+  createContinuationConfig,
+} from "./agent-loop/continuation.js";

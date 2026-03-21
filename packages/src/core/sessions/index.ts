@@ -39,6 +39,33 @@ export { SessionMetadataManager } from "./metadata.js";
 export { SessionExporter } from "./export.js";
 
 /**
+ * Simple async mutex for preventing race conditions
+ */
+class AsyncMutex {
+  private locked = false;
+  private queue: Array<() => void> = [];
+
+  async lock(): Promise<void> {
+    if (!this.locked) {
+      this.locked = true;
+      return;
+    }
+    return new Promise<void>((resolve) => {
+      this.queue.push(resolve);
+    });
+  }
+
+  unlock(): void {
+    const next = this.queue.shift();
+    if (next) {
+      next();
+    } else {
+      this.locked = false;
+    }
+  }
+}
+
+/**
  * Main SessionStore class
  * Composes persistence, metadata, and export functionality
  */
@@ -50,6 +77,7 @@ export class SessionStore {
   private currentSessionId: string | null = null;
   private currentMetadata: SessionMetadata | null = null;
   private eventHandlers: Set<SessionEventHandler> = new Set();
+  private createSessionMutex = new AsyncMutex();
 
   constructor(sessionsDir?: string) {
     const dir = sessionsDir ?? join(homedir(), ".claude", "sessions");
@@ -114,6 +142,7 @@ export class SessionStore {
 
   /**
    * Create a new session (or reuse existing empty session)
+   * Uses mutex to prevent race conditions when multiple callers try to reuse the same empty session
    */
   async createSession(options: {
     model: string;
@@ -122,61 +151,69 @@ export class SessionStore {
     agentColor?: string;
     teamName?: string;
   }): Promise<string> {
-    await this.init();
+    // Acquire lock to prevent race conditions
+    await this.createSessionMutex.lock();
 
-    // Try to find an existing empty session to reuse
-    const sessions = await this.listSessions(20);
-    const emptySession = sessions.find((s) => s.messageCount === 0);
+    try {
+      await this.init();
 
-    if (emptySession) {
-      // Reuse the empty session
-      this.currentSessionId = emptySession.id;
+      // Try to find an existing empty session to reuse
+      const sessions = await this.listSessions(20);
+      const emptySession = sessions.find((s) => s.messageCount === 0);
+
+      if (emptySession) {
+        // Reuse the empty session
+        this.currentSessionId = emptySession.id;
+        this.currentMetadata = this.metadataManager.createMetadata({
+          id: emptySession.id,
+          ...options,
+        });
+
+        await this.persistence.append(emptySession.id, this.currentMetadata);
+
+        await this.emit({
+          type: "resumed",
+          sessionId: emptySession.id,
+          timestamp: Date.now(),
+          data: { reused: true },
+        });
+
+        return emptySession.id;
+      }
+
+      // No empty session found, create new
+      const sessionId = this.metadataManager.generateId();
+      this.currentSessionId = sessionId;
       this.currentMetadata = this.metadataManager.createMetadata({
-        id: emptySession.id,
+        id: sessionId,
         ...options,
       });
 
-      await this.persistence.append(emptySession.id, this.currentMetadata);
+      // Reset backup model counter for new session
+      resetBackupModelCounter();
+
+      await this.persistence.append(sessionId, this.currentMetadata);
+
+      // Write context entry
+      const context: SessionContext = {
+        type: "context",
+        timestamp: Date.now(),
+        workingDirectory: options.workingDirectory,
+      };
+      await this.persistence.append(sessionId, context);
 
       await this.emit({
-        type: "resumed",
-        sessionId: emptySession.id,
+        type: "created",
+        sessionId,
         timestamp: Date.now(),
-        data: { reused: true },
+        data: this.currentMetadata,
       });
 
-      return emptySession.id;
+      return sessionId;
+    } finally {
+      // Always release the lock
+      this.createSessionMutex.unlock();
     }
-
-    // No empty session found, create new
-    const sessionId = this.metadataManager.generateId();
-    this.currentSessionId = sessionId;
-    this.currentMetadata = this.metadataManager.createMetadata({
-      id: sessionId,
-      ...options,
-    });
-
-    // Reset backup model counter for new session
-    resetBackupModelCounter();
-
-    await this.persistence.append(sessionId, this.currentMetadata);
-
-    // Write context entry
-    const context: SessionContext = {
-      type: "context",
-      timestamp: Date.now(),
-      workingDirectory: options.workingDirectory,
-    };
-    await this.persistence.append(sessionId, context);
-
-    await this.emit({
-      type: "created",
-      sessionId,
-      timestamp: Date.now(),
-      data: this.currentMetadata,
-    });
-
-    return sessionId;
   }
 
   /**

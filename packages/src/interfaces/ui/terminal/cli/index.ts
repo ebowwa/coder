@@ -19,6 +19,7 @@ import { SessionStore, printSessionsList } from "../../../../core/session-store.
 import { getGitStatus } from "../../../../core/git-status.js";
 import { renderStatusLine, getContextWindow, VERSION, type StatusLineOptions } from "../shared/status-line.js";
 import { runInteractiveTUI } from "../tui/index.js";
+import { runCoderREPL } from "../repl/index.js";
 
 // Shared modules
 import {
@@ -132,7 +133,27 @@ async function main(): Promise<void> {
     console.log(`\x1b[90mSession: ${sessionId}\x1b[0m`);
     console.log("\x1b[90mType your message, ? for help, or /help for commands.\x1b[0m\n");
 
-    // Interactive mode
+    // Check if REPL mode requested
+    if (args.repl) {
+      // Run readline-based REPL (no TTY required)
+      await runCoderREPL({
+        apiKey,
+        model: args.model,
+        permissionMode: setup.permissionMode,
+        maxTokens: args.maxTokens,
+        systemPrompt,
+        tools: setup.tools,
+        hookManager: setup.hookManager,
+        skillManager: setup.skillManager,
+        sessionStore,
+        sessionId,
+        initialMessages: messages,
+        workingDirectory: process.cwd(),
+      });
+      return;
+    }
+
+    // Interactive mode (Ink TUI)
     await runInteractiveMode(
       apiKey,
       args,

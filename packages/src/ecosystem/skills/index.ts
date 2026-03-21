@@ -370,6 +370,74 @@ Exit codes:
     model: "sonnet",
     source: "built-in",
   },
+  {
+    path: "built-in://publish",
+    name: "publish",
+    description: "Development workflow: validate, bump, build, publish, install",
+    prompt: `Execute the @ebowwa/coder development and publishing workflow.
+
+## Workflow Steps (in order)
+
+1. **Validate TypeScript**
+   \`\`\`bash
+   bunx tsc --noEmit
+   \`\`\`
+   Fix any errors before proceeding.
+
+2. **Bump Version**
+   \`\`\`bash
+   npm version patch --no-git-tag-version   # 0.7.93 → 0.7.94
+   npm version minor --no-git-tag-version   # 0.7.93 → 0.8.0
+   npm version major --no-git-tag-version   # 0.7.93 → 1.0.0
+   \`\`\`
+
+3. **Build**
+   \`\`\`bash
+   bun run build
+   \`\`\`
+   This runs: build:native → build:ts → build:types → link
+
+4. **Publish to npm**
+   \`\`\`bash
+   npm publish --access public
+   \`\`\`
+
+5. **Install Globally**
+   \`\`\`bash
+   npm install -g @ebowwa/coder@latest
+   # or specific version
+   npm install -g @ebowwa/coder@0.7.94
+   \`\`\`
+
+6. **Verify**
+   \`\`\`bash
+   coder --version
+   \`\`\`
+
+## Package Structure
+- \`packages/src/\` - Source code (maintained)
+- \`dist/\` - Distribution (generated, published)
+- \`native/\` - Compiled Rust binaries
+
+## Key Rules
+- NEVER use workspace:* dependencies
+- ALWAYS include both src/ and dist/ in packages
+- Source code must never be deleted
+- Scope: @ebowwa/* for all packages
+
+## Summary Table
+| Step | Command | Purpose |
+|------|---------|---------|
+| Validate | \`bunx tsc --noEmit\` | Check TypeScript |
+| Bump | \`npm version patch\` | Increment version |
+| Build | \`bun run build\` | Compile all |
+| Publish | \`npm publish --access public\` | Push to npm |
+| Install | \`npm install -g @ebowwa/coder\` | Global access |
+| Verify | \`coder --version\` | Confirm version |`,
+    tools: ["Bash", "Read"],
+    model: "sonnet",
+    source: "built-in",
+  },
 ];
 
 // ============================================

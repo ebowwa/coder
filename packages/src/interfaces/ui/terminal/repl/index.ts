@@ -5,6 +5,11 @@
  * from @ebowwa/sandbox but with AI execution via agentLoop instead of
  * code execution via kernel.
  *
+ * Features:
+ * - Multiline input (end line with \ to continue, or Ctrl+D for multiline mode)
+ * - Scrollback buffer (PageUp/PageDown to navigate, q to exit scroll mode)
+ * - Reverse search (Ctrl+R to search history)
+ *
  * Usage:
  *   coder --repl
  *   doppler run -- coder --repl -m glm-5
@@ -12,13 +17,17 @@
 
 import * as readline from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
+import * as readlineSync from "node:readline";
 import type { Message } from "../../../../schemas/index.js";
 import type { ToolDefinition, PermissionMode } from "../../../../schemas/index.js";
 import type { HookManager } from "../../../../ecosystem/hooks/index.js";
+import type { SkillManager } from "../../../../ecosystem/skills/index.js";
 import type { SessionStore } from "../../../../core/session-store.js";
 import { agentLoop, type AgentLoopOptions } from "../../../../core/agent-loop/index.js";
 import { formatCost, formatMetrics } from "../../../../core/agent-loop/formatters.js";
 import { renderCompactStatusLine, getContextWindow } from "../shared/status-line.js";
+import { builtInSkills } from "../../../../ecosystem/skills/index.js";
+import { TerminalControl, Colors } from "../../../../core/tui/terminal-control.js";
 
 // ============================================
 // TYPES
@@ -58,6 +67,20 @@ export interface CoderREPLState {
   sessionId: string;
   /** Working directory */
   workingDirectory: string;
+  /** Scrollback buffer (output lines) */
+  scrollback: string[];
+  /** Scroll position in scrollback */
+  scrollPosition: number;
+}
+
+/**
+ * Search state for reverse search
+ */
+interface SearchState {
+  active: boolean;
+  query: string;
+  matchIndex: number;
+  matches: number[];
 }
 
 /**
@@ -78,6 +101,8 @@ export interface CoderREPLOptions {
   tools: ToolDefinition[];
   /** Hook manager */
   hookManager?: HookManager;
+  /** Skill manager */
+  skillManager?: SkillManager;
   /** Session store */
   sessionStore?: SessionStore;
   /** Session ID */
@@ -118,6 +143,7 @@ export class CoderREPL {
   private systemPrompt: string;
   private tools: ToolDefinition[];
   private hookManager?: HookManager;
+  private skillManager?: SkillManager;
   private sessionStore?: SessionStore;
   private prompt: string;
   private welcomeMessage: string;
@@ -125,6 +151,24 @@ export class CoderREPL {
   private input: NodeJS.ReadableStream;
   private rl?: readline.Interface;
   private isExecuting = false;
+
+  // Multiline input state
+  private multilineBuffer: string[] = [];
+  private multilineMode = false;
+
+  // Scrollback state
+  private scrollMode = false;
+  private scrollOffset = 0;
+  private readonly maxScrollbackLines = 10000;
+  private readonly scrollPageSize = 20;
+
+  // Reverse search state
+  private searchState: SearchState = {
+    active: false,
+    query: "",
+    matchIndex: 0,
+    matches: [],
+  };
 
   state: CoderREPLState;
 
@@ -136,6 +180,7 @@ export class CoderREPL {
     this.systemPrompt = options.systemPrompt;
     this.tools = options.tools;
     this.hookManager = options.hookManager;
+    this.skillManager = options.skillManager;
     this.sessionStore = options.sessionStore;
     this.prompt = options.prompt ?? ">>> ";
     this.welcomeMessage = options.welcomeMessage ?? this.getDefaultWelcome();
@@ -150,6 +195,8 @@ export class CoderREPL {
       totalTokens: { input: 0, output: 0 },
       sessionId: options.sessionId,
       workingDirectory: options.workingDirectory,
+      scrollback: [],
+      scrollPosition: 0,
     };
   }
 
@@ -189,6 +236,18 @@ export class CoderREPL {
    * Handle a line of input
    */
   private async handleLine(line: string): Promise<void> {
+    // Handle scroll mode
+    if (this.scrollMode) {
+      this.handleScrollInput(line);
+      return;
+    }
+
+    // Handle reverse search mode
+    if (this.searchState.active) {
+      this.handleSearchInput(line);
+      return;
+    }
+
     // Check for commands
     if (line.startsWith("%") || line.startsWith("/")) {
       await this.handleCommand(line);
@@ -197,11 +256,305 @@ export class CoderREPL {
 
     // Check for empty line
     if (line.trim() === "") {
+      // Empty line in multiline mode - submit
+      if (this.multilineMode && this.multilineBuffer.length > 0) {
+        const fullInput = this.multilineBuffer.join("\n");
+        this.multilineBuffer = [];
+        this.multilineMode = false;
+        await this.execute(fullInput);
+      }
+      return;
+    }
+
+    // Check for line continuation (backslash at end)
+    if (line.endsWith("\\") && !line.endsWith("\\\\")) {
+      this.multilineBuffer.push(line.slice(0, -1));
+      this.print(`\x1b[90m... (multiline, empty line to submit)\x1b[0m`);
+      return;
+    }
+
+    // Check if we're in multiline mode
+    if (this.multilineMode) {
+      this.multilineBuffer.push(line);
+      this.print(`\x1b[90m... (multiline, empty line to submit)\x1b[0m`);
+      return;
+    }
+
+    // If we have buffered lines, combine with current line
+    if (this.multilineBuffer.length > 0) {
+      this.multilineBuffer.push(line);
+      const fullInput = this.multilineBuffer.join("\n");
+      this.multilineBuffer = [];
+      await this.execute(fullInput);
       return;
     }
 
     // Execute as AI prompt
     await this.execute(line);
+  }
+
+  // ============================================
+  // SCROLLBACK
+  // ============================================
+
+  /**
+   * Add output to scrollback buffer
+   */
+  private addToScrollback(text: string): void {
+    const lines = text.split("\n");
+    for (const line of lines) {
+      // Strip ANSI codes for storage (optional, keeps buffer clean)
+      const cleanLine = line.replace(/\x1b\[[0-9;]*m/g, "");
+      this.state.scrollback.push(cleanLine);
+    }
+
+    // Trim if exceeded max
+    if (this.state.scrollback.length > this.maxScrollbackLines) {
+      const excess = this.state.scrollback.length - this.maxScrollbackLines;
+      this.state.scrollback = this.state.scrollback.slice(excess);
+    }
+
+    // Reset scroll position to bottom
+    this.state.scrollPosition = this.state.scrollback.length;
+  }
+
+  /**
+   * Handle input in scroll mode
+   */
+  private handleScrollInput(line: string): void {
+    const key = line.toLowerCase().trim();
+
+    switch (key) {
+      case "q":
+      case "":
+        this.exitScrollMode();
+        break;
+      case "j":
+      case "down":
+        this.scrollDown();
+        break;
+      case "k":
+      case "up":
+        this.scrollUp();
+        break;
+      case "g":
+        this.scrollToTop();
+        break;
+      case "g":
+        this.scrollToBottom();
+        break;
+      default:
+        // Page navigation
+        if (key === " " || key === "f") {
+          this.pageDown();
+        } else if (key === "b") {
+          this.pageUp();
+        }
+    }
+  }
+
+  /**
+   * Enter scroll mode
+   */
+  private enterScrollMode(): void {
+    if (this.state.scrollback.length === 0) {
+      this.print("\x1b[90mNo scrollback to view\x1b[0m");
+      return;
+    }
+
+    this.scrollMode = true;
+    this.scrollOffset = Math.max(0, this.state.scrollback.length - this.scrollPageSize);
+    this.renderScrollback();
+  }
+
+  /**
+   * Exit scroll mode
+   */
+  private exitScrollMode(): void {
+    this.scrollMode = false;
+    this.print("\x1b[90mExited scroll mode\x1b[0m");
+  }
+
+  /**
+   * Render scrollback viewport
+   */
+  private renderScrollback(): void {
+    const { scrollback } = this.state;
+    const end = Math.min(this.scrollOffset + this.scrollPageSize, scrollback.length);
+
+    console.clear();
+    this.print(`\x1b[1m--- Scrollback (${this.scrollOffset + 1}-${end}/${scrollback.length}) ---\x1b[0m`);
+    this.print(`\x1b[90mj/k: up/down | Space/b: page | g: top | G: bottom | q: quit\x1b[0m\n`);
+
+    for (let i = this.scrollOffset; i < end; i++) {
+      const line = scrollback[i];
+      if (line !== undefined) {
+        this.print(line);
+      }
+    }
+  }
+
+  /**
+   * Scroll up one line
+   */
+  private scrollUp(): void {
+    if (this.scrollOffset > 0) {
+      this.scrollOffset--;
+      this.renderScrollback();
+    }
+  }
+
+  /**
+   * Scroll down one line
+   */
+  private scrollDown(): void {
+    const maxOffset = Math.max(0, this.state.scrollback.length - this.scrollPageSize);
+    if (this.scrollOffset < maxOffset) {
+      this.scrollOffset++;
+      this.renderScrollback();
+    }
+  }
+
+  /**
+   * Page up
+   */
+  private pageUp(): void {
+    this.scrollOffset = Math.max(0, this.scrollOffset - this.scrollPageSize);
+    this.renderScrollback();
+  }
+
+  /**
+   * Page down
+   */
+  private pageDown(): void {
+    const maxOffset = Math.max(0, this.state.scrollback.length - this.scrollPageSize);
+    this.scrollOffset = Math.min(maxOffset, this.scrollOffset + this.scrollPageSize);
+    this.renderScrollback();
+  }
+
+  /**
+   * Scroll to top
+   */
+  private scrollToTop(): void {
+    this.scrollOffset = 0;
+    this.renderScrollback();
+  }
+
+  /**
+   * Scroll to bottom
+   */
+  private scrollToBottom(): void {
+    const maxOffset = Math.max(0, this.state.scrollback.length - this.scrollPageSize);
+    this.scrollOffset = maxOffset;
+    this.renderScrollback();
+  }
+
+  // ============================================
+  // REVERSE SEARCH
+  // ============================================
+
+  /**
+   * Enter reverse search mode
+   */
+  private enterSearchMode(): void {
+    this.searchState = {
+      active: true,
+      query: "",
+      matchIndex: 0,
+      matches: [],
+    };
+    this.print("\n\x1b[36mReverse search (Ctrl+C to cancel):\x1b[0m ");
+  }
+
+  /**
+   * Handle input in search mode
+   */
+  private handleSearchInput(line: string): void {
+    // Update query
+    this.searchState.query = line;
+
+    // Find matches in history
+    this.searchState.matches = [];
+    const historyStrs = this.getHistoryStrings();
+    for (let i = historyStrs.length - 1; i >= 0; i--) {
+      const entry = historyStrs[i];
+      if (entry && entry.toLowerCase().includes(line.toLowerCase())) {
+        this.searchState.matches.push(i);
+      }
+    }
+
+    // Show result
+    if (this.searchState.matches.length > 0) {
+      const matchIdx = this.searchState.matches[0];
+      if (matchIdx !== undefined) {
+        const match = historyStrs[matchIdx];
+        this.print(`\x1b[90m → Found: \x1b[0m${match?.slice(0, 80) ?? ""}${(match?.length ?? 0) > 80 ? "..." : ""}`);
+      }
+    } else {
+      this.print("\x1b[90m → No matches\x1b[0m");
+    }
+  }
+
+  /**
+   * Accept search result
+   */
+  private acceptSearch(): string | null {
+    if (!this.searchState.active || this.searchState.matches.length === 0) {
+      this.exitSearchMode();
+      return null;
+    }
+
+    const matchIdx = this.searchState.matches[0];
+    const historyStrs = this.getHistoryStrings();
+    const match = matchIdx !== undefined ? historyStrs[matchIdx] : null;
+
+    this.exitSearchMode();
+    return match ?? null;
+  }
+
+  /**
+   * Exit search mode
+   */
+  private exitSearchMode(): void {
+    this.searchState = {
+      active: false,
+      query: "",
+      matchIndex: 0,
+      matches: [],
+    };
+  }
+
+  /**
+   * Search history and display matches
+   */
+  private searchHistory(query: string): void {
+    const historyStrs = this.getHistoryStrings();
+    const matches: { index: number; line: string }[] = [];
+
+    for (let i = historyStrs.length - 1; i >= 0; i--) {
+      const entry = historyStrs[i];
+      if (entry && entry.toLowerCase().includes(query.toLowerCase())) {
+        matches.push({ index: i, line: entry });
+      }
+    }
+
+    if (matches.length === 0) {
+      this.print(`\x1b[90mNo matches for "${query}"\x1b[0m`);
+      return;
+    }
+
+    this.print(`\n\x1b[1m${matches.length} matches for "${query}":\x1b[0m\n`);
+    for (let i = 0; i < Math.min(matches.length, 10); i++) {
+      const match = matches[i];
+      if (match) {
+        const preview = match.line.length > 70 ? match.line.slice(0, 70) + "..." : match.line;
+        this.print(`  \x1b[90m${match.index}.\x1b[0m ${preview}`);
+      }
+    }
+    if (matches.length > 10) {
+      this.print(`  \x1b[90m... and ${matches.length - 10} more\x1b[0m`);
+    }
+    this.print("");
   }
 
   // ============================================
@@ -217,10 +570,16 @@ export class CoderREPL {
 
     try {
       // Add user message
-      this.state.messages.push({
+      const userMessage: Message = {
         role: "user",
         content: userInput,
-      });
+      };
+      this.state.messages.push(userMessage);
+
+      // Save user message to session store
+      if (this.sessionStore) {
+        await this.sessionStore.saveMessage(userMessage);
+      }
 
       // Track response for history
       let responseText = "";
@@ -447,6 +806,38 @@ export class CoderREPL {
         await this.resumeSession(args[0]);
         break;
 
+      // List skills
+      case "skills":
+        this.showSkills();
+        break;
+
+      // Scrollback mode
+      case "scroll":
+      case "sc":
+        this.enterScrollMode();
+        break;
+
+      // Multiline mode toggle
+      case "multiline":
+      case "multi":
+      case "m+":
+        this.multilineMode = !this.multilineMode;
+        this.multilineBuffer = [];
+        this.print(this.multilineMode
+          ? "\x1b[90mMultiline mode ON (empty line submits)\x1b[0m"
+          : "\x1b[90mMultiline mode OFF\x1b[0m");
+        break;
+
+      // Search history
+      case "search":
+      case "find":
+        if (args[0]) {
+          this.searchHistory(args[0]);
+        } else {
+          this.enterSearchMode();
+        }
+        break;
+
       default:
         this.print("\x1b[31mUnknown command: " + cmd + "\x1b[0m");
         this.print("\x1b[90mType %help for available commands\x1b[0m");
@@ -472,6 +863,19 @@ export class CoderREPL {
       "  %reset               Reset conversation (clear messages)",
       "  %status, %info       Show session status",
       "",
+      "\x1b[36mInput:\x1b[0m",
+      "  \\ at end of line     Continue on next line (multiline input)",
+      "  Ctrl+R               Reverse search through history",
+      "  Ctrl+S               Enter scrollback mode",
+      "  %multiline           Toggle multiline mode",
+      "",
+      "\x1b[36mScrollback:\x1b[0m",
+      "  %scroll              View scrollback buffer",
+      "  j/k or ↑/↓           Scroll up/down (in scroll mode)",
+      "  Space/b              Page down (in scroll mode)",
+      "  g/G                  Top/bottom (in scroll mode)",
+      "  q                    Exit scroll mode",
+      "",
       "\x1b[36mConversation:\x1b[0m",
       "  %history, %hist      Show input history",
       "  %messages, %msgs     Show message count",
@@ -485,12 +889,16 @@ export class CoderREPL {
       "  %sessions            List recent sessions",
       "  %resume <id>         Resume a previous session",
       "",
+      "\x1b[36mSkills:\x1b[0m",
+      "  %skills              List available skills",
+      "  /<skill>             Invoke a skill (e.g., /commit, /publish)",
+      "",
       "\x1b[36mUsage:\x1b[0m",
       "  %cost, %usage        Show token usage and cost",
       "  %tokens              Alias for %cost",
       "",
       "\x1b[90mTips:\x1b[0m",
-      "  - Just type your message and press Enter to chat",
+      "  - End line with \\ for multiline input, empty line submits",
       "  - Use Up/Down arrows to navigate history",
       "  - Press Ctrl+C twice to exit",
       "",
@@ -577,6 +985,33 @@ export class CoderREPL {
     if (this.state.messages.length > 10) {
       this.print("  ... and " + (this.state.messages.length - 10) + " more");
     }
+  }
+
+  /**
+   * Show available skills
+   */
+  private showSkills(): void {
+    const lines: string[] = ["", "\x1b[1mAvailable Skills:\x1b[0m", ""];
+
+    // Built-in skills
+    const skills = this.skillManager?.getAll() ?? [];
+
+    if (skills.length === 0) {
+      lines.push("  \x1b[90mNo skills loaded\x1b[0m");
+    } else {
+      for (const skill of skills) {
+        const desc = skill.description ? " - " + skill.description.slice(0, 50) : "";
+        const source = skill.source === "built-in" ? "\x1b[36m" : "\x1b[33m";
+        lines.push("  " + source + "/" + skill.name + "\x1b[0m" + desc);
+      }
+    }
+
+    lines.push("");
+    lines.push("\x1b[90mUsage: /<skill-name> to invoke a skill\x1b[0m");
+    lines.push("\x1b[90mExample: /commit - Create a git commit\x1b[0m");
+    lines.push("");
+
+    this.print(lines.join("\n"));
   }
 
   /**
@@ -788,10 +1223,14 @@ export class CoderREPL {
   }
 
   /**
-   * Print to output
+   * Print to output and add to scrollback
    */
   private print(message: string): void {
     this.output.write(message + "\n");
+    // Add to scrollback (only if not in scroll mode to avoid duplication)
+    if (!this.scrollMode) {
+      this.addToScrollback(message);
+    }
   }
 
   /**

@@ -14,12 +14,10 @@ import { randomUUID } from "crypto";
 import { createHash } from "crypto";
 import { execSync } from "child_process";
 import type {
-  FileReference,
   GitState,
   Checkpoint,
   CheckpointMetadata,
-  LegacyCheckpoint,
-  LegacyFileSnapshot,
+  FileReference,
 } from "../schemas/index.js";
 
 // Re-export types for backward compatibility
@@ -193,9 +191,7 @@ export async function loadCheckpoints(sessionId: string): Promise<Map<string, Ch
       const checkpointList = Array.isArray(data) ? data : Object.values(data);
 
       for (const checkpoint of checkpointList) {
-        // Migrate legacy checkpoints to new format
-        const migrated = migrateLegacyCheckpoint(checkpoint);
-        checkpoints.set(migrated.id, migrated);
+        checkpoints.set(checkpoint.id, checkpoint);
       }
     }
   } catch (error) {
@@ -204,49 +200,6 @@ export async function loadCheckpoints(sessionId: string): Promise<Map<string, Ch
   }
 
   return checkpoints;
-}
-
-/**
- * Migrate legacy checkpoint to reference-based format
- */
-function migrateLegacyCheckpoint(legacy: LegacyCheckpoint | Checkpoint): Checkpoint {
-  // Check if already migrated (has messageIndex instead of messages)
-  if ("messageIndex" in legacy && !("messages" in legacy)) {
-    return legacy as Checkpoint;
-  }
-
-  // Convert legacy to new format
-  const legacyCp = legacy as LegacyCheckpoint;
-
-  // Convert file snapshots to file references
-  const fileRefs: FileReference[] = [];
-  if (legacyCp.files) {
-    for (const file of legacyCp.files) {
-      if ("content" in file && file.content) {
-        // Legacy format - extract hash, discard content
-        fileRefs.push({
-          path: file.path,
-          hash: file.hash,
-        });
-      } else {
-        // Already reference format
-        fileRefs.push(file as FileReference);
-      }
-    }
-  }
-
-  return {
-    id: legacyCp.id,
-    sessionId: legacyCp.sessionId,
-    timestamp: legacyCp.timestamp,
-    label: legacyCp.label,
-    description: legacyCp.description,
-    // Convert messages array to messageIndex
-    messageIndex: Array.isArray(legacyCp.messages) ? legacyCp.messages.length : 0,
-    files: fileRefs,
-    gitState: legacyCp.gitState,
-    metadata: legacyCp.metadata,
-  };
 }
 
 /**

@@ -134,6 +134,12 @@ export class LoopState {
   // Continuation tracking (for autonomous loops)
   consecutiveContinuations = 0;
 
+  // NEW: Smart continuation fields
+  /** Whether the context was just compacted this turn */
+  wasCompacted = false;
+  /** Names of tools used in recent turns (for cooldown check) */
+  recentToolNames: string[] = [];
+
   // Dynamic configuration from template
   readonly template: TeammateTemplate | null;
   readonly loopBehavior: LoopBehavior;
@@ -141,7 +147,7 @@ export class LoopState {
   private turnWarningIssued = false;
 
   constructor(options: LoopStateOptions | Message[]) {
-    // Support legacy constructor signature
+    // Support shorthand: pass messages array directly
     if (Array.isArray(options)) {
       this.messages = [...options];
       this.template = null;
@@ -452,6 +458,10 @@ export class LoopState {
     // Reset consecutive continuations when tools are used (progress made)
     if (toolUseBlocks.length > 0) {
       this.consecutiveContinuations = 0;
+
+      // Track recent tool names for cooldown detection
+      const toolNames = toolUseBlocks.map(b => b.name);
+      this.recentToolNames = [...this.recentToolNames, ...toolNames].slice(-10); // Keep last 10
     }
   }
 
@@ -471,6 +481,7 @@ export class LoopState {
   ): boolean {
     // Only apply compaction if it actually saved tokens
     if (!compactionResult.didCompact || compactionResult.tokensAfter >= compactionResult.tokensBefore) {
+      this.wasCompacted = false;
       return false;
     }
 
@@ -481,6 +492,9 @@ export class LoopState {
     this.compactionCount++;
     const tokensSaved = compactionResult.tokensBefore - compactionResult.tokensAfter;
     this.totalTokensCompacted += tokensSaved;
+
+    // Mark that we just compacted (for continuation system)
+    this.wasCompacted = true;
 
     const stats = getStats(compactionResult);
     console.log(`Context compacted: ${stats.reductionPercent}% reduction, ${stats.tokensSaved} tokens saved`);
@@ -596,6 +610,8 @@ export class LoopState {
       totalTokensCompacted: this.totalTokensCompacted,
       retryCount: this.retryCount,
       consecutiveContinuations: this.consecutiveContinuations,
+      wasCompacted: this.wasCompacted,
+      recentToolNames: this.recentToolNames,
 
       // Cache metrics
       cacheMetrics: this.cacheMetrics,
@@ -645,6 +661,8 @@ export class LoopState {
     state.totalTokensCompacted = data.totalTokensCompacted;
     state.retryCount = data.retryCount;
     state.consecutiveContinuations = data.consecutiveContinuations ?? 0;
+    state.wasCompacted = data.wasCompacted ?? false;
+    state.recentToolNames = data.recentToolNames ?? [];
     state.cacheMetrics = data.cacheMetrics;
 
     // Note: checkpoints are stored separately and managed by LoopPersistence

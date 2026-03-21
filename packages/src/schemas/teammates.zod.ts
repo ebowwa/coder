@@ -81,7 +81,7 @@ export type WorktreeConfig = z.infer<typeof WorktreeConfigSchema>;
 export const TeammateSchema = z.object({
   // Primary ID field (used interchangeably with teammateId for compatibility)
   id: z.string().optional(),
-  teammateId: z.string().optional(), // Legacy field from api.zod.ts
+  teammateId: z.string().optional(), // Alternative ID field for compatibility
 
   name: z.string(),
   role: z.string(),
@@ -94,7 +94,7 @@ export const TeammateSchema = z.object({
   subagentType: z.string().optional(),
   prompt: z.string().optional(),
   color: z.string().optional(),
-  planModeRequired: z.boolean().optional(), // Legacy field from api.zod.ts
+  planModeRequired: z.boolean().optional(), // Requires plan mode before execution
   paneId: z.string().optional(), // For tmux pane tracking
 
   createdAt: z.number().optional(),

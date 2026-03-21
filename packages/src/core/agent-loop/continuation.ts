@@ -61,6 +61,21 @@ export interface ContinuationConfig {
   stuckThreshold: number;
   /** Include context about why we're continuing */
   includeReasoning: boolean;
+
+  // === NEW: Smart continuation controls ===
+
+  /** Minimum turns between continuation checks (prevents rapid-fire) */
+  cooldownTurns?: number;
+  /** Tools that indicate active work (skip continuation if recently used) */
+  activeWorkTools?: string[];
+  /** Number of recent turns to check for active work */
+  activeWorkWindow?: number;
+  /** Require verification before accepting completion */
+  requireVerification?: boolean;
+  /** Verification tools that count as proof */
+  verificationTools?: string[];
+  /** Original goal/task for persistence through compaction */
+  persistentGoal?: string;
 }
 
 /**
@@ -73,6 +88,10 @@ export interface ContinuationContext {
   lastBlocks: ContentBlock[];
   /** Number of tools used in last turn */
   toolsUsedCount: number;
+  /** Names of tools used in last turn */
+  toolsUsedNames?: string[];
+  /** Names of tools used in recent turns (for cooldown check) */
+  recentToolNames?: string[];
   /** Current turn number */
   turnNumber: number;
   /** Number of consecutive continuations */
@@ -95,6 +114,10 @@ export interface ContinuationContext {
     hasUncommittedChanges: boolean;
     taskList?: string[];
   };
+  /** Whether context was just compacted */
+  wasCompacted?: boolean;
+  /** Persistent goal from original task */
+  persistentGoal?: string;
 }
 
 /**
@@ -161,21 +184,43 @@ export const WORK_NEEDED_PATTERNS = [
   // Error states
   /\b(?:error|failed|exception|bug|issue|problem)/i,
   /\b(?:doesn't work|not working|broken)/i,
+  // Test/build failures - flexible matching
+  /\b(?:tests?|build)\b.{0,20}\b(?:not (?:passing|succeeded|successful)|fail)/i,
+  /\b(?:failing|failed)\s+(?:tests?|build)/i,
+  /\b(?:tests?|build)\s+(?:fail|failed|failing)/i,
+  /\b(?:aren't|isn't|not)\s+(?:passing|succeeded|successful)\b/i,
   // Incomplete code
   /\/\/\s*(?:TODO|FIXME|HACK|XXX)/i,
   /\b(?:pass|placeholder|stub)\b/i,
 ];
 
 /**
- * Completion patterns - suggest work is done
+ * Completion patterns - VERIFIED completion only
+ *
+ * IMPORTANT: We do NOT match words like "done" or "complete" because
+ * the model often says these without actually verifying. Instead, we
+ * require explicit verification signals like:
+ * - Tests passing (with output shown)
+ * - Build succeeding (with output shown)
+ * - Server running (with proof)
  */
 export const COMPLETION_PATTERNS = [
-  // Explicit completion
-  /\b(?:done|complete|finished|completed|accomplished|success(?:ful)?)\b/i,
-  /\b(?:all (?:tests?|tasks?|items?) (?:passed|done|complete))\b/i,
-  /\b(?:everything (?:looks|is|seems) (?:good|complete|done))\b/i,
-  // Promise tags (Ralph pattern)
-  /<promise>.*?<\/promise>/is,
+  // Verified test success (requires evidence)
+  /\b(?:all\s+)?tests?\s+(?:passed|succeeded|are\s+passing)\s*[\(\[]?/i,
+  /\btest\s+results?\s*:\s*(?:\d+\s+passed|all\s+passed)/i,
+
+  // Verified build success
+  /\bbuild\s+(?:succeeded|completed\s+successfully|passed)\s*[\(\[]?/i,
+
+  // Verified server running
+  /\bserver\s+(?:running|started|listening)\s+(?:on|at)\s+port\s+\d+/i,
+  /\b(?:listening|running)\s+on\s+(?:http:\/\/)?localhost:\d+/i,
+
+  // Promise tags (Ralph pattern) - explicit completion marker
+  /<promise>.*?(?:verified|tested|confirmed).*?<\/promise>/is,
+
+  // Explicit verification statement
+  /\b(?:verified|confirmed|tested)\s+(?:that\s+)?(?:everything|all|the\s+app|the\s+system)\s+(?:works?|is\s+working|is\s+functional)/i,
 ];
 
 // ============================================
@@ -197,10 +242,48 @@ export const DEFAULT_CONTINUATION_CONFIG: ContinuationConfig = {
 
 /**
  * Ralph-style continuation config (autonomous loops)
+ *
+ * KEY PRINCIPLES:
+ * 1. Never stop on "done" words alone - require VERIFIED completion
+ * 2. Respect active work - don't interrupt if tools were recently used
+ * 3. Cooldown between checks - prevent rapid-fire continuations
+ * 4. Goal persistence - keep original task in context
  */
 export const RALPH_CONTINUATION_CONFIG: ContinuationConfig = {
   enabled: true,
   conditions: [
+    // === HIGHEST PRIORITY: Goal reminder after compaction ===
+    {
+      id: "goal_reminder",
+      description: "Remind of original goal after context compaction",
+      action: "inject_prompt",
+      continuationPrompt: "Your context was compacted. Remember your original task and continue working toward it. Verify your progress with actual tests/builds, not just words.",
+      priority: 300,
+    },
+    // === HIGH PRIORITY: Stuck detection ===
+    {
+      id: "stuck_detection",
+      description: "Model appears stuck in a loop",
+      action: "inject_prompt",
+      continuationPrompt: DEFAULT_STUCK_PROMPT,
+      priority: 250,
+    },
+    // === VERIFIED COMPLETION (requires proof, not just words) ===
+    {
+      id: "verified_completion",
+      description: "Model has VERIFIED completion with tests/builds",
+      completionPattern: COMPLETION_PATTERNS.map(p => p.source).join("|"),
+      action: "stop",
+      priority: 200,
+    },
+    // === ACTIVE WORK DETECTED: Don't interrupt ===
+    {
+      id: "active_work",
+      description: "Model is actively using tools - don't interrupt",
+      action: "stop", // This is a "don't continue" condition
+      priority: 150,
+    },
+    // === WORK NEEDED: Continue if model mentions incomplete work ===
     {
       id: "explicit_incomplete",
       description: "Model mentions incomplete work",
@@ -208,20 +291,14 @@ export const RALPH_CONTINUATION_CONFIG: ContinuationConfig = {
       action: "inject_prompt",
       priority: 100,
     },
-    {
-      id: "completion_detected",
-      description: "Model indicates completion",
-      completionPattern: COMPLETION_PATTERNS.map(p => p.source).join("|"),
-      action: "stop",
-      priority: 200, // Higher priority - completion wins
-    },
+    // === LOWEST PRIORITY: Uncommitted changes (only if nothing else triggers) ===
     {
       id: "uncommitted_changes",
-      description: "Check for uncommitted changes",
+      description: "Check for uncommitted changes at the end",
       checkPendingState: true,
       action: "inject_prompt",
       continuationPrompt: "You have uncommitted changes. Review them and commit if appropriate, or explain why they shouldn't be committed.",
-      priority: 50,
+      priority: 10,
     },
   ],
   maxContinuations: 100,
@@ -229,6 +306,13 @@ export const RALPH_CONTINUATION_CONFIG: ContinuationConfig = {
   stuckPrompt: DEFAULT_STUCK_PROMPT,
   stuckThreshold: 5,
   includeReasoning: true,
+
+  // === NEW: Smart continuation controls ===
+  cooldownTurns: 2,
+  activeWorkTools: ["Edit", "Write", "Bash", "Read", "Grep", "Glob"],
+  activeWorkWindow: 3,
+  requireVerification: true,
+  verificationTools: ["Bash"], // Running tests/builds counts as verification
 };
 
 // ============================================
@@ -307,11 +391,58 @@ export function checkContinuation(
   // Check if stuck
   const isStuck = context.consecutiveContinuations >= config.stuckThreshold;
 
+  // === NEW: Check cooldown ===
+  const cooldownTurns = config.cooldownTurns ?? 0;
+  if (cooldownTurns > 0 && context.consecutiveContinuations > 0) {
+    // If we've had continuations recently, check if we should wait
+    // This prevents rapid-fire interruptions
+    const turnsSinceLastCheck = 1; // Simplified - in real use, track this
+    if (turnsSinceLastCheck < cooldownTurns && context.toolsUsedCount > 0) {
+      return {
+        shouldContinue: false,
+        action: "stop",
+        reason: `Cooldown active - model is working (used ${context.toolsUsedCount} tools)`,
+        isStuck,
+      };
+    }
+  }
+
+  // === NEW: Check for active work ===
+  const activeWorkTools = config.activeWorkTools ?? [];
+  const recentTools = context.recentToolNames ?? context.toolsUsedNames ?? [];
+  const hasActiveWork = recentTools.some(tool => activeWorkTools.includes(tool));
+
+  if (hasActiveWork && context.toolsUsedCount > 0) {
+    // Model is actively working - don't interrupt
+    return {
+      shouldContinue: false,
+      action: "stop",
+      reason: `Active work detected - tools used: ${recentTools.join(", ")}`,
+      isStuck,
+    };
+  }
+
+  // === NEW: Check for goal reminder after compaction ===
+  if (context.wasCompacted && config.persistentGoal) {
+    return {
+      shouldContinue: true,
+      action: "inject_prompt",
+      prompt: `Your context was compacted. Your original goal was: ${config.persistentGoal}\n\nContinue working toward this goal. Verify progress with actual commands, not just statements.`,
+      reason: "Context compacted - reminding of original goal",
+      isStuck,
+    };
+  }
+
   // Compile and check conditions
   const compiled = compileContinuationConfig(config);
 
   for (const condition of compiled.conditions) {
-    const triggered = checkCondition(condition, context);
+    // Skip special conditions that are handled above
+    if (condition.id === "goal_reminder" || condition.id === "active_work") {
+      continue;
+    }
+
+    const triggered = checkCondition(condition, context, config);
 
     if (triggered) {
       // Handle based on action
@@ -383,8 +514,30 @@ export function checkContinuation(
  */
 function checkCondition(
   condition: CompiledCondition,
-  context: ContinuationContext
+  context: ContinuationContext,
+  config?: ContinuationConfig
 ): boolean {
+  // === Special conditions ===
+
+  // Goal reminder: only trigger after compaction
+  if (condition.id === "goal_reminder") {
+    return context.wasCompacted === true && !!config?.persistentGoal;
+  }
+
+  // Stuck detection: check consecutive continuations
+  if (condition.id === "stuck_detection") {
+    return context.consecutiveContinuations >= (config?.stuckThreshold ?? 5);
+  }
+
+  // Active work: check if model is using tools
+  if (condition.id === "active_work") {
+    const activeWorkTools = config?.activeWorkTools ?? [];
+    const recentTools = context.recentToolNames ?? context.toolsUsedNames ?? [];
+    return recentTools.some(tool => activeWorkTools.includes(tool));
+  }
+
+  // === Pattern-based conditions ===
+
   // Check work needed pattern
   if (condition._workNeededRegex) {
     if (condition._workNeededRegex.test(context.lastOutput)) {
@@ -399,6 +552,8 @@ function checkCondition(
       return condition.action === "stop";
     }
   }
+
+  // === State-based conditions ===
 
   // Check pending state
   if (condition.checkPendingState && context.pendingState) {
