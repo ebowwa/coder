@@ -90,15 +90,9 @@ export const IMPORTANT_DIRECTIVES: Directive[] = [
       "If you need plan approval, use ExitPlanMode instead",
     ],
   },
-  {
-    category: "read_only_mode",
-    rules: [
-      "=== CRITICAL: READ-ONLY MODE - NO FILE MODIFICATIONS ===",
-      "You CANNOT and MUST NOT write, edit, or create files",
-      "You do NOT have access to file editing tools",
-      "NEVER use Bash for: mkdir, touch, rm, cp, mv, git add, git commit, npm install, pip install, or any file creation/modification",
-    ],
-  },
+  // NOTE: read_only_mode directive removed from here - it should only be included
+  // when the session is actually in read-only mode (e.g., plan mode or restricted permissions)
+  // See getDirectivesByCategory("read_only_mode") for conditional inclusion
   {
     category: "agent_communication",
     rules: [
