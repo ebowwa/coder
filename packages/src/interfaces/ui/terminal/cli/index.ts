@@ -169,9 +169,11 @@ async function main(): Promise<void> {
     );
   } else {
     // Single query mode
+    // Use resolved permissionMode from setup, not raw args
+    const resolvedArgs = { ...args, permissionMode: setup.permissionMode };
     await runSingleQuery({
       apiKey,
-      args,
+      args: resolvedArgs,
       systemPrompt,
       tools: setup.tools,
       query,

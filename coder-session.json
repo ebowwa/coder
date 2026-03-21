@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "sessionId": "mmzjqfr6-6p2434",
+  "model": "glm-5",
+  "messages": [],
+  "history": [],
+  "totalCost": 0,
+  "totalTokens": {
+    "input": 0,
+    "output": 0
+  },
+  "savedAt": "2026-03-20T23:44:43.845Z"
+}

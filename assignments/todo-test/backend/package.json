@@ -1,0 +1,7 @@
+{
+  "name": "todo-backend",
+  "type": "module",
+  "scripts": {
+    "start": "bun run index.ts"
+  }
+}

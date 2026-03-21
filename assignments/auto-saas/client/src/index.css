@@ -1,0 +1,16 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: system-ui, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }
+.container { max-width: 800px; margin: 0 auto; padding: 2rem; }
+.card { background: white; border-radius: 12px; padding: 2rem; box-shadow: 0 10px 40px rgba(0,0,0,0.1); }
+h1 { color: #333; margin-bottom: 1.5rem; text-align: center; }
+.input-group { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
+input { flex: 1; padding: 0.75rem 1rem; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 1rem; }
+input:focus { outline: none; border-color: #667eea; }
+button { padding: 0.75rem 1.5rem; background: #667eea; color: white; border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; transition: background 0.2s; }
+button:hover { background: #5568d3; }
+.result { padding: 1rem; background: #f7f9fc; border-radius: 8px; margin-bottom: 1rem; }
+.result a { color: #667eea; word-break: break-all; }
+.urls { margin-top: 1.5rem; }
+.url-item { padding: 0.75rem; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+.url-item:last-child { border-bottom: none; }
+.error { color: #e53e3e; padding: 0.75rem; background: #fff5f5; border-radius: 8px; margin-bottom: 1rem; }

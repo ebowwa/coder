@@ -31,12 +31,12 @@ app.post('/api/shorten', async (c) => {
   try {
     const body = await c.req.json()
     const { url } = createSchema.parse(body)
-    
+
     const shortCode = nanoid(7)
-    
+
     const stmt = db.prepare('INSERT INTO urls (short_code, original_url) VALUES (?, ?)')
     stmt.run(shortCode, url)
-    
+
     return c.json({
       shortCode,
       shortUrl: `${new URL(c.req.url).origin}/${shortCode}`,
@@ -52,11 +52,11 @@ app.get('/api/stats/:code', (c) => {
   const code = c.req.param('code')
   const stmt = db.prepare('SELECT * FROM urls WHERE short_code = ?')
   const url = stmt.get(code)
-  
+
   if (!url) {
     return c.json({ error: 'URL not found' }, 404)
   }
-  
+
   return c.json(url)
 })
 
@@ -70,28 +70,27 @@ app.get('/api/urls', (c) => {
 // Redirect short URL
 app.get('/:code', (c) => {
   const code = c.req.param('code')
-  
-  // Skip API routes
-  if (code === 'api') return c.notFound()
-  
+
+  // Skip API routes and static assets
+  if (code === 'api' || code === 'assets') return c.notFound()
+
   const stmt = db.prepare('SELECT * FROM urls WHERE short_code = ?')
   const url = stmt.get(code) as any
-  
+
   if (!url) {
     return c.html('<h1>404 - URL not found</h1>', 404)
   }
-  
+
   // Increment click count
   const updateStmt = db.prepare('UPDATE urls SET clicks = clicks + 1 WHERE id = ?')
   updateStmt.run(url.id)
-  
+
   return c.redirect(url.original_url)
 })
 
-// Serve static files in production
-if (process.env.NODE_ENV === 'production') {
-  app.use('/*', serveStatic({ root: './client/dist' }))
-}
+// Serve static files (client)
+app.use('/assets/*', serveStatic({ root: './client/dist' }))
+app.use('/', serveStatic({ path: './client/dist/index.html' }))
 
 const port = Number(process.env.PORT) || 3001
 
