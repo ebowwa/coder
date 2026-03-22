@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { http, createConfig, WagmiProvider } from 'wagmi';
 import { mainnet } from 'viem/chains';
 import { WalletConnect, AccountBalance } from './components/wallet';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 import {
   MarketOverview,
   PriceChart,
@@ -34,34 +35,56 @@ export default function App() {
           {/* Main Content */}
           <main className="max-w-7xl mx-auto p-4 space-y-6">
             {/* Account Section */}
-            <AccountBalance />
+            <ErrorBoundary>
+              <AccountBalance />
+            </ErrorBoundary>
 
             {/* Market Overview - Full Width */}
-            <MarketOverview />
+            <ErrorBoundary>
+              <MarketOverview />
+            </ErrorBoundary>
 
             {/* Top Row */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <PortfolioSummary />
-              <GasTracker />
-              <PriceAlerts />
+              <ErrorBoundary>
+                <PortfolioSummary />
+              </ErrorBoundary>
+              <ErrorBoundary>
+                <GasTracker />
+              </ErrorBoundary>
+              <ErrorBoundary>
+                <PriceAlerts />
+              </ErrorBoundary>
             </div>
 
             {/* Middle Row */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <PriceChart />
-              <YieldCalculator />
+              <ErrorBoundary>
+                <PriceChart />
+              </ErrorBoundary>
+              <ErrorBoundary>
+                <YieldCalculator />
+              </ErrorBoundary>
             </div>
 
             {/* Portfolio Section */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <PortfolioAllocation />
-              <TransactionHistory />
+              <ErrorBoundary>
+                <PortfolioAllocation />
+              </ErrorBoundary>
+              <ErrorBoundary>
+                <TransactionHistory />
+              </ErrorBoundary>
             </div>
 
             {/* Token Explorer & Yields */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <TokenListAdvanced />
-              <YieldMetrics />
+              <ErrorBoundary>
+                <TokenListAdvanced />
+              </ErrorBoundary>
+              <ErrorBoundary>
+                <YieldMetrics />
+              </ErrorBoundary>
             </div>
           </main>
 

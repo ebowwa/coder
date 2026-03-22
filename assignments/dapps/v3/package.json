@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun run src/server.ts",
-    "build": "bun build ./src/main.tsx --outdir ./dist --target browser --jsx-production --jsx-import-source react --sourcemap=external",
-    "preview": "bun run src/server.ts",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
     "lint": "eslint src --ext ts,tsx",
     "format": "prettier --write \"src/**/*.{ts,tsx}\"",
     "test": "NODE_ENV=development vitest",
