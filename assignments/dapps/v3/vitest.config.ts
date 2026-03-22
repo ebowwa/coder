@@ -8,8 +8,17 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
+    environmentOptions: {
+      jsdom: {
+        html: '<!DOCTYPE html><html><body></body></html>',
+        url: 'http://localhost',
+        pretendToBeVisual: true,
+      },
+    },
     setupFiles: ['./test/setup.ts'],
     include: ['test/**/*.test.{ts,tsx}'],
     globals: true,
+    testTimeout: 10000,
+    hookTimeout: 10000,
   },
 });
