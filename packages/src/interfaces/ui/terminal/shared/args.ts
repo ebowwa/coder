@@ -65,6 +65,11 @@ export interface CLIArgs {
   /** Enable autonomous loop continuation (Ralph-style) */
   continuation?: boolean;
 
+  /** Enable long-running mode for days/weeks of autonomous work */
+  longRunning?: boolean;
+  /** Original goal for long-running sessions */
+  longRunningGoal?: string;
+
   // MCP server presets (from templates)
   /** Preset MCP servers from templates */
   presetMcpServers?: Record<string, MCPServerConfig>;
@@ -190,6 +195,12 @@ export function parseArgs(): CLIArgs {
       case "--ralph":
         result.continuation = true;
         break;
+      case "--long-running":
+        result.longRunning = true;
+        break;
+      case "--long-running-goal":
+        result.longRunningGoal = args[++i];
+        break;
       case "--help":
       case "-h":
         printHelp();
@@ -260,6 +271,8 @@ Query:
   --no-progress                 Disable progress indicators
   --repl                        Use readline-based REPL instead of TUI
   --continuation, --ralph       Enable autonomous loop continuation (keep working until done)
+  --long-running                Enable long-running mode for days/weeks of autonomous work
+  --long-running-goal <goal>    Original goal for long-running session (auto-saved milestones)
   -h, --help                    Show this help message
 
 EXAMPLES:

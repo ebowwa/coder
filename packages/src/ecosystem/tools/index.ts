@@ -572,19 +572,32 @@ Usage notes:
       const fullModel = resolveModelAlias(model) || MODEL_ALIASES.haiku!;
 
       // Find the CLI - check multiple locations
+      // The CLI entry point is dist/interfaces/ui/terminal/cli/index.js (as defined in package.json bin)
+      // When bundled, import.meta.dir points to dist/ directory
+      const coderRoot = path.resolve(import.meta.dir, "..", "..");  // Go up from dist/ to coder root
+
       const possiblePaths = [
-        import.meta.dir + "/../../dist/cli.js",  // Built CLI
-        import.meta.dir + "/../interfaces/ui/terminal/cli/index.ts", // Source CLI
-        process.cwd() + "/dist/cli.js",          // Built CLI in cwd
-        process.cwd() + "/src/interfaces/ui/terminal/cli/index.ts",  // Source CLI in cwd
+        // Check for globally installed 'coder' binary first (most reliable)
+        "/usr/local/bin/coder",
+        path.join(process.env.HOME || "", ".bun", "bin", "coder"),
+
+        // Built CLI in dist (correct path)
+        path.join(coderRoot, "dist", "interfaces", "ui", "terminal", "cli", "index.js"),
+
+        // Source CLI (for development)
+        path.join(coderRoot, "packages", "src", "interfaces", "ui", "terminal", "cli", "index.ts"),
+
+        // Fallback: check relative to cwd
+        path.join(process.cwd(), "dist", "interfaces", "ui", "terminal", "cli", "index.js"),
+        path.join(process.cwd(), "packages", "src", "interfaces", "ui", "terminal", "cli", "index.ts"),
       ];
 
       let cliPath: string | null = null;
-      for (const path of possiblePaths) {
+      for (const checkPath of possiblePaths) {
         try {
-          const file = Bun.file(path);
+          const file = Bun.file(checkPath);
           if (await file.exists()) {
-            cliPath = path;
+            cliPath = checkPath;
             break;
           }
         } catch {
@@ -592,9 +605,24 @@ Usage notes:
         }
       }
 
+      // Also try to find 'coder' in PATH
+      if (!cliPath) {
+        try {
+          const whichResult = Bun.spawnSync(["which", "coder"], { timeout: 5000 });
+          if (whichResult.exitCode === 0) {
+            const coderBin = whichResult.stdout?.toString().trim();
+            if (coderBin) {
+              cliPath = coderBin;
+            }
+          }
+        } catch {
+          // which command failed, continue
+        }
+      }
+
       if (!cliPath) {
         return {
-          content: `Error: Could not find CLI. Tried:\n${possiblePaths.join("\n")}`,
+          content: `Error: Could not find Coder CLI. Tried:\n${possiblePaths.join("\n")}\n\nAlso checked PATH for 'coder' binary.\n\nEnsure Coder is built (bun run build) and linked (bun link).`,
           is_error: true,
         };
       }

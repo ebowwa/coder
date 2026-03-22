@@ -12,8 +12,8 @@ export function MarketOverview() {
         <h2 className="text-xl font-bold">Market Overview</h2>
         <div className="text-sm text-gray-400">
           Market Cap: ${formatNumber(marketData?.totalMarketCap || 0)} |
-          24h: <span className={marketData?.marketCapChangePercentage24h >= 0 ? 'text-green-500' : 'text-red-500'}>
-            {marketData?.marketCapChangePercentage24h?.toFixed(2)}%
+          24h: <span className={(marketData?.marketCapChangePercentage24h ?? 0) >= 0 ? 'text-green-500' : 'text-red-500'}>
+            {(marketData?.marketCapChangePercentage24h ?? 0).toFixed(2)}%
           </span>
         </div>
       </div>

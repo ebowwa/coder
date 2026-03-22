@@ -29,6 +29,12 @@ import {
   DEFAULT_PERSISTENCE_CONFIG,
   type PersistedLoopState,
 } from "./loop-persistence.js";
+import {
+  LongRunningIntegration,
+  DEFAULT_LONG_RUNNING_INTEGRATION_CONFIG,
+  type LongRunningIntegrationConfig,
+} from "./long-running-integration.js";
+import { LongRunningMemoryManager } from "./long-running-memory.js";
 
 // Re-export types and utilities
 export type { AgentLoopOptions, AgentLoopResult, LoopPersistenceConfig } from "./types.js";
@@ -123,6 +129,87 @@ export {
   createContinuationConfig,
 } from "./continuation.js";
 
+// Re-export long-running memory system for days/weeks of autonomous work
+export {
+  type LongRunningIntegrationConfig,
+  type VerificationCommand,
+  DEFAULT_LONG_RUNNING_INTEGRATION_CONFIG,
+  LongRunningIntegration,
+  detectMilestoneFromResult,
+  extractDecisionFromOutput,
+  runVerification,
+  buildCompactionRecoveryMessage,
+  buildPeriodicReminder,
+} from "./long-running-integration.js";
+export {
+  type Decision,
+  type Discovery,
+  type GoalSnapshot,
+  type VerificationResult as MemoryVerificationResult,
+  type MilestoneCheckpoint,
+  type LongRunningMemory,
+  type LongRunningMemoryConfig,
+  DEFAULT_LONG_RUNNING_CONFIG,
+  LongRunningMemoryManager,
+} from "./long-running-memory.js";
+
+// Re-export agent patterns (Microsoft Research patterns)
+export {
+  // Pattern 1: Structured Planning
+  type PlanStep,
+  type ExecutionPlan,
+  type PlanGeneratorOptions,
+  PlanStepSchema,
+  ExecutionPlanSchema,
+  generatePlan,
+  updatePlanStep,
+  getNextStep,
+  isPlanComplete,
+
+  // Pattern 2: Verification Loops
+  type VerificationResult,
+  type VerificationLoopOptions,
+  VerificationResultSchema,
+  DEFAULT_VERIFICATION_OPTIONS,
+  createVerificationResult,
+  shouldRetryVerification,
+  incrementRetry,
+
+  // Pattern 3: Tool Selection Strategy
+  type ToolSelectionContext,
+  TOOL_CATEGORIES,
+  TASK_TOOL_MAP,
+  selectTool,
+  getNextToolInWorkflow,
+  validateToolSequence,
+
+  // Pattern 4: Error Taxonomy
+  type ErrorCategory,
+  type ClassifiedError,
+  ErrorCategorySchema,
+  ClassifiedErrorSchema,
+  classifyError,
+  getRecoveryStrategy,
+
+  // Pattern 5: Progressive Refinement
+  type RefinementState,
+  type RefinementLevel,
+  type ProgressiveRefinementOptions,
+  RefinementLevelSchema,
+  RefinementStateSchema,
+  DEFAULT_REFINEMENT_OPTIONS,
+  createRefinementState,
+  canAdvanceLevel,
+  advanceLevel,
+  getRefinementGuidance,
+  isRefinementComplete,
+
+  // Combined pattern context
+  type PatternExecutionContext,
+  createPatternContext,
+  processToolResult,
+} from "./agent-patterns.js";
+
 /**
  * Generate a unique session ID
  */
@@ -192,6 +279,8 @@ export async function agentLoop(
     resumeFrom,
     onPersist,
     continuation,
+    longRunning: longRunningOption,
+    longRunningGoal,
   } = options;
 
   // Resolve persistence configuration
@@ -232,6 +321,19 @@ export async function agentLoop(
   } else {
     // No persistence, use in-memory state
     state = new LoopState(initialMessages);
+  }
+
+  // Initialize long-running integration if enabled
+  let longRunningIntegration: LongRunningIntegration | null = null;
+  if (longRunningOption) {
+    const memoryManager = new LongRunningMemoryManager();
+    const config: Partial<LongRunningIntegrationConfig> = typeof longRunningOption === "boolean"
+      ? { enabled: longRunningOption, sessionId, originalGoal: longRunningGoal || "Autonomous work session" }
+      : { enabled: true, sessionId, originalGoal: longRunningGoal || "Autonomous work session", ...longRunningOption };
+
+    longRunningIntegration = new LongRunningIntegration(config, memoryManager);
+    await longRunningIntegration.initialize();
+    console.log(`Long-running mode enabled for session ${sessionId}`);
   }
 
   const permissionManager = new PermissionManager(permissionMode, onPermissionRequest);
@@ -295,6 +397,7 @@ export async function agentLoop(
         stopSequenceConfig,
         resultConditions,
         continuation,
+        longRunning: longRunningIntegration ?? undefined,
       };
 
       // Execute a single turn

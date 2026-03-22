@@ -14,5 +14,6 @@ export function WalletConnect() {
     );
   }
 
-  return <button onClick={() => connect()} className="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700">Connect Wallet</button>;
+  const connector = connectors[0];
+  return <button onClick={() => connector && connect({ connector })} className="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700">Connect Wallet</button>;
 }

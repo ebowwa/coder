@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { WagmiConfig, createConfig, mainnet } from 'wagmi';
-import { http } from 'viem';
+import { http, createConfig, WagmiProvider } from 'wagmi';
+import { mainnet } from 'viem/chains';
 import { WalletConnect, AccountBalance } from './components/wallet';
 import { MarketOverview, PriceChart, PortfolioSummary, TokenList, YieldMetrics } from './components/dashboard';
 
@@ -9,7 +9,7 @@ const config = createConfig({ chains: [mainnet], transports: { [mainnet.id]: htt
 
 export default function App() {
   return (
-    <WagmiConfig config={config}>
+    <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
         <div className="min-h-screen bg-gray-950 text-white p-4">
           <header className="flex justify-between items-center mb-6">
@@ -26,6 +26,6 @@ export default function App() {
           </div>
         </div>
       </QueryClientProvider>
-    </WagmiConfig>
+    </WagmiProvider>
   );
 }

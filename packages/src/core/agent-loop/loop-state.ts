@@ -17,7 +17,11 @@ import type {
   UsageMetrics,
   StopReason,
 } from "../../schemas/index.js";
-import type { CompactionResult, getCompactionStats } from "../context-compaction.js";
+import {
+  type CompactionResult,
+  getCompactionStats,
+  estimateMessagesTokens,
+} from "../context-compaction.js";
 import {
   type TeammateTemplate,
   type LoopBehavior,
@@ -285,10 +289,9 @@ export class LoopState {
    * Estimate current context token count
    */
   get estimatedContextTokens(): number {
-    // Rough estimation based on usage metrics
-    const totalInput = this.metrics.reduce((sum, m) => sum + m.usage.input_tokens, 0);
-    const totalOutput = this.metrics.reduce((sum, m) => sum + m.usage.output_tokens, 0);
-    return totalInput + totalOutput;
+    // Use actual message token estimation instead of cumulative metrics
+    // This gives accurate context window tracking for compaction decisions
+    return estimateMessagesTokens(this.messages);
   }
 
   // ============================================
@@ -497,7 +500,7 @@ export class LoopState {
     this.wasCompacted = true;
 
     const stats = getStats(compactionResult);
-    console.log(`Context compacted: ${stats.reductionPercent}% reduction, ${stats.tokensSaved} tokens saved`);
+    // DISABLED: console.log(`Context compacted: ${stats.reductionPercent}% reduction, ${stats.tokensSaved} tokens saved`);
 
     return true;
   }

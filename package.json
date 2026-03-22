@@ -56,6 +56,7 @@
     "@anthropic-ai/sdk": "^0.39.0",
     "@ebowwa/bun-native-page": "0.2.5",
     "@ebowwa/coder-native": "^0.2.1",
+    "@ebowwa/logic-spec": "^1.0.1",
     "@ebowwa/quant-rust": "^0.2.2",
     "@ebowwa/sandbox": "^0.2.3",
     "@ebowwa/state": "^0.2.0",

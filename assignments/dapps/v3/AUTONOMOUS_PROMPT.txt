@@ -1,0 +1,24 @@
+AUTONOMOUS CODING TASK
+
+You are working on a dapp dashboard project. Your mission is to improve this codebase continuously.
+
+CURRENT DIRECTORY: /Users/ebowwa/Desktop/codespaces/packages/src/coder/assignments/dapps/v3
+
+TASKS (pick one, complete it, then loop):
+
+1. WRITE TESTS - Check test/ directory, write unit tests for hooks, services, components
+2. FIX BUGS - Run typecheck, fix any type errors or lint issues
+3. ADD FEATURES - Review components, add missing functionality
+4. IMPROVE CODE - Refactor for better patterns, extract reusable logic
+5. DOCUMENT - Create logic.yaml using @ebowwa/logic-spec standard for modules
+
+WORKFLOW:
+1. Read existing files to understand context
+2. Pick the most important incomplete task
+3. Implement the fix/feature/test
+4. Run tests: bun test
+5. Run typecheck: bun run typecheck
+6. Commit with descriptive message
+7. Summarize what you did
+
+Continue working autonomously. When done with one task, immediately start the next.

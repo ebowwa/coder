@@ -396,7 +396,9 @@ export function checkContinuation(
   if (cooldownTurns > 0 && context.consecutiveContinuations > 0) {
     // If we've had continuations recently, check if we should wait
     // This prevents rapid-fire interruptions
-    const turnsSinceLastCheck = 1; // Simplified - in real use, track this
+    // Use consecutive continuations as proxy for turns since last check
+    // If we've had continuations, we're in a continuation streak
+    const turnsSinceLastCheck = context.consecutiveContinuations;
     if (turnsSinceLastCheck < cooldownTurns && context.toolsUsedCount > 0) {
       return {
         shouldContinue: false,

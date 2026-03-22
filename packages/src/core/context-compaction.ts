@@ -38,7 +38,8 @@ const DEFAULT_KEEP_LAST = 5;
 const DEFAULT_KEEP_FIRST = 1;
 
 /** Minimum messages required before compaction is possible */
-const MIN_MESSAGES_FOR_COMPACTION = 8;
+/** Reduced from 8 to 3 to handle short but token-heavy conversations */
+const MIN_MESSAGES_FOR_COMPACTION = 3;
 
 /** Default threshold for proactive compaction (90% of max tokens) */
 const DEFAULT_COMPACTION_THRESHOLD = 0.9;
@@ -408,10 +409,10 @@ export async function summarizeWithLLM(
         return summarizeMessages(messages);
       }
 
-      // Log usage for debugging
-      if (data.usage) {
-        console.log(`\x1b[90m[Compaction] LLM summary: ${data.usage.input_tokens} in, ${data.usage.output_tokens} out\x1b[0m`);
-      }
+      // Log usage for debugging (DISABLED - user is token rich)
+      // if (data.usage) {
+      //   console.log(`\x1b[90m[Compaction] LLM summary: ${data.usage.input_tokens} in, ${data.usage.output_tokens} out\x1b[0m`);
+      // }
 
       return `[LLM Summary of ${messages.length} messages]\n\n${summaryText}`;
 
@@ -541,7 +542,7 @@ export async function compactMessages(
   const tokensAfter = estimateMessagesTokens(compacted);
   const messagesRemoved = messages.length - compacted.length;
 
-  console.log(`Context compaction: ${messages.length} -> ${compacted.length} messages, ${tokensBefore} -> ${tokensAfter} tokens`);
+  // DISABLED: console.log(`Context compaction: ${messages.length} -> ${compacted.length} messages, ${tokensBefore} -> ${tokensAfter} tokens`);
 
   return {
     messages: compacted,

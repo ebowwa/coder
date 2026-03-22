@@ -120,9 +120,50 @@ export class ToolHandlers {
     try {
       const limit = (input.limit as number) ?? 20;
       const offset = (input.offset as number) ?? 0;
+      const search = input.search as string | undefined;
+      const status = input.status as string | string[] | undefined;
+      const tags = input.tags as string | string[] | undefined;
+      const source = input.source as string | string[] | undefined;
 
-      const contacts = this.storage.list<Contact>('contacts', { limit, offset });
-      const total = this.storage.count('contacts');
+      // Get all contacts for filtering (then paginate)
+      let contacts = this.storage.list<Contact>('contacts', { limit: 1000, offset: 0 });
+
+      // Apply search filter (name, email, company)
+      if (search) {
+        const searchLower = search.toLowerCase();
+        contacts = contacts.filter((c) => {
+          const nameMatch = c.name?.toLowerCase().includes(searchLower);
+          const firstNameMatch = c.firstName?.toLowerCase().includes(searchLower);
+          const lastNameMatch = c.lastName?.toLowerCase().includes(searchLower);
+          const companyMatch = c.company?.toLowerCase().includes(searchLower);
+          const emailMatch = c.emails?.some((e) => e.email.toLowerCase().includes(searchLower));
+          return nameMatch || firstNameMatch || lastNameMatch || companyMatch || emailMatch;
+        });
+      }
+
+      // Apply status filter
+      if (status) {
+        const statusArray = Array.isArray(status) ? status : [status];
+        contacts = contacts.filter((c) => statusArray.includes(c.status));
+      }
+
+      // Apply tags filter (contacts that have ANY of the specified tags)
+      if (tags) {
+        const tagsArray = Array.isArray(tags) ? tags : [tags];
+        contacts = contacts.filter((c) => tagsArray.some((tag) => c.tags?.includes(tag)));
+      }
+
+      // Apply source filter
+      if (source) {
+        const sourceArray = Array.isArray(source) ? source : [source];
+        contacts = contacts.filter((c) => c.source && sourceArray.includes(c.source));
+      }
+
+      // Calculate total after filtering
+      const total = contacts.length;
+
+      // Apply pagination after filtering
+      contacts = contacts.slice(offset, offset + limit);
 
       return { success: true, data: { contacts, total } };
     } catch (error) {

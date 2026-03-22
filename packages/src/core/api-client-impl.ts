@@ -733,6 +733,22 @@ export async function createMessageStream(
                   }
                 }
 
+                // Handle reasoning_content (GLM-5, DeepSeek, etc. thinking tokens)
+                // These models may output thinking in reasoning_content field
+                if ((choice?.delta as { reasoning_content?: string })?.reasoning_content) {
+                  const reasoning = (choice?.delta as { reasoning_content?: string })?.reasoning_content ?? "";
+                  if (currentThinkingBlock) {
+                    currentThinkingBlock.thinking += reasoning;
+                  } else {
+                    currentThinkingBlock = { type: "thinking", thinking: reasoning };
+                  }
+                  onThinking?.(reasoning);
+                  if (firstToken) {
+                    ttft = Date.now() - startTime;
+                    firstToken = false;
+                  }
+                }
+
                 // Handle OpenAI tool_calls in streaming format (GLM, OpenAI, etc.)
                 if (choice?.delta?.tool_calls && Array.isArray(choice.delta.tool_calls)) {
                   for (const toolCallDelta of choice.delta.tool_calls) {
@@ -779,6 +795,10 @@ export async function createMessageStream(
 
                 // Check for finish
                 if (choice?.finish_reason) {
+                  if (currentThinkingBlock) {
+                    currentContent.push(currentThinkingBlock);
+                    currentThinkingBlock = null;
+                  }
                   if (currentTextBlock) {
                     currentContent.push(currentTextBlock);
                     currentTextBlock = null;

@@ -16,6 +16,7 @@ import type {
 } from "../../schemas/index.js";
 import { createMessageStream } from "../api-client.js";
 import { buildCombinedReminder } from "../system-reminders.js";
+import { getContextWindow } from "../models.js";
 import type { PermissionManager } from "../permissions.js";
 import type { HookManager } from "../../ecosystem/hooks/index.js";
 import type { LoopState } from "./loop-state.js";
@@ -28,11 +29,6 @@ import {
   type StopSequenceOptions,
 } from "./stop-sequences.js";
 import {
-  checkAllResults,
-  type ResultConditionsConfig,
-  type ResultCondition,
-} from "./result-conditions.js";
-import {
   checkContinuation,
   buildContinuationMessage,
   extractTextFromBlocks,
@@ -40,6 +36,11 @@ import {
   type ContinuationContext,
   type ContinuationCheckResult,
 } from "./continuation.js";
+import type { LongRunningIntegration } from "./long-running-integration.js";
+import {
+  checkAllResults,
+  type ResultConditionsConfig,
+} from "./result-conditions.js";
 
 /**
  * Options for turn execution
@@ -75,6 +76,8 @@ export interface TurnExecutorOptions {
   resultConditions?: ResultConditionsConfig;
   /** Continuation config - enables autonomous loop continuation (Ralph-style) */
   continuation?: ContinuationConfig;
+  /** Long-running integration for extended autonomous sessions */
+  longRunning?: LongRunningIntegration;
 }
 
 /**
@@ -129,6 +132,9 @@ export async function executeTurn(
   // Increment turn counter
   state.incrementTurn();
 
+  // Reset wasCompacted flag at start of each turn
+  state.wasCompacted = false;
+
   const turnNumber = state.turnNumber;
 
   // Build system reminder for this turn
@@ -148,8 +154,13 @@ export async function executeTurn(
     onReminder?.(reminder);
   }
 
+  // Get context window for this model (used for compaction, not output limit)
+  const contextWindow = getContextWindow(model);
+
   // Proactive compaction check - compact BEFORE hitting the limit
-  await handleProactiveCompaction(state, maxTokens, DEFAULT_PROACTIVE_OPTIONS);
+  // IMPORTANT: Use contextWindow (e.g., 200000), NOT maxTokens (e.g., 4096)
+  // maxTokens is the OUTPUT limit, contextWindow is the CONTEXT limit
+  await handleProactiveCompaction(state, contextWindow, DEFAULT_PROACTIVE_OPTIONS);
 
   // Build API messages with system reminders
   const apiMessages = buildAPIMessages(state.messages, systemPrompt, reminder);
@@ -282,7 +293,9 @@ export async function executeTurn(
 
   if (message.stop_reason === "max_tokens") {
     // Context window limit reached - compact and continue
-    const compacted = await handleReactiveCompaction(state, maxTokens, DEFAULT_REACTIVE_OPTIONS);
+    // IMPORTANT: Use contextWindow (e.g., 200000), NOT maxTokens (e.g., 4096)
+    // maxTokens is the OUTPUT limit, contextWindow is the CONTEXT limit
+    const compacted = await handleReactiveCompaction(state, contextWindow, DEFAULT_REACTIVE_OPTIONS);
 
     if (compacted) {
       // Continue the loop with compacted context
@@ -419,6 +432,18 @@ export async function executeTurn(
 
   // Add tool results as user message
   state.addUserMessage(toolResults);
+
+  // Process turn completion for long-running integration
+  if (options.longRunning) {
+    const turnOutput = extractTextFromBlocks(message.content);
+    await options.longRunning.processTurnCompletion(
+      turnNumber,
+      toolUseBlocks,
+      toolResults,
+      turnOutput,
+      costUSD ?? 0
+    );
+  }
 
   // Continue loop to process tool results
   return {

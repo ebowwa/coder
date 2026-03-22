@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { getYieldData } from '../services/defillama';
+import { STALE_TIME } from '../constants/cache';
 
 export function useYieldData(chain?: string) {
   return useQuery({
@@ -8,6 +9,6 @@ export function useYieldData(chain?: string) {
       const data = await getYieldData();
       return chain ? data.filter(y => y.chain.toLowerCase() === chain.toLowerCase()) : data;
     },
-    staleTime: 10 * 60 * 1000,
+    staleTime: STALE_TIME.TEN_MINUTES,
   });
 }

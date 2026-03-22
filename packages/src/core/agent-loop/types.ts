@@ -26,11 +26,13 @@ import type { StopSequenceConfig, StopSequenceContext, StopSequenceOptions } fro
 import type { ResultConditionsConfig, ResultCondition } from "./result-conditions.js";
 import type { LoopPersistenceConfig } from "./loop-persistence.js";
 import type { ContinuationConfig } from "./continuation.js";
+import type { LongRunningIntegrationConfig } from "./long-running-integration.js";
 
 // Re-export for convenience
 export type { StopSequenceConfig, StopSequenceContext, StopSequenceOptions } from "./stop-sequences.js";
 export type { ResultConditionsConfig, ResultCondition } from "./result-conditions.js";
 export type { LoopPersistenceConfig, LoopRecoveryResult } from "./loop-persistence.js";
+export type { LongRunningIntegrationConfig } from "./long-running-integration.js";
 
 /**
  * Callback types for agent loop events
@@ -78,6 +80,10 @@ export interface AgentLoopOptions extends AgentLoopCallbacks {
   onPersist?: (sessionId: string, turnNumber: number) => void;
   /** Continuation config - enables autonomous loop continuation (Ralph-style) */
   continuation?: ContinuationConfig;
+  /** Long-running mode - enables persistent memory for days/weeks of autonomous work */
+  longRunning?: boolean | Partial<LongRunningIntegrationConfig>;
+  /** Original goal for long-running sessions (required if longRunning is true) */
+  longRunningGoal?: string;
 }
 
 /**

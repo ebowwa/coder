@@ -81,9 +81,9 @@ export const CombinedReminderOptionsSchema = z.object({
 // ============================================
 
 export const DEFAULT_REMINDER_CONFIG: SystemReminderConfig = {
-  tokenWarningThreshold: 0.8,
-  costUpdateInterval: 5,
-  toolSummaryInterval: 3,
+  tokenWarningThreshold: 1.0, // DISABLED: user is token rich
+  costUpdateInterval: 0, // DISABLED: no cost updates
+  toolSummaryInterval: 0, // DISABLED: no tool summaries
   envInfoOnStart: true,
 };
 

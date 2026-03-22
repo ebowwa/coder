@@ -194,36 +194,22 @@ export function formatContextPercent(percentRemaining: number): string {
 
 /**
  * Render the full status line
- * Simplified format: "Context left until auto-compact: 8%, 0 tokens, ○ default"
+ * Simplified format: "○ default" (token info DISABLED - user is token rich)
  */
 export function renderStatusLine(options: StatusLineOptions): string {
   const {
-    tokensUsed,
-    model,
     permissionMode,
     isLoading = false,
     verbose = false,
   } = options;
 
-  const contextInfo = calculateContextInfo(tokensUsed, model);
-
-  // Build status parts
+  // Build status parts - DISABLED: context/tokens (user is token rich)
   const parts: string[] = [];
 
-  // 1. Context left until auto-compact (with color based on remaining %)
-  const contextValue = contextInfo.isCritical
-    ? chalk.red(`${contextInfo.percentRemaining.toFixed(0)}%`)
-    : contextInfo.isLow
-      ? chalk.yellow(`${contextInfo.percentRemaining.toFixed(0)}%`)
-      : `${contextInfo.percentRemaining.toFixed(0)}%`;
-
-  parts.push(`Context left until auto-compact: ${contextValue}`);
-  parts.push(tokensUsed === 0 ? "0 tokens" : `${tokensUsed} tokens`);
-
-  // 2. Add permission mode
+  // 1. Add permission mode
   parts.push(formatPermissionMode(permissionMode));
 
-  // 3. Add version in verbose mode
+  // 2. Add version in verbose mode
   if (verbose) {
     parts.push(`currentVersion: ${VERSION}`);
   }
@@ -270,26 +256,23 @@ export function renderMinimalStatusLine(permissionMode: PermissionMode): string 
 }
 
 // ============================================
-// AUTO-COMPACT WARNING
+// AUTO-COMPACT WARNING (DISABLED - user is token rich)
 // ============================================
 
 /**
  * Check if auto-compact warning should be shown
+ * DISABLED: User is token rich, no need for warnings
  */
-export function shouldShowAutoCompactWarning(contextInfo: ContextInfo): boolean {
-  return contextInfo.percentRemaining < 15;
+export function shouldShowAutoCompactWarning(_contextInfo: ContextInfo): boolean {
+  return false; // DISABLED
 }
 
 /**
  * Render auto-compact warning message
+ * DISABLED: User is token rich, no need for warnings
  */
-export function renderAutoCompactWarning(contextInfo: ContextInfo): string {
-  if (contextInfo.isCritical) {
-    return chalk.red(`\n⚠ Context critical: ${contextInfo.percentRemaining.toFixed(1)}% remaining. Auto-compact imminent.`);
-  } else if (contextInfo.isLow) {
-    return chalk.yellow(`\n⚠ Context low: ${contextInfo.percentRemaining.toFixed(1)}% remaining.`);
-  }
-  return "";
+export function renderAutoCompactWarning(_contextInfo: ContextInfo): string {
+  return ""; // DISABLED
 }
 
 // ============================================

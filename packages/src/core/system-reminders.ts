@@ -310,8 +310,8 @@ export function buildCombinedReminder(options: CombinedReminderOptions): string 
     reminders.push(tokenWarning);
   }
 
-  // Cost update (on interval)
-  if (turnNumber % config.costUpdateInterval === 0) {
+  // Cost update (on interval) - DISABLED if interval is 0
+  if (config.costUpdateInterval > 0 && turnNumber % config.costUpdateInterval === 0) {
     const costUpdate = buildCostUpdate({
       cost: totalCost,
       previousCost,
@@ -319,8 +319,8 @@ export function buildCombinedReminder(options: CombinedReminderOptions): string 
     reminders.push(costUpdate);
   }
 
-  // Tool summary (on interval)
-  if (turnNumber % config.toolSummaryInterval === 0 && toolsUsed.length > 0) {
+  // Tool summary (on interval) - DISABLED if interval is 0
+  if (config.toolSummaryInterval > 0 && turnNumber % config.toolSummaryInterval === 0 && toolsUsed.length > 0) {
     const toolSummary = buildToolSummary({ tools: toolsUsed });
     reminders.push(toolSummary);
   }

@@ -643,7 +643,7 @@ function ChatUIContent({
         {streamingThinking && (
           <Box flexDirection="column">
             <Text dimColor italic>[Thinking]</Text>
-            <Muted>{streamingThinking.slice(-500)}</Muted>
+            <Muted>{streamingThinking}</Muted>
           </Box>
         )}
 

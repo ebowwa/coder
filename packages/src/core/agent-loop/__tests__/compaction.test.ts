@@ -48,10 +48,10 @@ describe("DEFAULT_REACTIVE_OPTIONS", () => {
 });
 
 describe("needsCompaction", () => {
-  it("should return false for small message sets", () => {
-    const messages = createMessages(5, 1000); // 5 messages, high tokens
+  it("should return false for small message sets under threshold", () => {
+    const messages = createMessages(2, 100); // 2 messages, 100 tokens each
 
-    // Should not need compaction because not enough messages
+    // Under MIN_MESSAGES_FOR_COMPACTION (3), so no compaction needed
     expect(needsCompaction(messages, 4096)).toBe(false);
   });
 
@@ -66,6 +66,14 @@ describe("needsCompaction", () => {
     const messages = createMessages(10, 500); // 10 messages, high tokens
 
     // Over 90% threshold
+    expect(needsCompaction(messages, 4096)).toBe(true);
+  });
+
+  it("should return true for small message sets with high tokens", () => {
+    const messages = createMessages(5, 1000); // 5 messages, 1000 tokens each
+
+    // 5 messages * 1000 tokens = 5000 tokens, which is > 4096 * 0.9 = 3686
+    // MIN_MESSAGES_FOR_COMPACTION is 3, so this should return true (over threshold)
     expect(needsCompaction(messages, 4096)).toBe(true);
   });
 
