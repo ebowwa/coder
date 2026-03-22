@@ -2,6 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render } from '@testing-library/react';
 import { ErrorBoundary, withErrorBoundary } from '../../src/components/common/ErrorBoundary';
 
 // Mock component that throws an error
@@ -101,7 +102,7 @@ describe('ErrorBoundary', () => {
       );
 
       // Click custom retry button
-      const button = document.querySelector('[data-testid="retry-button"]');
+      const button = document.querySelector('[data-testid="retry-button"]') as HTMLElement | null;
       if (button) {
         button.click();
       }
