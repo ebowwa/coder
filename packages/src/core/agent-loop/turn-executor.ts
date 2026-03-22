@@ -138,6 +138,7 @@ export async function executeTurn(
   const turnNumber = state.turnNumber;
 
   // Build system reminder for this turn
+  // In long-running mode (continuation enabled), tell model to ignore token limits
   const reminder = buildCombinedReminder({
     usage: state.currentUsage,
     maxTokens,
@@ -148,6 +149,7 @@ export async function executeTurn(
     gitStatus,
     turnNumber,
     config: reminderConfig,
+    longRunningMode: options.continuation?.enabled ?? false,
   });
 
   if (reminder) {

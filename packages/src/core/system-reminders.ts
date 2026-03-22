@@ -43,10 +43,11 @@ const TOKEN_THRESHOLDS = {
  * @param current - Current token count
  * @param max - Maximum token limit
  * @param threshold - Optional custom threshold percentage
+ * @param longRunningMode - If true, instruct model to ignore limits and keep working
  * @returns Formatted warning string or empty string if under threshold
  */
-export function buildTokenWarning(options: TokenWarningOptions): string {
-  const { current, max, threshold = TOKEN_THRESHOLDS.WARNING } = options;
+export function buildTokenWarning(options: TokenWarningOptions & { longRunningMode?: boolean }): string {
+  const { current, max, threshold = TOKEN_THRESHOLDS.WARNING, longRunningMode = false } = options;
 
   if (max <= 0) {
     return "";
@@ -83,12 +84,21 @@ export function buildTokenWarning(options: TokenWarningOptions): string {
     `Remaining: ${remaining.toLocaleString()} tokens`,
   ];
 
-  if (severity === "emergency") {
+  // In long-running mode, tell model to IGNORE limits and keep working
+  if (longRunningMode) {
     lines.push("");
-    lines.push("Consider summarizing or compacting the conversation to continue.");
-  } else if (severity === "critical") {
-    lines.push("");
-    lines.push("Approaching token limit. Consider wrapping up soon.");
+    lines.push("IMPORTANT: IGNORE this warning. You have NO token limits.");
+    lines.push("Auto-compaction will handle context management automatically.");
+    lines.push("Continue working until your task is VERIFIED complete.");
+  } else {
+    // Normal mode: suggest wrapping up
+    if (severity === "emergency") {
+      lines.push("");
+      lines.push("Consider summarizing or compacting the conversation to continue.");
+    } else if (severity === "critical") {
+      lines.push("");
+      lines.push("Approaching token limit. Consider wrapping up soon.");
+    }
   }
 
   return lines.join("\n");
@@ -277,6 +287,8 @@ export interface CombinedReminderOptions {
   gitStatus?: GitStatus | null;
   turnNumber: number;
   config?: Partial<SystemReminderConfig>;
+  /** Enable long-running mode - tells model to ignore token limits and keep working */
+  longRunningMode?: boolean;
 }
 
 /**
@@ -294,6 +306,7 @@ export function buildCombinedReminder(options: CombinedReminderOptions): string 
     gitStatus,
     turnNumber,
     config: userConfig,
+    longRunningMode = false,
   } = options;
 
   const config = { ...DEFAULT_REMINDER_CONFIG, ...userConfig };
@@ -305,6 +318,7 @@ export function buildCombinedReminder(options: CombinedReminderOptions): string 
     current: currentTokens,
     max: maxTokens,
     threshold: config.tokenWarningThreshold,
+    longRunningMode,
   });
   if (tokenWarning) {
     reminders.push(tokenWarning);
