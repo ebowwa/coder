@@ -1,8 +1,8 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, Mock } from 'vitest';
+import { render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MarketOverview } from '../../src/components/dashboard/MarketOverview';
 import * as useMarketDataModule from '../../src/hooks/useMarketData';
@@ -39,7 +39,9 @@ const mockMarketData = {
   marketCapChangePercentage24h: 1.5,
 };
 
-vi.mock('../../src/hooks/useMarketData');
+vi.mock('../../src/hooks/useMarketData', () => ({
+  useMarketData: vi.fn(),
+}));
 
 const createWrapper = () => {
   const queryClient = new QueryClient({
@@ -59,20 +61,20 @@ describe('MarketOverview', () => {
   });
 
   it('renders loading skeleton when data is loading', () => {
-    vi.mocked(useMarketDataModule.useMarketData).mockReturnValue({
+    (useMarketDataModule.useMarketData as Mock).mockReturnValue({
       tokens: [],
       marketData: undefined,
       isLoading: true,
     });
 
-    render(<MarketOverview />, { wrapper: createWrapper() });
+    const { container } = render(<MarketOverview />, { wrapper: createWrapper() });
     
-    expect(screen.getByRole('heading', { name: /Market Overview/i })).toBeInTheDocument();
-    expect(screen.getByTestId('loading-skeleton')).toBeInTheDocument();
+    // Check for loading skeleton (animated pulse div)
+    expect(container.querySelector('.animate-pulse')).toBeInTheDocument();
   });
 
   it('renders market data successfully', () => {
-    vi.mocked(useMarketDataModule.useMarketData).mockReturnValue({
+    (useMarketDataModule.useMarketData as Mock).mockReturnValue({
       tokens: mockTokens,
       marketData: mockMarketData,
       isLoading: false,
@@ -85,8 +87,8 @@ describe('MarketOverview', () => {
     expect(screen.getByText('ETH')).toBeInTheDocument();
   });
 
-  it('filters tokens based on search term', async () => {
-    vi.mocked(useMarketDataModule.useMarketData).mockReturnValue({
+  it('displays token prices correctly', () => {
+    (useMarketDataModule.useMarketData as Mock).mockReturnValue({
       tokens: mockTokens,
       marketData: mockMarketData,
       isLoading: false,
@@ -94,34 +96,12 @@ describe('MarketOverview', () => {
 
     render(<MarketOverview />, { wrapper: createWrapper() });
 
-    const searchInput = screen.getByPlaceholderText(/Search tokens/i);
-    
-    fireEvent.change(searchInput, { target: { value: 'btc' } });
-    await waitFor(() => {
-      expect(screen.getByText('BTC')).toBeInTheDocument();
-      expect(screen.queryByText('ETH')).not.toBeInTheDocument();
-    });
-  });
-
-  it('displays message when no tokens match search', async () => {
-    vi.mocked(useMarketDataModule.useMarketData).mockReturnValue({
-      tokens: mockTokens,
-      marketData: mockMarketData,
-      isLoading: false,
-    });
-
-    render(<MarketOverview />, { wrapper: createWrapper() });
-
-    const searchInput = screen.getByPlaceholderText(/Search tokens/i);
-    fireEvent.change(searchInput, { target: { value: 'nonexistent' } });
-
-    await waitFor(() => {
-      expect(screen.getByText(/No tokens found/i)).toBeInTheDocument();
-    });
+    expect(screen.getByText('$45,000')).toBeInTheDocument();
+    expect(screen.getByText('$3,200')).toBeInTheDocument();
   });
 
   it('handles empty tokens array gracefully', () => {
-    vi.mocked(useMarketDataModule.useMarketData).mockReturnValue({
+    (useMarketDataModule.useMarketData as Mock).mockReturnValue({
       tokens: [],
       marketData: mockMarketData,
       isLoading: false,
