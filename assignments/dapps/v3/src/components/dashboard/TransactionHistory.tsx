@@ -1,5 +1,4 @@
-import { useAccount, useWatchContractEvent } from 'wagmi';
-import { erc20Abi } from 'viem';
+import { useAccount } from 'wagmi';
 import { useState, useEffect } from 'react';
 import type { Transaction } from '../../types/portfolio';
 

@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import { usePortfolio } from '../../hooks/usePortfolio';
-import { useTokenPrices } from '../../hooks/useTokenPrices';
 import { formatNumber } from '../../utils/format';
 
 interface AllocationItem {
@@ -18,15 +17,6 @@ const COLORS = [
 
 export function PortfolioAllocation() {
   const { portfolio, isLoading } = usePortfolio();
-
-  const tokenAddresses = useMemo(() => 
-    portfolio?.tokens.map(t => t.address) || [],
-    [portfolio]
-  );
-
-  // Mock prices since we need a mapping from address to coingecko ID
-  // In production, you'd have a token registry
-  const { data: prices } = useTokenPrices(['ethereum', 'tether', 'usd-coin']);
 
   const allocation = useMemo((): AllocationItem[] => {
     if (!portfolio) return [];

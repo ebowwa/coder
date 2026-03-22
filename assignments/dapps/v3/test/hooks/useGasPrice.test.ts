@@ -14,10 +14,8 @@ vi.mock('../../src/services/gas', () => ({
 }));
 
 import { useQuery } from '@tanstack/react-query';
-import { fetchGasPrice } from '../../src/services/gas';
 
 const mockedUseQuery = useQuery as Mock;
-const mockedFetchGasPrice = fetchGasPrice as Mock;
 
 describe('useGasPrice', () => {
   const mockGasData = {

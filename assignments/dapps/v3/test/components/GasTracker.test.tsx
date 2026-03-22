@@ -6,13 +6,11 @@ import { render, screen } from '@testing-library/react';
 import { GasTracker } from '../../src/components/dashboard/GasTracker';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-vi.mock('@tanstack/react-query', async () => {
-  const actual = await vi.importActual('@tanstack/react-query');
-  return {
-    ...actual,
-    useQuery: vi.fn(),
-  };
-});
+vi.mock('@tanstack/react-query', () => ({
+  useQuery: vi.fn(),
+  QueryClient: vi.fn(() => ({})),
+  QueryClientProvider: ({ children }: { children: React.ReactNode }) => children,
+}));
 
 vi.mock('../../src/hooks/useGasPrice', () => ({
   useGasPrice: vi.fn(),
@@ -22,11 +20,9 @@ vi.mock('../../src/hooks/useTokenPrices', () => ({
   useTokenPrice: vi.fn(),
 }));
 
-import { useQuery } from '@tanstack/react-query';
 import { useGasPrice } from '../../src/hooks/useGasPrice';
 import { useTokenPrice } from '../../src/hooks/useTokenPrices';
 
-const mockedUseQuery = useQuery as Mock;
 const mockedUseGasPrice = useGasPrice as Mock;
 const mockedUseTokenPrice = useTokenPrice as Mock;
 
