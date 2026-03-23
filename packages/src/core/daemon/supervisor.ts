@@ -205,6 +205,19 @@ export class DaemonSupervisor extends EventEmitter {
 
     console.log(`\x1b[90m[Daemon] Spawning worker: coder ${args.join(" ")}\x1b[0m`)
 
+    // Emit worker start event
+    if (this.observability) {
+      this.observability.eventBus.emitEvent({
+        type: "worker:start",
+        timestamp: Date.now(),
+        sessionId: this.state.sessionId,
+        data: { args, goal: this.config.goal, model: this.config.model }
+      })
+      if (this.observability.progressTracker) {
+        this.observability.progressTracker.setStatus("starting", "Spawning worker process")
+      }
+    }
+
     this.childProcess = spawn("coder", args, {
       cwd: this.config.workingDirectory,
       env: { ...process.env },
@@ -233,6 +246,38 @@ export class DaemonSupervisor extends EventEmitter {
       this.emit("output", output)
       this.watchdog.recordProgress()
       this.healthMonitor.recordOutput(output)
+
+      // Track file activity from output
+      if (this.observability) {
+        // Detect file reads
+        const readMatch = output.match(/Reading file:?\s*(.+)/i) || output.match(/→\s*(.+\.ts|.+\.js|.+\.json|.+\.md)/)
+        if (readMatch) {
+          this.observability.fileTracker.trackRead(readMatch[1].trim(), "Read")
+          this.observability.eventBus.emitEvent({
+            type: "file:read",
+            timestamp: Date.now(),
+            sessionId: this.state.sessionId,
+            data: { path: readMatch[1].trim(), action: "read" }
+          })
+        }
+
+        // Detect file modifications
+        const editMatch = output.match(/Editing file:?\s*(.+)/i) || output.match(/✎\s*(.+\.ts|.+\.js|.+\.json)/)
+        if (editMatch) {
+          this.observability.fileTracker.trackModify(editMatch[1].trim(), "Edit")
+          this.observability.eventBus.emitEvent({
+            type: "file:modify",
+            timestamp: Date.now(),
+            sessionId: this.state.sessionId,
+            data: { path: editMatch[1].trim(), action: "modify" }
+          })
+        }
+
+        // Track progress on each output
+        if (this.observability.progressTracker) {
+          this.observability.progressTracker.setStatus("working", "Processing...")
+        }
+      }
     })
 
     this.childProcess.stderr?.on("data", (data) => {
@@ -384,6 +429,19 @@ export class DaemonSupervisor extends EventEmitter {
       status: "restarting",
       restartCount: this.state.restartCount + 1,
     })
+
+    // Emit restart event for observability
+    if (this.observability) {
+      this.observability.eventBus.emitEvent({
+        type: "daemon:restart",
+        timestamp: Date.now(),
+        sessionId: this.state.sessionId,
+        data: { restartCount: this.state.restartCount }
+      })
+      if (this.observability.progressTracker) {
+        this.observability.progressTracker.setStatus("restarting", `Restarting (attempt ${this.state.restartCount})`)
+      }
+    }
 
     // Kill existing process
     if (this.childProcess) {
