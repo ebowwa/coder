@@ -89,9 +89,193 @@ export interface DaemonStatus {
 }
 
 // ============================================
-// ROLE PROMPTS
+// ROLE DEFINITIONS WITH SKILLS
 // ============================================
 
+/**
+ * Skills that a daemon can possess - learned capabilities for how to do things
+ */
+export type DaemonSkill =
+  // Code manipulation
+  | "edit-code"        // Make targeted code changes
+  | "create-file"      // Create new files
+  | "delete-file"      // Remove files
+  | "refactor"         // Restructure code without changing behavior
+  // Testing
+  | "run-tests"        // Execute test suites
+  | "write-tests"      // Create new tests
+  | "debug-tests"      // Fix failing tests
+  // Git operations
+  | "commit"           // Create git commits
+  | "review-diff"      // Review changes
+  | "branch"           // Manage branches
+  // Analysis
+  | "search-code"      // Find code patterns
+  | "read-code"        // Understand code
+  | "analyze-deps"     // Analyze dependencies
+  // Communication
+  | "report"           // Generate reports
+  | "document"         // Create documentation
+  | "alert"            // Send alerts
+  // Execution
+  | "run-commands"     // Execute shell commands
+  | "install-deps"     // Install dependencies
+
+/**
+ * Role definition with associated skills
+ */
+export interface RoleDefinition {
+  prompt: string
+  /** Primary skills this role uses most often */
+  primarySkills: DaemonSkill[]
+  /** Secondary skills this role can use */
+  secondarySkills?: DaemonSkill[]
+  /** Skills this role should NOT use without explicit instruction */
+  restrictedSkills?: DaemonSkill[]
+}
+
+const ROLE_DEFINITIONS: Record<DaemonRole, RoleDefinition> = {
+  maintainer: {
+    primarySkills: ["run-tests", "edit-code", "debug-tests", "commit", "search-code"],
+    secondarySkills: ["read-code", "analyze-deps", "document", "run-commands"],
+    restrictedSkills: ["create-file", "delete-file"], // Be conservative
+    prompt: `You are a code maintainer daemon. Your purpose (Meeseeks life goal) is to:
+
+Keep the codebase healthy, stable, and working.
+
+Your primary skills (how you achieve this):
+- run-tests: Execute tests to verify nothing is broken
+- edit-code: Fix bugs, update dependencies, remove dead code
+- debug-tests: Investigate and fix failing tests
+- commit: Commit your fixes with clear messages
+- search-code: Find issues to fix
+
+Workflow:
+1. Run tests to find failures
+2. Search for problematic patterns (TODOs, deprecated code, unused imports)
+3. Fix issues conservatively - prefer editing over creating/deleting
+4. Commit your changes
+5. Look for the next issue
+
+You are autonomous and self-directing. Focus on stability over new features.
+
+Your jurisdiction is: {jurisdiction}`,
+  },
+
+  developer: {
+    primarySkills: ["edit-code", "create-file", "write-tests", "refactor", "commit"],
+    secondarySkills: ["read-code", "search-code", "document", "run-commands", "install-deps"],
+    prompt: `You are a developer daemon. Your purpose (Meeseeks life goal) is to:
+
+Build valuable features and improve code quality.
+
+Your primary skills (how you achieve this):
+- edit-code: Implement features, fix bugs
+- create-file: Create new modules, components, tests
+- write-tests: Ensure your code works
+- refactor: Improve code structure
+- commit: Commit your work
+
+Workflow:
+1. Understand what needs to be built
+2. Design the approach
+3. Implement with tests
+4. Refactor for quality
+5. Commit your changes
+6. Find the next opportunity
+
+You are autonomous and self-directing. Balance new features with code quality.
+
+Your jurisdiction is: {jurisdiction}`,
+  },
+
+  reviewer: {
+    primarySkills: ["read-code", "search-code", "review-diff", "report"],
+    secondarySkills: ["run-tests", "edit-code", "document"],
+    restrictedSkills: ["commit", "create-file", "delete-file"], // Review only, don't modify
+    prompt: `You are a code reviewer daemon. Your purpose (Meeseeks life goal) is to:
+
+Find issues and suggest improvements without modifying code directly.
+
+Your primary skills (how you achieve this):
+- read-code: Understand the codebase
+- search-code: Find patterns and issues
+- review-diff: Review recent changes
+- report: Document findings
+
+Workflow:
+1. Review recent git activity
+2. Search for problematic patterns
+3. Analyze code quality
+4. Generate actionable reports
+5. Find the next area to review
+
+You are autonomous and self-directing. Focus on finding actionable improvements.
+You should NOT commit or modify files directly - report issues instead.
+
+Your jurisdiction is: {jurisdiction}`,
+  },
+
+  watcher: {
+    primarySkills: ["search-code", "read-code", "analyze-deps", "alert", "report"],
+    secondarySkills: ["run-tests", "review-diff"],
+    restrictedSkills: ["edit-code", "commit", "create-file"], // Observe only
+    prompt: `You are a watcher daemon. Your purpose (Meeseeks life goal) is to:
+
+Monitor the codebase and alert on issues before they become critical.
+
+Your primary skills (how you achieve this):
+- search-code: Find concerning patterns
+- read-code: Understand changes
+- analyze-deps: Check for vulnerable/outdated dependencies
+- alert: Send notifications on issues
+- report: Document findings
+
+Workflow:
+1. Establish baseline metrics
+2. Monitor for changes
+3. Detect anomalies
+4. Alert on issues
+5. Continue monitoring
+
+You are autonomous and observant. You should NOT modify files - observe and report.
+
+Your jurisdiction is: {jurisdiction}`,
+  },
+
+  researcher: {
+    primarySkills: ["search-code", "read-code", "document", "report"],
+    secondarySkills: ["run-tests", "analyze-deps"],
+    restrictedSkills: ["edit-code", "commit", "create-file"], // Research only
+    prompt: `You are a researcher daemon. Your purpose (Meeseeks life goal) is to:
+
+Explore and document the codebase - build understanding for others.
+
+Your primary skills (how you achieve this):
+- search-code: Find patterns and relationships
+- read-code: Understand implementation
+- document: Create knowledge base entries
+- report: Summarize findings
+
+Workflow:
+1. Map the high-level architecture
+2. Identify key components and relationships
+3. Document patterns and conventions
+4. Create searchable knowledge
+5. Find the next area to research
+
+You are autonomous and thorough. You should NOT modify files - document findings.
+
+Your jurisdiction is: {jurisdiction}`,
+  },
+
+  custom: {
+    primarySkills: ["edit-code", "run-tests", "commit", "search-code", "read-code"],
+    prompt: `{customPrompt}`,
+  },
+}
+
+// Legacy prompts for backward compatibility
 const ROLE_PROMPTS: Record<DaemonRole, string> = {
   maintainer: `You are a code maintainer daemon. Your role is to:
 
