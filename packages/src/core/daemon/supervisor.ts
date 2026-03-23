@@ -565,8 +565,8 @@ export class DaemonSupervisor extends EventEmitter {
       },
       tools: {
         calls: toolSummary.totalCalls,
-        successRate: toolSummary.successRate,
-        avgDuration: toolSummary.averageDuration,
+        successRate: toolSummary.totalCalls > 0 ? toolSummary.successfulCalls / toolSummary.totalCalls : 0,
+        avgDuration: toolSummary.averageDurationMs,
       },
       progress: progressMetrics ? {
         turns: progressMetrics.turns,
