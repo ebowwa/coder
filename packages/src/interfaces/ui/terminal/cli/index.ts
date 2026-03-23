@@ -103,6 +103,8 @@ async function main(): Promise<void> {
       let cost = 0;
       let currentTask = "";
       let role = "";
+      let activityTime: Record<string, number> = {};
+      let activityTokens: Record<string, number> = {};
 
       if (existsSync(statusPath)) {
         try {
@@ -115,6 +117,8 @@ async function main(): Promise<void> {
             cost = daemonStatus.cost || 0;
             currentTask = daemonStatus.currentTask || "";
             role = daemonStatus.role || "";
+            activityTime = daemonStatus.activityTime || {};
+            activityTokens = daemonStatus.activityTokens || {};
           }
         } catch {}
       }
@@ -154,6 +158,31 @@ async function main(): Promise<void> {
       console.log(`  PID: ${lockInfo.pid}`);
       console.log(`  Uptime: ${uptime}s`);
       console.log(`  Turns: ${turns} | Tokens: ${tokens.toLocaleString()} | Cost: $${cost.toFixed(4)}`);
+
+      // Display activity breakdown if available
+      const activityEmojiMap: Record<string, string> = {
+        starting: "🚀", reading: "📖", thinking: "🧠", editing: "✏️",
+        creating: "📝", deleting: "🗑️", searching: "🔍", executing: "⚡",
+        committing: "📦", testing: "🧪", waiting: "⏳", error: "❌", shutdown: "🛑",
+      };
+
+      // Show top activities by time
+      const timeEntries = Object.entries(activityTime || {})
+        .filter(([_, t]) => t > 0)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5);
+
+      if (timeEntries.length > 0) {
+        console.log(`\n  \x1b[90mActivity Time Breakdown:\x1b[0m`);
+        for (const [act, time] of timeEntries) {
+          const actEmoji = activityEmojiMap[act] || "❓";
+          const secs = Math.round(time / 1000);
+          const pct = uptime > 0 ? Math.round((time / 1000 / uptime) * 100) : 0;
+          const actTokens = activityTokens[act] || 0;
+          console.log(`    ${actEmoji} ${act.padEnd(10)} ${secs}s (${pct}%) | ${actTokens.toLocaleString()} tokens`);
+        }
+      }
+
       if (role) {
         console.log(`  Role: ${role}`);
       }

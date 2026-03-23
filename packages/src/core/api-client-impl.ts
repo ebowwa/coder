@@ -41,6 +41,9 @@ import {
   isBackupModelAvailable,
   BACKUP_MODEL_MAX_ATTEMPTS,
 } from "./models.js";
+import { createLogger } from "./logger.js";
+
+const logger = createLogger("[API]");
 
 // Re-export types for backward compatibility
 export type { StreamOptions, StreamResult } from "../schemas/index.js";
@@ -881,6 +884,24 @@ export async function createMessageStream(
   }
 
   message.content = currentContent;
+
+  // Fallback: estimate tokens if API didn't return usage (e.g., OpenAI-compatible APIs like Z.AI)
+  if (usage.input_tokens === 0 && usage.output_tokens === 0) {
+    // Estimate output tokens from response content
+    const outputText = currentContent
+      .map((block) => {
+        if (block.type === "text") return block.text;
+        if (block.type === "tool_use") return JSON.stringify(block.input);
+        if (block.type === "thinking") return block.thinking;
+        return "";
+      })
+      .join("");
+    usage.output_tokens = Math.ceil(outputText.length / 4); // ~4 chars per token
+
+    // Estimate input tokens from request messages (rough estimate)
+    // We don't have access to original messages here, so use a reasonable default
+    usage.input_tokens = Math.max(100, usage.output_tokens * 2); // Rough estimate
+  }
 
   // Calculate cost and cache metrics
   const { costUSD, estimatedSavingsUSD } = calculateCost(model, usage);

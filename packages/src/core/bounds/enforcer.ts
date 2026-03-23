@@ -18,6 +18,9 @@ import type {
   ErrorType,
 } from "./types.js";
 import { BoundaryRegistry, getRegistry } from "./registry.js";
+import { createLogger } from "../logger.js";
+
+const logger = createLogger("[Bounds]");
 
 /**
  * Generate a unique ID
@@ -167,14 +170,14 @@ export function createPreToolUseHandler(
       // Warnings are logged but don't block
       if (result.warnings.length > 0) {
         for (const warning of result.warnings) {
-          console.warn(`[Bounds] Warning: ${warning.reason}`);
+          logger.warn(warning.reason);
         }
       }
 
       return { decision: "allow" };
     } catch (err) {
       // On error, allow but log
-      console.error("[Bounds] Error checking boundaries:", err);
+      logger.error("Error checking boundaries", err);
       return { decision: "allow" };
     }
   };
@@ -197,11 +200,9 @@ export function createPostFailureHandler(
       registry.recordSignal(signal);
 
       // Log the signal
-      console.log(
-        `[Bounds] Signal recorded: ${signal.errorType} error in ${signal.tool_name}`
-      );
+      logger.info(`Signal recorded: ${signal.errorType} error in ${signal.tool_name}`);
     } catch (err) {
-      console.error("[Bounds] Error recording signal:", err);
+      logger.error("Error recording signal", err);
     }
 
     return { decision: "allow" };
@@ -284,7 +285,7 @@ export class BoundaryEnforcer {
     hookManager.register("PostToolUseFailure", this.getPostFailureHandler());
 
     if (this.config.debug) {
-      console.log("[Bounds] Enforcer registered with hook manager");
+      logger.debug("Enforcer registered with hook manager");
     }
   }
 

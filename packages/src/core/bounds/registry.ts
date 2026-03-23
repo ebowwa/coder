@@ -20,6 +20,9 @@ import { mkdir, writeFile, readFile } from "fs/promises";
 import { existsSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
+import { createLogger } from "../logger.js";
+
+const logger = createLogger("[Bounds]");
 
 /**
  * Default configuration
@@ -56,7 +59,7 @@ export class BoundaryRegistry {
     this.boundaries.set(boundary.id, boundary);
     this.dirty = true;
     if (this.config.autoSave) {
-      this.save().catch((err) => console.error("[Bounds] Auto-save failed:", err));
+      this.save().catch((err) => logger.error("Auto-save failed", err));
     }
   }
 
@@ -99,7 +102,7 @@ export class BoundaryRegistry {
     if (result) {
       this.dirty = true;
       if (this.config.autoSave) {
-        this.save().catch((err) => console.error("[Bounds] Auto-save failed:", err));
+        this.save().catch((err) => logger.error("Auto-save failed", err));
       }
     }
     return result;
@@ -148,7 +151,7 @@ export class BoundaryRegistry {
           }
         }
       } catch (err) {
-        console.error(`[Bounds] Error checking boundary ${boundary.id}:`, err);
+        logger.error(`Error checking boundary ${boundary.id}`, err);
       }
     }
 
@@ -239,7 +242,7 @@ export class BoundaryRegistry {
     this.dirty = true;
 
     if (this.config.autoSave) {
-      this.save().catch((err) => console.error("[Bounds] Auto-save failed:", err));
+      this.save().catch((err) => logger.error("Auto-save failed", err));
     }
   }
 
@@ -306,7 +309,7 @@ export class BoundaryRegistry {
 
       this.dirty = false;
     } catch (err) {
-      console.error("[Bounds] Failed to save registry:", err);
+      logger.error("Failed to save registry", err);
       throw err;
     }
   }
@@ -336,7 +339,7 @@ export class BoundaryRegistry {
       // The check functions must be rebuilt from source or registered separately
       this.dirty = false;
     } catch (err) {
-      console.error("[Bounds] Failed to load registry:", err);
+      logger.error("Failed to load registry", err);
       // Don't throw - allow starting fresh
     }
   }

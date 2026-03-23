@@ -86,6 +86,10 @@ export interface DaemonStatus {
   currentTask?: string
   /** Current activity type for observability */
   currentActivity?: ActivityType
+  /** Time spent per activity type (in ms) */
+  activityTime: Record<ActivityType, number>
+  /** Tokens used per activity type */
+  activityTokens: Record<ActivityType, number>
   recentActions: string[]
   errors: number
 }
@@ -409,6 +413,13 @@ export class AutonomousDaemon extends EventEmitter {
   private messages: Message[] = []
   private statusFilePath: string
   private logFilePath: string
+  private injectFilePath: string
+  private currentActivityStart: number = Date.now()
+  private lastActivityType: ActivityType = "starting"
+  /** Activity to attribute next token usage to */
+  private pendingActivityToken: ActivityType = "thinking"
+  /** Queue of injected messages to process */
+  private injectedMessages: string[] = []
 
   constructor(config: AutonomousDaemonConfig) {
     super()
@@ -422,14 +433,25 @@ export class AutonomousDaemon extends EventEmitter {
     }
     this.statusFilePath = join(daemonDir, "current.json")
     this.logFilePath = join(daemonDir, "logs", `${this.sessionId}.jsonl`)
+    this.injectFilePath = join(daemonDir, "inject", `${this.sessionId}.txt`)
 
     // Ensure log directory exists
     const logDir = join(daemonDir, "logs")
     if (!existsSync(logDir)) {
       mkdirSync(logDir, { recursive: true })
     }
+    // Ensure inject directory exists
+    const injectDir = join(daemonDir, "inject")
+    if (!existsSync(injectDir)) {
+      mkdirSync(injectDir, { recursive: true })
+    }
 
     // Initialize status
+    const emptyActivityTracking: Record<ActivityType, number> = {
+      starting: 0, reading: 0, thinking: 0, editing: 0, creating: 0,
+      deleting: 0, searching: 0, executing: 0, committing: 0, testing: 0,
+      waiting: 0, error: 0, shutdown: 0,
+    }
     this.status = {
       sessionId: this.sessionId,
       role: config.role,
@@ -440,6 +462,8 @@ export class AutonomousDaemon extends EventEmitter {
       cost: 0,
       startTime: Date.now(),
       lastActivity: Date.now(),
+      activityTime: { ...emptyActivityTracking },
+      activityTokens: { ...emptyActivityTracking },
       recentActions: [],
       errors: 0,
     }
@@ -584,10 +608,11 @@ export class AutonomousDaemon extends EventEmitter {
       permissionMode: this.config.permissionMode as any,
       workingDirectory: this.config.workingDirectory,
       sessionId: this.sessionId,
+      // Enable continuation for autonomous operation (no limit - daemon runs until stopped)
       continuation: {
         enabled: true,
         conditions: [],
-        maxContinuations: 100,
+        maxContinuations: 0, // 0 = unlimited
         defaultPrompt: this.getContinuationPrompt(),
         stuckPrompt: "You seem to be stuck. Try a different approach or report your current status.",
         stuckThreshold: 3,
@@ -599,6 +624,8 @@ export class AutonomousDaemon extends EventEmitter {
       hookManager: this.config.hookManager,
       onText: (text) => {
         this.updateActivity("thinking")
+        // Model is generating text/reasoning - attribute tokens to thinking
+        this.pendingActivityToken = "thinking"
         this.emit("output", text)
       },
       onToolUse: (toolUse) => {
@@ -606,6 +633,8 @@ export class AutonomousDaemon extends EventEmitter {
         const input = (toolUse.input || {}) as Record<string, unknown>
         const activity = this.getActivityFromTool(toolUse.name, input)
         this.updateActivity(activity)
+        // Set pending activity for token attribution (next API call processes this tool)
+        this.pendingActivityToken = activity
         this.logEvent("tool:use", { tool: toolUse.name, input: toolUse.input })
         this.emit("tool", { tool: toolUse.name, input: toolUse.input })
       },
@@ -615,6 +644,30 @@ export class AutonomousDaemon extends EventEmitter {
         this.emit("toolResult", { tool: result.id, result: result.result })
       },
       onMetrics: (metrics) => {
+        // Track tokens and cost in real-time
+        const inputTokens = metrics.usage?.input_tokens || 0
+        const outputTokens = metrics.usage?.output_tokens || 0
+        const totalTokens = inputTokens + outputTokens
+        this.status.tokens += totalTokens
+        this.status.cost += metrics.costUSD || 0
+        this.status.turns++ // Each API call is a "turn"
+        this.status.lastActivity = Date.now()
+
+        // Attribute tokens to the activity that triggered this API call
+        // (the activity that was happening before the thinking started)
+        const activityForTokens = this.pendingActivityToken || this.status.currentActivity || "thinking"
+        if (this.status.activityTokens) {
+          this.status.activityTokens[activityForTokens] =
+            (this.status.activityTokens[activityForTokens] || 0) + totalTokens
+        }
+
+        this.saveStatus() // Persist for observability
+        this.logEvent("turn:end", {
+          turn: this.status.turns,
+          tokens: totalTokens,
+          cost: metrics.costUSD,
+          activity: activityForTokens,
+        })
         this.emit("metrics", metrics)
       },
     }
@@ -705,6 +758,62 @@ What's the next most important thing to work on in your jurisdiction? If you're 
   }
 
   /**
+   * Inject a message to guide/redirect the daemon
+   * The message will be processed on the next turn
+   */
+  injectMessage(message: string): void {
+    this.injectedMessages.push(message)
+    this.logEvent("inject", { message: message.slice(0, 100) })
+    console.log(`\x1b[36m[Daemon] Message injected: ${message.slice(0, 50)}...\x1b[0m`)
+  }
+
+  /**
+   * Inject a message via file (for CLI use)
+   * Writes to ~/.claude/daemon/inject/{sessionId}.txt
+   */
+  static injectToFile(sessionId: string, message: string): void {
+    const injectDir = join(homedir(), ".claude", "daemon", "inject")
+    if (!existsSync(injectDir)) {
+      mkdirSync(injectDir, { recursive: true })
+    }
+    const injectFile = join(injectDir, `${sessionId}.txt`)
+    // Append with timestamp
+    const timestampedMessage = `[${new Date().toISOString()}] ${message}\n`
+    appendFileSync(injectFile, timestampedMessage, "utf-8")
+    console.log(`\x1b[32mMessage injected to daemon ${sessionId}\x1b[0m`)
+  }
+
+  /**
+   * Check for injected messages from file
+   */
+  private checkInjectedMessages(): string | null {
+    // First check in-memory queue
+    if (this.injectedMessages.length > 0) {
+      return this.injectedMessages.shift() || null
+    }
+
+    // Then check file
+    if (existsSync(this.injectFilePath)) {
+      try {
+        const content = readFileSync(this.injectFilePath, "utf-8")
+        // Clear the file after reading
+        writeFileSync(this.injectFilePath, "", "utf-8")
+        // Get the last non-empty line
+        const lines = content.split("\n").filter((l) => l.trim())
+        if (lines.length > 0) {
+          const lastLine = lines[lines.length - 1]
+          // Extract message (remove timestamp prefix if present)
+          const match = lastLine.match(/^\[[^\]]+\]\s*(.+)$/)
+          return match ? match[1] : lastLine
+        }
+      } catch {
+        // Ignore read errors
+      }
+    }
+    return null
+  }
+
+  /**
    * Update daemon status
    */
   private updateStatus(status: DaemonStatus["status"], task?: string): void {
@@ -719,8 +828,20 @@ What's the next most important thing to work on in your jurisdiction? If you're 
    * Update current activity for observability
    */
   private updateActivity(activity: ActivityType, details?: string): void {
+    const now = Date.now()
+
+    // Track time spent in previous activity
+    const timeSpent = now - this.currentActivityStart
+    if (this.status.activityTime && this.lastActivityType) {
+      this.status.activityTime[this.lastActivityType] =
+        (this.status.activityTime[this.lastActivityType] || 0) + timeSpent
+    }
+
+    // Update to new activity
+    this.lastActivityType = activity
+    this.currentActivityStart = now
     this.status.currentActivity = activity
-    this.status.lastActivity = Date.now()
+    this.status.lastActivity = now
     if (details) {
       this.status.currentTask = details
     }

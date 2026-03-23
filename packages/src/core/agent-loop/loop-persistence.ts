@@ -187,18 +187,31 @@ export class LoopPersistence {
 
     await this.init();
     const sessionDir = this.getSessionDir(sessionId);
-    await this.ensureDir(sessionDir);
 
     const statePath = this.getStatePath(sessionId);
     const data = JSON.stringify(state, null, 2);
 
-    // Atomic write: write to temp file then rename
+    // Atomic write with auto-healing: write to temp file then rename
     const tempPath = `${statePath}.tmp`;
-    await writeFile(tempPath, data, "utf-8");
 
-    // Rename is atomic on most filesystems
-    await unlink(statePath).catch(() => {}); // Ignore if doesn't exist
-    await this.renameFile(tempPath, statePath);
+    const doSave = async (): Promise<void> => {
+      await this.ensureDir(sessionDir);
+      await writeFile(tempPath, data, "utf-8");
+      await unlink(statePath).catch(() => {}); // Ignore if doesn't exist
+      await this.renameFile(tempPath, statePath);
+    };
+
+    try {
+      await doSave();
+    } catch (error) {
+      // Auto-heal: if ENOENT, directory might have been deleted - recreate and retry
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        await this.init(); // Recreate base directory
+        await doSave();
+      } else {
+        throw error;
+      }
+    }
 
     // Update last save time
     this.lastSaveTime.set(sessionId, Date.now());
