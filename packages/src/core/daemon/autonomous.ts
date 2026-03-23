@@ -811,11 +811,11 @@ What's the next most important thing to work on in your jurisdiction? If you're 
         writeFileSync(this.injectFilePath, "", "utf-8")
         // Get the last non-empty line
         const lines = content.split("\n").filter((l) => l.trim())
-        if (lines.length > 0) {
-          const lastLine = lines[lines.length - 1]
+        const lastLine = lines[lines.length - 1]
+        if (lastLine) {
           // Extract message (remove timestamp prefix if present)
           const match = lastLine.match(/^\[[^\]]+\]\s*(.+)$/)
-          return match ? match[1] : lastLine
+          return (match && match[1]) ? match[1] : lastLine
         }
       } catch {
         // Ignore read errors
