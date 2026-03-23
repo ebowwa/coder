@@ -218,7 +218,8 @@ export class DaemonSupervisor extends EventEmitter {
       }
     }
 
-    this.childProcess = spawn("coder", args, {
+    // Use doppler run to ensure secrets are available to worker
+    this.childProcess = spawn("doppler", ["run", "--", "coder", ...args], {
       cwd: this.config.workingDirectory,
       env: { ...process.env },
       stdio: ["ignore", "pipe", "pipe"],
