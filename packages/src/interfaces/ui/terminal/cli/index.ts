@@ -105,6 +105,9 @@ async function main(): Promise<void> {
       let role = "";
       let activityTime: Record<string, number> = {};
       let activityTokens: Record<string, number> = {};
+      let currentWork = "";
+      let filesRead: string[] = [];
+      let filesModified: string[] = [];
 
       if (existsSync(statusPath)) {
         try {
@@ -119,6 +122,9 @@ async function main(): Promise<void> {
             role = daemonStatus.role || "";
             activityTime = daemonStatus.activityTime || {};
             activityTokens = daemonStatus.activityTokens || {};
+            currentWork = daemonStatus.currentWork || "";
+            filesRead = daemonStatus.filesRead || [];
+            filesModified = daemonStatus.filesModified || [];
           }
         } catch {}
       }
@@ -151,9 +157,12 @@ async function main(): Promise<void> {
       console.log(`\n\x1b[36mDaemon Status\x1b[0m`);
       console.log(`  Status: ${status}`);
       console.log(`  Activity: ${emoji} ${activityColor}${activity}\x1b[0m`);
-      if (currentTask) {
-        console.log(`  Task: ${currentTask.slice(0, 60)}${currentTask.length > 60 ? "..." : ""}`);
+
+      // Show current work if available
+      if (currentWork) {
+        console.log(`  \x1b[33m▸ ${currentWork}\x1b[0m`);
       }
+
       console.log(`  Session: ${lockInfo.sessionId}`);
       console.log(`  PID: ${lockInfo.pid}`);
       console.log(`  Uptime: ${uptime}s`);
@@ -173,7 +182,7 @@ async function main(): Promise<void> {
         .slice(0, 5);
 
       if (timeEntries.length > 0) {
-        console.log(`\n  \x1b[90mActivity Time Breakdown:\x1b[0m`);
+        console.log(`\n  \x1b[90mActivity Breakdown:\x1b[0m`);
         for (const [act, time] of timeEntries) {
           const actEmoji = activityEmojiMap[act] || "❓";
           const secs = Math.round(time / 1000);
@@ -183,8 +192,21 @@ async function main(): Promise<void> {
         }
       }
 
+      // Show file activity
+      if (filesModified.length > 0 || filesRead.length > 0) {
+        console.log(`\n  \x1b[90mFile Activity:\x1b[0m`);
+        if (filesModified.length > 0) {
+          const recent = filesModified.slice(-5).reverse();
+          console.log(`    \x1b[33m✎ Modified:\x1b[0m ${recent.map(f => f.split("/").pop()).join(", ")}`);
+        }
+        if (filesRead.length > 0) {
+          const recent = filesRead.slice(-5).reverse();
+          console.log(`    \x1b[34m→ Read:\x1b[0m ${recent.map(f => f.split("/").pop()).join(", ")}`);
+        }
+      }
+
       if (role) {
-        console.log(`  Role: ${role}`);
+        console.log(`\n  Role: ${role}`);
       }
       console.log(`  Goal: ${lockInfo.goal}`);
       console.log(`  Model: ${lockInfo.model}`);

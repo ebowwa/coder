@@ -587,6 +587,13 @@ export class AutonomousDaemon extends EventEmitter {
         if (injectedMessage) {
           // Handle special commands
           const cmd = injectedMessage.toLowerCase().trim()
+
+          // Runtime control commands (role:, model:, goal:, cooldown:)
+          const runtimeCommands = this.handleRuntimeControl(injectedMessage)
+          if (runtimeCommands.handled) {
+            continue
+          }
+
           if (cmd === "shutdown" || cmd === "stop" || cmd === "exit" || cmd === "quit") {
             console.log(`\x1b[33m[Daemon] Received graceful shutdown command - asking model to wrap up\x1b[0m`)
             this.logEvent("inject:shutdown", { message: injectedMessage })
@@ -885,6 +892,91 @@ What's the next most important thing to work on in your jurisdiction? If you're 
       }
     }
     return null
+  }
+
+  /**
+   * Handle runtime control commands (role:, model:, goal:, cooldown:)
+   * Returns { handled: true } if command was processed, { handled: false } otherwise
+   */
+  private handleRuntimeControl(message: string): { handled: boolean } {
+    const trimmed = message.trim()
+    const lower = trimmed.toLowerCase()
+
+    // role:<role> - Switch daemon role at runtime
+    const roleMatch = lower.match(/^role:(maintainer|developer|reviewer|watcher|researcher|custom)$/)
+    if (roleMatch) {
+      const newRole = roleMatch[1] as DaemonRole
+      const oldRole = this.config.role
+      this.config.role = newRole
+      this.status.role = newRole
+      console.log(`\x1b[36m[Daemon] Role switched: ${oldRole} → ${newRole}\x1b[0m`)
+      this.logEvent("runtime:role", { from: oldRole, to: newRole })
+
+      // Inject guidance for new role
+      this.messages.push({
+        role: "user",
+        content: [{ type: "text", text: `[RUNTIME CONTROL] Your role has been changed from "${oldRole}" to "${newRole}". Adjust your behavior accordingly. Continue with your current task but apply the new role's perspective and priorities.` }],
+      })
+      return { handled: true }
+    }
+
+    // model:<model> - Switch model at runtime (next turn uses new model)
+    const modelMatch = trimmed.match(/^model:(.+)$/i)
+    if (modelMatch && modelMatch[1]) {
+      const newModel = modelMatch[1].trim()
+      const oldModel = this.config.model || "unknown"
+      // Only update if different and valid
+      if (newModel && newModel !== oldModel) {
+        this.config.model = newModel
+        console.log(`\x1b[36m[Daemon] Model switched: ${oldModel} → ${newModel}\x1b[0m`)
+        this.logEvent("runtime:model", { from: oldModel, to: newModel })
+        // Note: Model change takes effect on next turn (config.model is read each turn)
+      }
+      return { handled: true }
+    }
+
+    // goal:<goal> - Update daemon goal
+    const goalMatch = trimmed.match(/^goal:(.+)$/i)
+    if (goalMatch && goalMatch[1]) {
+      const newGoal = goalMatch[1].trim()
+      const oldGoal = this.config.goal
+      this.config.goal = newGoal
+      console.log(`\x1b[36m[Daemon] Goal updated: ${newGoal}\x1b[0m`)
+      this.logEvent("runtime:goal", { from: oldGoal, to: newGoal })
+
+      this.messages.push({
+        role: "user",
+        content: [{ type: "text", text: `[RUNTIME CONTROL] Your goal has been updated to: "${newGoal}". Adjust your priorities accordingly.` }],
+      })
+      return { handled: true }
+    }
+
+    // cooldown:<ms> - Change turn cooldown
+    const cooldownMatch = lower.match(/^cooldown:(\d+)$/)
+    if (cooldownMatch && cooldownMatch[1]) {
+      const newCooldown = parseInt(cooldownMatch[1], 10)
+      const oldCooldown = this.config.turnCooldown || 0
+      this.config.turnCooldown = newCooldown
+      console.log(`\x1b[36m[Daemon] Cooldown changed: ${oldCooldown}ms → ${newCooldown}ms\x1b[0m`)
+      this.logEvent("runtime:cooldown", { from: oldCooldown, to: newCooldown })
+      return { handled: true }
+    }
+
+    // help - Show available commands
+    if (lower === "help" || lower === "commands") {
+      console.log(`\x1b[36m[Daemon] Available runtime commands:\x1b[0m`)
+      console.log(`  role:<role>      - Switch role (maintainer|developer|reviewer|watcher|researcher|custom)`)
+      console.log(`  model:<model>    - Switch model (e.g., model:claude-opus-4-6, model:glm-5)`)
+      console.log(`  goal:<goal>      - Update goal (e.g., goal:fix all tests)`)
+      console.log(`  cooldown:<ms>    - Change cooldown (e.g., cooldown:10000)`)
+      console.log(`  shutdown/stop    - Graceful shutdown`)
+      console.log(`  pause/wait       - Pause for 60 seconds`)
+      console.log(`  status/report    - Request status report`)
+      this.logEvent("runtime:help", {})
+      return { handled: true }
+    }
+
+    return { handled: false }
   }
 
   /**

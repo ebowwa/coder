@@ -458,7 +458,14 @@ Autonomous Daemon (Self-directing):
   --daemon-custom-prompt <txt>  Custom role prompt (for role: custom)
   --daemon-cooldown <ms>        Turn cooldown in ms (default: 5000)
   --daemon-max-turns <n>        Max turns per session (0 = unlimited)
-  --daemon-inject <message>     Inject a message into running daemon (redirect/guide)
+  --daemon-inject <message>     Inject message into running daemon
+                                Runtime control commands:
+                                  role:<role>     - Switch role at runtime
+                                  model:<model>   - Switch model at runtime
+                                  goal:<goal>     - Update goal at runtime
+                                  cooldown:<ms>   - Change cooldown at runtime
+                                  help            - Show all commands
+                                Special commands: "shutdown", "pause", "status"
 
 Daemon Observability:
   --daemon-logs                 Show recent daemon events
