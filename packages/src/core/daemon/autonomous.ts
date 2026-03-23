@@ -84,8 +84,42 @@ export interface DaemonStatus {
   startTime: number
   lastActivity: number
   currentTask?: string
+  /** Current activity type for observability */
+  currentActivity?: ActivityType
   recentActions: string[]
   errors: number
+}
+
+/**
+ * Activity types for observability - what the daemon is doing right now
+ */
+export type ActivityType =
+  | "starting"      // Daemon is initializing
+  | "reading"       // Reading files (Read tool)
+  | "thinking"      // Model is generating (API call in progress)
+  | "editing"       // Editing files (Edit tool)
+  | "creating"      // Creating new files (Write tool)
+  | "deleting"      // Deleting files (Bash rm, etc.)
+  | "searching"     // Searching code (Grep, Glob)
+  | "executing"     // Running shell commands (Bash)
+  | "committing"    // Git operations
+  | "testing"       // Running tests
+  | "waiting"       // Cooldown between turns
+  | "error"         // Error occurred
+  | "shutdown"      // Daemon is shutting down
+
+/**
+ * Map tool names to activity types
+ */
+const TOOL_TO_ACTIVITY: Record<string, ActivityType> = {
+  Read: "reading",
+  Write: "creating",
+  Edit: "editing",
+  MultiEdit: "editing",
+  Bash: "executing",
+  Grep: "searching",
+  Glob: "searching",
+  LSP: "reading",
 }
 
 // ============================================
