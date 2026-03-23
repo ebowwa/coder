@@ -290,20 +290,26 @@ export class AutonomousDaemon extends EventEmitter {
         const result = await this.runTurn(systemPrompt)
 
         if (result) {
+          // Calculate total tokens from metrics
+          const totalTokens = result.metrics.reduce((sum, m) => sum + (m.inputTokens || 0) + (m.outputTokens || 0), 0)
+
           // Update metrics
           this.status.turns++
-          this.status.tokens += result.totalTokens || 0
+          this.status.tokens += totalTokens
           this.status.cost += result.totalCost || 0
           this.status.lastActivity = Date.now()
 
-          // Track what was done
-          if (result.summary) {
-            this.addRecentAction(result.summary)
+          // Track what was done - extract summary from last assistant message
+          const lastMessage = result.messages[result.messages.length - 1]
+          if (lastMessage && lastMessage.role === "assistant") {
+            const content = typeof lastMessage.content === "string" ? lastMessage.content : ""
+            const summary = content.slice(0, 100) + (content.length > 100 ? "..." : "")
+            this.addRecentAction(summary)
           }
 
           this.logEvent("turn:end", {
             turn: this.status.turns,
-            tokens: result.totalTokens,
+            tokens: totalTokens,
             cost: result.totalCost,
           })
 
