@@ -94,11 +94,60 @@ async function main(): Promise<void> {
       const status = isAlive ? "\x1b[32mrunning\x1b[0m" : "\x1b[31mdead (stale lock)\x1b[0m";
       const uptime = Math.round((Date.now() - lockInfo.startTime) / 1000);
 
+      // Read daemon status file for activity info
+      const statusPath = join(homedir(), ".claude", "daemon", "status", `${lockInfo.sessionId}.json`);
+      let activity = "unknown";
+      let turns = 0;
+      let tokens = 0;
+      let cost = 0;
+      let currentTask = "";
+
+      if (existsSync(statusPath)) {
+        try {
+          const daemonStatus = JSON.parse(readFileSync(statusPath, "utf-8"));
+          activity = daemonStatus.currentActivity || "unknown";
+          turns = daemonStatus.turns || 0;
+          tokens = daemonStatus.tokens || 0;
+          cost = daemonStatus.cost || 0;
+          currentTask = daemonStatus.currentTask || "";
+        } catch {}
+      }
+
+      // Activity emoji mapping
+      const activityEmoji: Record<string, string> = {
+        starting: "🚀",
+        reading: "📖",
+        thinking: "🧠",
+        editing: "✏️",
+        creating: "📝",
+        deleting: "🗑️",
+        searching: "🔍",
+        executing: "⚡",
+        committing: "📦",
+        testing: "🧪",
+        waiting: "⏳",
+        error: "❌",
+        shutdown: "🛑",
+        unknown: "❓",
+      };
+
+      const emoji = activityEmoji[activity] || "❓";
+      const activityColor = activity === "thinking" ? "\x1b[35m" :
+                            activity === "reading" ? "\x1b[34m" :
+                            activity === "editing" ? "\x1b[33m" :
+                            activity === "testing" ? "\x1b[36m" :
+                            activity === "error" ? "\x1b[31m" : "\x1b[90m";
+
       console.log(`\n\x1b[36mDaemon Status\x1b[0m`);
       console.log(`  Status: ${status}`);
+      console.log(`  Activity: ${emoji} ${activityColor}${activity}\x1b[0m`);
+      if (currentTask) {
+        console.log(`  Task: ${currentTask.slice(0, 60)}${currentTask.length > 60 ? "..." : ""}`);
+      }
       console.log(`  Session: ${lockInfo.sessionId}`);
       console.log(`  PID: ${lockInfo.pid}`);
       console.log(`  Uptime: ${uptime}s`);
+      console.log(`  Turns: ${turns} | Tokens: ${tokens.toLocaleString()} | Cost: $${cost.toFixed(4)}`);
       console.log(`  Goal: ${lockInfo.goal}`);
       console.log(`  Model: ${lockInfo.model}`);
       console.log(`  Working Dir: ${lockInfo.workingDirectory}\n`);

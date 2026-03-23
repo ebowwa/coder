@@ -603,7 +603,8 @@ export class AutonomousDaemon extends EventEmitter {
       },
       onToolUse: (toolUse) => {
         // Track activity type based on tool
-        const activity = this.getActivityFromTool(toolUse.name, toolUse.input)
+        const input = (toolUse.input || {}) as Record<string, unknown>
+        const activity = this.getActivityFromTool(toolUse.name, input)
         this.updateActivity(activity)
         this.logEvent("tool:use", { tool: toolUse.name, input: toolUse.input })
         this.emit("tool", { tool: toolUse.name, input: toolUse.input })
