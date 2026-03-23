@@ -236,12 +236,87 @@ async function main(): Promise<void> {
 
   // Handle --daemon flag (start daemon mode)
   if (args.daemon) {
+    // Check if using new autonomous daemon mode (role-based)
+    if (args.daemonRole || args.daemonJurisdiction) {
+      // Use new AutonomousDaemon
+      const { AutonomousDaemon } = await import("../../../../core/daemon/autonomous.js");
+      const apiKey = requireApiKey();
+
+      const role = args.daemonRole || "maintainer";
+      const jurisdiction = args.daemonJurisdiction || process.cwd();
+
+      console.log("\x1b[36m Autonomous Daemon Starting\x1b[0m");
+      console.log(`\x1b[90m  Role: ${role}\x1b[0m`);
+      console.log(`\x1b[90m  Jurisdiction: ${jurisdiction}\x1b[0m`);
+      console.log(`\x1b[90m  Working directory: ${process.cwd()}\x1b[0m`);
+      console.log(`\x1b[90m  Model: ${args.model}\x1b[0m`);
+      if (args.daemonGoal) {
+        console.log(`\x1b[90m  Initial goal: ${args.daemonGoal}\x1b[0m`);
+      }
+      console.log(`\x1b[90m  Cooldown: ${args.daemonCooldown ?? 5000}ms\x1b[0m`);
+      if (args.daemonMaxTurns) {
+        console.log(`\x1b[90m  Max turns: ${args.daemonMaxTurns}\x1b[0m`);
+      }
+      console.log("");
+
+      const daemon = new AutonomousDaemon({
+        role,
+        jurisdiction,
+        customRolePrompt: args.daemonCustomPrompt,
+        workingDirectory: process.cwd(),
+        model: args.model,
+        permissionMode: args.permissionMode,
+        enableLock: true,
+        autoCommit: args.daemonAutoCommit !== false,
+        turnCooldown: args.daemonCooldown ?? 5000,
+        maxTurnsPerSession: args.daemonMaxTurns ?? 0,
+        enableStatus: true,
+        apiKey,
+        goal: args.daemonGoal,
+      });
+
+      // Handle daemon events
+      daemon.on("started", (sessionId) => {
+        console.log(`\x1b[32m[Daemon] Autonomous daemon started: ${sessionId}\x1b[0m`);
+        console.log(`\x1b[90m  Check status: coder --daemon-status\x1b[0m`);
+        console.log(`\x1b[90m  Stop daemon: coder --daemon-stop\x1b[0m\n`);
+      });
+
+      daemon.on("output", (text) => {
+        process.stdout.write(text);
+      });
+
+      daemon.on("error", (error) => {
+        console.error(`\x1b[31m[Daemon Error] ${error}\x1b[0m`);
+      });
+
+      daemon.on("turn", (result) => {
+        console.log(`\x1b[90m[Daemon] Turn completed. Tokens: ${result.totalTokens}, Cost: $${(result.totalCost || 0).toFixed(4)}\x1b[0m`);
+      });
+
+      daemon.on("shutdown", () => {
+        console.log(`\x1b[90m[Daemon] Shutdown complete\x1b[0m`);
+      });
+
+      daemon.on("failed", (reason) => {
+        console.error(`\x1b[31m[Daemon] Failed: ${reason}\x1b[0m`);
+      });
+
+      // Start the daemon
+      const started = await daemon.start(args.daemonReplace === true);
+      if (!started) {
+        process.exit(1);
+      }
+      return;
+    }
+
+    // Fall back to old supervisor+worker mode
     const { DaemonSupervisor } = await import("../../../../core/daemon/supervisor.js");
     const { DEFAULT_DAEMON_CONFIG } = await import("../../../../core/daemon/types.js");
 
     const goal = args.daemonGoal || args.query || "Work autonomously on the codebase";
 
-    console.log("\x1b[36m Daemon Starting\x1b[0m");
+    console.log("\x1b[36m Daemon Starting (Supervisor Mode)\x1b[0m");
     console.log(`\x1b[90m  Goal: ${goal}\x1b[0m`);
     console.log(`\x1b[90m  Working directory: ${process.cwd()}\x1b[0m`);
     console.log(`\x1b[90m  Model: ${args.model}\x1b[0m`);
