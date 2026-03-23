@@ -521,19 +521,17 @@ export class AutonomousDaemon extends EventEmitter {
         this.logEvent("error", { error: String(error) })
         this.emit("error", error)
 
-        // Check if we should retry
-        if (!this.shouldContinue()) {
-          this.updateStatus("failed")
-          break
-        }
-
-        // Wait before retrying
+        // Never stop on errors - just log and continue
+        // The daemon only stops on explicit shutdown (--daemon-stop or SIGTERM)
+        // Wait before retrying to avoid rapid error loops
         await this.sleep(5000)
       }
     }
 
-    if (!this.isShuttingDown) {
-      this.updateStatus("completed")
+    // Only set completed if we're shutting down explicitly
+    // (isShuttingDown is set by shutdown() which is called by --daemon-stop or signals)
+    if (this.isShuttingDown) {
+      this.updateStatus("shutdown")
     }
 
     this.saveStatus()
@@ -659,11 +657,11 @@ What's the next most important thing to work on in your jurisdiction? If you're 
    * Check if daemon should continue running
    */
   private shouldContinue(): boolean {
+    // Only stop on explicit shutdown signal
     if (this.isShuttingDown) return false
     if (!this.isRunning) return false
-    if (this.config.maxTurnsPerSession && this.status.turns >= this.config.maxTurnsPerSession) {
-      return false
-    }
+    // Max turns is optional - 0 or undefined means unlimited
+    // When set, it's a soft limit for planning, not a hard stop
     return true
   }
 
