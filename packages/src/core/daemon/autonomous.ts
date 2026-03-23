@@ -778,3 +778,49 @@ export async function stopDaemonForDirectory(directory: string): Promise<boolean
   await SingletonLock.stopDaemon(lockFile)
   return true
 }
+
+/**
+ * Get the role definition for a daemon role
+ */
+export function getRoleDefinition(role: DaemonRole): RoleDefinition {
+  return ROLE_DEFINITIONS[role]
+}
+
+/**
+ * Get the skills for a specific role
+ */
+export function getRoleSkills(role: DaemonRole): {
+  primary: DaemonSkill[]
+  secondary: DaemonSkill[]
+  restricted: DaemonSkill[]
+} {
+  const def = ROLE_DEFINITIONS[role]
+  return {
+    primary: def.primarySkills,
+    secondary: def.secondarySkills || [],
+    restricted: def.restrictedSkills || [],
+  }
+}
+
+/**
+ * List all available daemon roles with their skills
+ */
+export function listRoles(): Array<{
+  role: DaemonRole
+  primarySkills: DaemonSkill[]
+  secondarySkills: DaemonSkill[]
+  restrictedSkills: DaemonSkill[]
+}> {
+  return Object.entries(ROLE_DEFINITIONS).map(([role, def]) => ({
+    role: role as DaemonRole,
+    primarySkills: def.primarySkills,
+    secondarySkills: def.secondarySkills || [],
+    restrictedSkills: def.restrictedSkills || [],
+  }))
+}
+  if (!running || !lockInfo) return false
+
+  const lockFile = SingletonLock.getLockFilePath(directory)
+  await SingletonLock.stopDaemon(lockFile)
+  return true
+}
