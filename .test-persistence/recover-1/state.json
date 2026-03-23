@@ -1,7 +1,7 @@
 {
   "version": 1,
   "sessionId": "recover-1",
-  "timestamp": 1774300153401,
+  "timestamp": 1774300543524,
   "messages": [],
   "metrics": [],
   "allToolsUsed": [],
@@ -51,6 +51,6 @@
     "parallelTools": true,
     "detailedMetrics": true
   },
-  "sessionStartTime": 1774300153401,
+  "sessionStartTime": 1774300543524,
   "checkpoints": []
 }

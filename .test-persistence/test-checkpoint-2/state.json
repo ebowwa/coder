@@ -1,7 +1,7 @@
 {
   "version": 1,
   "sessionId": "test-checkpoint-2",
-  "timestamp": 1774300153395,
+  "timestamp": 1774300543518,
   "messages": [],
   "metrics": [],
   "allToolsUsed": [],
@@ -51,12 +51,12 @@
     "parallelTools": true,
     "detailedMetrics": true
   },
-  "sessionStartTime": 1774300153395,
+  "sessionStartTime": 1774300543518,
   "checkpoints": [
     {
-      "id": "cp_0000_1774300153396",
+      "id": "cp_0000_1774300543519",
       "turnNumber": 0,
-      "timestamp": 1774300153396,
+      "timestamp": 1774300543519,
       "type": "auto",
       "summary": "CP1"
     }
