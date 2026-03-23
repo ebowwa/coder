@@ -1936,6 +1936,151 @@ export const AnalyzeImageTool: ToolDefinition = {
   },
 };
 
+// ============================================
+// SCREENSHOT TOOL
+// ============================================
+
+/**
+ * ScreenshotTool - Capture screenshots of web applications for visual debugging
+ *
+ * This tool enables Coder to "see" rendered web applications, which is critical
+ * for debugging UI issues, CSS problems, and visual regressions.
+ *
+ * Uses Chrome/Chromium headless mode to capture screenshots.
+ */
+export const ScreenshotTool: ToolDefinition = {
+  name: "Screenshot",
+  description:
+    "Capture a screenshot of a web page for visual debugging. Use this tool to 'see' what a web application looks like when rendered, which is essential for debugging UI issues, CSS problems, layout errors, and visual regressions.\n\nUsage:\n- Provide a URL (e.g., 'http://localhost:3000') to capture\n- Optionally specify viewport width and height (default: 1400x900)\n- The screenshot is saved to a temp file and returned for analysis\n\nBest practices:\n- Use after making changes to verify the visual result\n- Use when debugging CSS/styling issues\n- Use to verify error overlays or broken renders\n- Combine with AnalyzeImage tool for detailed analysis",
+  input_schema: {
+    type: "object",
+    properties: {
+      url: {
+        type: "string",
+        description: "The URL to capture (e.g., 'http://localhost:3000')",
+      },
+      width: {
+        type: "number",
+        description: "Viewport width in pixels (default: 1400)",
+      },
+      height: {
+        type: "number",
+        description: "Viewport height in pixels (default: 900)",
+      },
+      output_path: {
+        type: "string",
+        description: "Optional path to save screenshot (default: temp file)",
+      },
+      wait_ms: {
+        type: "number",
+        description: "Milliseconds to wait before capturing (default: 2000)",
+      },
+    },
+    required: ["url"],
+  },
+  handler: async (args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
+    const url = args.url as string;
+    const width = (args.width as number) || 1400;
+    const height = (args.height as number) || 900;
+    const waitMs = (args.wait_ms as number) || 2000;
+    const outputPath = (args.output_path as string) || `/tmp/coder-screenshot-${Date.now()}.png`;
+
+    // Validate required parameters
+    if (!url || typeof url !== 'string' || url.trim() === '') {
+      return { content: "Error: url parameter is required and must be a non-empty string", is_error: true };
+    }
+
+    // Validate URL format
+    try {
+      new URL(url);
+    } catch {
+      return { content: `Error: Invalid URL format: ${url}`, is_error: true };
+    }
+
+    try {
+      // Detect Chrome/Chromium path
+      const chromePaths = [
+        '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+        '/Applications/Chromium.app/Contents/MacOS/Chromium',
+        '/usr/bin/google-chrome',
+        '/usr/bin/chromium-browser',
+        '/usr/bin/chromium',
+      ];
+
+      let chromePath = '';
+      for (const p of chromePaths) {
+        try {
+          const checkResult = Bun.spawnSync(['test', '-f', p]);
+          if (checkResult.exitCode === 0) {
+            chromePath = p;
+            break;
+          }
+        } catch {
+          // Continue to next path
+        }
+      }
+
+      if (!chromePath) {
+        return {
+          content: "Error: Chrome/Chromium not found. Please install Chrome or Chromium to use the Screenshot tool.",
+          is_error: true,
+        };
+      }
+
+      // Build Chrome command
+      const command = `"${chromePath}" --headless --disable-gpu --screenshot="${outputPath}" --window-size=${width},${height} "${url}" 2>/dev/null`;
+
+      // Wait for page to load (simple delay)
+      if (waitMs > 0) {
+        await new Promise(resolve => setTimeout(resolve, waitMs));
+      }
+
+      // Execute screenshot command
+      const result = Bun.spawnSync(['sh', '-c', command], {
+        cwd: context.workingDirectory,
+        timeout: 30000,
+      });
+
+      if (result.exitCode !== 0) {
+        const stderr = result.stderr?.toString() || '';
+        return {
+          content: `Screenshot failed (exit code ${result.exitCode}): ${stderr}`,
+          is_error: true,
+        };
+      }
+
+      // Verify screenshot was created
+      const file = Bun.file(outputPath);
+      if (!(await file.exists())) {
+        return {
+          content: `Screenshot file not created: ${outputPath}`,
+          is_error: true,
+        };
+      }
+
+      // Read the screenshot as an image
+      const imageResult = await readImageFile(outputPath, 25000, context.abortSignal);
+
+      // Return info about the screenshot
+      // Note: The image content is available but may not display through API proxies
+      return {
+        content: `Screenshot captured successfully: ${outputPath}
+URL: ${url}
+Viewport: ${width}x${height}
+Size: ${(imageResult.originalSize / 1024).toFixed(1)}KB
+
+${formatImageResult(imageResult)}
+
+Tip: Use the Read tool to view this screenshot: ${outputPath}
+Or use AnalyzeImage tool for detailed visual analysis.`,
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return { content: `Error capturing screenshot: ${errorMessage}`, is_error: true };
+    }
+  },
+};
+
 export const builtInTools: ToolDefinition[] = [
   ReadTool,
   WriteTool,
@@ -1954,6 +2099,7 @@ export const builtInTools: ToolDefinition[] = [
   NotebookEditTool,
   AnalyzeImageTool,
   TempGlmVisionTool,
+  ScreenshotTool,
 ];
 
 export function getToolByName(name: string): ToolDefinition | undefined {

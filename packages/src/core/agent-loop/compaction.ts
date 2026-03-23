@@ -7,6 +7,7 @@ import {
   needsCompaction,
   compactMessages,
   getCompactionStats,
+  estimateMessagesTokens,
   type CompactionResult,
 } from "../context-compaction.js";
 import type { LoopState } from "./loop-state.js";
@@ -48,6 +49,13 @@ export async function handleProactiveCompaction(
 ): Promise<boolean> {
   if (!needsCompaction(state.messages, maxTokens)) {
     return false;
+  }
+
+  // Log warning before compaction (only in DEBUG mode)
+  if (process.env.DEBUG_COMPACTION === '1' || process.env.DEBUG === '1') {
+    const currentTokens = estimateMessagesTokens(state.messages);
+    const percentUsed = Math.round((currentTokens / maxTokens) * 100);
+    process.stderr.write(`\x1b[90m[Debug] Context at ${percentUsed}% (${currentTokens.toLocaleString()}/${maxTokens.toLocaleString()} tokens) - compacting...\x1b[0m\n`);
   }
 
   const compactionResult = await compactMessages(state.messages, maxTokens, {

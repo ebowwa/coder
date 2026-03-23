@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { usePriceAlerts } from '../../hooks/usePriceAlerts';
 import { useMarketData } from '../../hooks/useMarketData';
 import { useRealtimePrices } from '../../hooks/useRealtimePrices';
@@ -10,15 +10,23 @@ export function PriceAlerts() {
     alerts.map(a => a.tokenId),
     alerts.length > 0
   );
+  const prevPricesRef = useRef<string>('');
 
-  // Update alert prices when realtime prices change
-  if (Object.keys(realtimePrices).length > 0) {
+  useEffect(() => {
+    const priceKeys = Object.keys(realtimePrices);
+    if (priceKeys.length === 0) return;
+
     const prices: Record<string, { usd: number }> = {};
     for (const [id, update] of Object.entries(realtimePrices)) {
       prices[id] = { usd: update.price };
     }
-    updateAlertPrices(prices);
-  }
+
+    const pricesKey = JSON.stringify(prices);
+    if (prevPricesRef.current !== pricesKey) {
+      prevPricesRef.current = pricesKey;
+      updateAlertPrices(prices);
+    }
+  }, [realtimePrices, updateAlertPrices]);
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [selectedToken, setSelectedToken] = useState('');
@@ -47,23 +55,38 @@ export function PriceAlerts() {
   };
 
   return (
-    <div className="bg-gray-900 rounded-lg p-4">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-bold">Price Alerts</h2>
+    <div className="card hover-lift card-shine relative overflow-hidden">
+      {/* Gradient accent */}
+      <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-yellow-500/10 to-orange-500/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
+
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4 relative z-10">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-yellow-500 to-orange-400 flex items-center justify-center">
+            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11.25 12.75h3.75l-1.054-1.054A1.524 1.524 0 0113.5 10.618V8.25a4.5 4.5 0 00-3-4.244V3.75a1.5 1.5 0 00-3 0v.256A4.5 4.5 0 004.5 8.25v2.368c0 .404-.16.791-.446 1.078L3 12.75h3.75m4.5 0v.75a2.25 2.25 0 01-4.5 0v-.75m4.5 0H6.75" />
+            </svg>
+          </div>
+          <span className="metric-label">Price Alerts</span>
+        </div>
         <button
           onClick={() => setShowAddForm(!showAddForm)}
-          className="px-3 py-1 bg-blue-600 rounded text-sm hover:bg-blue-700"
+          className="btn btn-primary text-xs px-3 py-1.5"
         >
-          + Add Alert
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          Add
         </button>
       </div>
 
+      {/* Add Alert Form */}
       {showAddForm && (
-        <div className="mb-4 p-3 bg-gray-800 rounded space-y-2">
+        <div className="mb-4 p-4 bg-slate-900/50 rounded-xl border border-gray-800/50 space-y-3 relative z-10 animate-fade-in">
           <select
             value={selectedToken}
             onChange={e => setSelectedToken(e.target.value)}
-            className="w-full p-2 bg-gray-700 rounded text-white"
+            className="w-full p-2.5 bg-slate-800/50 border border-gray-700/50 rounded-lg text-white text-sm focus:border-blue-500/50 transition-all"
           >
             <option value="">Select Token</option>
             {tokens.slice(0, 20).map(t => (
@@ -73,35 +96,37 @@ export function PriceAlerts() {
             ))}
           </select>
 
-          <select
-            value={condition}
-            onChange={e => setCondition(e.target.value as 'above' | 'below')}
-            className="w-full p-2 bg-gray-700 rounded text-white"
-          >
-            <option value="above">Price goes above</option>
-            <option value="below">Price goes below</option>
-          </select>
+          <div className="flex gap-2">
+            <select
+              value={condition}
+              onChange={e => setCondition(e.target.value as 'above' | 'below')}
+              className="flex-1 p-2.5 bg-slate-800/50 border border-gray-700/50 rounded-lg text-white text-sm focus:border-blue-500/50 transition-all"
+            >
+              <option value="above">Price above</option>
+              <option value="below">Price below</option>
+            </select>
 
-          <input
-            type="number"
-            placeholder="Target Price (USD)"
-            value={targetPrice}
-            onChange={e => setTargetPrice(e.target.value)}
-            className="w-full p-2 bg-gray-700 rounded text-white"
-            step="0.01"
-          />
+            <input
+              type="number"
+              placeholder="Target Price"
+              value={targetPrice}
+              onChange={e => setTargetPrice(e.target.value)}
+              className="flex-1 p-2.5 bg-slate-800/50 border border-gray-700/50 rounded-lg text-white text-sm focus:border-blue-500/50 transition-all"
+              step="0.01"
+            />
+          </div>
 
           <div className="flex gap-2">
             <button
               onClick={handleAddAlert}
-              className="px-3 py-1 bg-green-600 rounded hover:bg-green-700"
               disabled={!selectedToken || !targetPrice}
+              className="btn btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Add
+              Add Alert
             </button>
             <button
               onClick={() => setShowAddForm(false)}
-              className="px-3 py-1 bg-gray-600 rounded hover:bg-gray-700"
+              className="btn btn-secondary"
             >
               Cancel
             </button>
@@ -109,48 +134,88 @@ export function PriceAlerts() {
         </div>
       )}
 
-      <div className="space-y-2 max-h-64 overflow-auto">
+      {/* Alerts List */}
+      <div className="space-y-2 max-h-48 overflow-auto relative z-10">
         {alerts.length === 0 ? (
-          <div className="text-center text-gray-400 py-4">
-            No price alerts set. Add one to get notified!
+          <div className="text-center py-8 relative">
+            {/* Decorative background */}
+            <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/5 to-orange-500/5 rounded-xl" />
+
+            <div className="relative">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-yellow-500/20 to-orange-500/20 border border-yellow-500/20 flex items-center justify-center mx-auto mb-4 animate-float">
+                <svg className="w-8 h-8 text-yellow-500/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11.25 12.75h3.75l-1.054-1.054A1.524 1.524 0 0113.5 10.618V8.25a4.5 4.5 0 00-3-4.244V3.75a1.5 1.5 0 00-3 0v.256A4.5 4.5 0 004.5 8.25v2.368c0 .404-.16.791-.446 1.078L3 12.75h3.75m4.5 0v.75a2.25 2.25 0 01-4.5 0v-.75m4.5 0H6.75" />
+                </svg>
+              </div>
+              <div className="text-white font-semibold mb-1">No Active Alerts</div>
+              <div className="text-gray-400 text-sm mb-4">Set price alerts to get notified when prices hit your targets</div>
+              <button
+                onClick={() => setShowAddForm(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/30 rounded-lg text-yellow-400 text-sm font-semibold hover:from-yellow-500/30 hover:to-orange-500/30 transition-all"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Create First Alert
+              </button>
+            </div>
           </div>
         ) : (
           alerts.map(alert => (
             <div
               key={alert.id}
-              className={`flex items-center justify-between p-2 rounded ${
-                !alert.enabled ? 'opacity-50' : 'bg-gray-800'
+              className={`flex items-center justify-between p-3 rounded-xl transition-all hover:bg-slate-700/30 ${
+                !alert.enabled ? 'opacity-50 bg-slate-900/30' : 'bg-slate-800/30 border border-gray-800/50 hover:border-gray-700/50'
               }`}
             >
               <div className="flex-1">
-                <div className="font-medium">{alert.tokenSymbol.toUpperCase()}</div>
-                <div className="text-sm text-gray-400">
-                  {alert.condition} ${alert.targetPrice.toLocaleString()}
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-white">{alert.tokenSymbol.toUpperCase()}</span>
+                  <span className="text-xs px-1.5 py-0.5 rounded bg-slate-700/50 text-gray-400">
+                    {alert.condition}
+                  </span>
                 </div>
-                <div className="text-xs text-gray-500">
-                  Current: ${alert.currentPrice.toLocaleString()}
+                <div className="text-sm text-gray-400 font-mono mt-0.5">
+                  ${alert.targetPrice.toLocaleString()}
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => toggleAlert(alert.id)}
-                  className={`px-2 py-1 rounded text-xs ${
-                    alert.enabled ? 'bg-green-600' : 'bg-gray-600'
+                  className={`relative w-10 h-5 rounded-full transition-all ${
+                    alert.enabled ? 'bg-green-500/30' : 'bg-slate-700'
                   }`}
                 >
-                  {alert.enabled ? 'ON' : 'OFF'}
+                  <div className={`absolute top-0.5 w-4 h-4 rounded-full transition-all ${
+                    alert.enabled ? 'left-5 bg-green-400 shadow-lg shadow-green-500/30' : 'left-0.5 bg-gray-500'
+                  }`} />
                 </button>
                 <button
                   onClick={() => removeAlert(alert.id)}
-                  className="px-2 py-1 bg-red-600 rounded text-xs hover:bg-red-700"
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-all"
                 >
-                  Delete
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
                 </button>
               </div>
             </div>
           ))
         )}
       </div>
+
+      {/* Footer */}
+      {alerts.length > 0 && (
+        <div className="mt-4 pt-4 border-t border-gray-800/50 flex items-center justify-between relative z-10">
+          <span className="text-xs text-gray-500">{alerts.filter(a => a.enabled).length} active</span>
+          <div className="flex items-center gap-1.5 text-xs text-gray-400">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11.25 12.75h3.75l-1.054-1.054A1.524 1.524 0 0113.5 10.618V8.25a4.5 4.5 0 00-3-4.244V3.75a1.5 1.5 0 00-3 0v.256A4.5 4.5 0 004.5 8.25v2.368c0 .404-.16.791-.446 1.078L3 12.75h3.75m4.5 0v.75a2.25 2.25 0 01-4.5 0v-.75m4.5 0H6.75" />
+            </svg>
+            Browser notifications
+          </div>
+        </div>
+      )}
     </div>
   );
 }

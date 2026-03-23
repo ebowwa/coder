@@ -73,7 +73,7 @@ describe('GasTracker', () => {
     it('should display block number', () => {
       render(<GasTracker />, { wrapper });
 
-      expect(screen.getByText(/Block:/)).toBeInTheDocument();
+      expect(screen.getByText(/Block #/)).toBeInTheDocument();
       expect(screen.getByText(/18,500,000/)).toBeInTheDocument();
     });
   });
@@ -86,8 +86,8 @@ describe('GasTracker', () => {
       });
 
       const { container } = render(<GasTracker />, { wrapper });
-      const skeleton = container.querySelector('.animate-pulse');
-      expect(skeleton).toBeInTheDocument();
+      const skeleton = container.querySelector('.skeleton')
+      expect(skeleton).toBeTruthy();
     });
   });
 
@@ -106,8 +106,8 @@ describe('GasTracker', () => {
     it('should highlight average gas price', () => {
       render(<GasTracker />, { wrapper });
 
-      const averageElement = screen.getByText('20').parentElement;
-      expect(averageElement).toHaveClass('border', 'border-green-700');
+      const averageElement = screen.getByText('20').closest('.border-green-500\\/30');
+      expect(averageElement).toBeTruthy();
     });
   });
 });

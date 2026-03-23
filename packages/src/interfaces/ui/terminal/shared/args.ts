@@ -37,6 +37,8 @@ export interface CLIArgs {
   noProgress?: boolean;
   /** Show version and exit */
   showVersion?: boolean;
+  /** Show current status from status file */
+  showStatus?: boolean;
   /** Enable debug output */
   debug?: boolean;
 
@@ -69,6 +71,34 @@ export interface CLIArgs {
   longRunning?: boolean;
   /** Original goal for long-running sessions */
   longRunningGoal?: string;
+  /** Enable WebSocket streaming for real-time status */
+  enableWebSocket?: boolean;
+  /** WebSocket port for streaming */
+  websocketPort?: number;
+  /** Enable SSE streaming for real-time status */
+  enableSSE?: boolean;
+  /** SSE port for streaming */
+  ssePort?: number;
+
+  // Daemon mode options
+  /** Enable daemon mode (autonomous, self-healing execution) */
+  daemon?: boolean;
+  /** Check daemon status */
+  daemonStatus?: boolean;
+  /** Stop running daemon */
+  daemonStop?: boolean;
+  /** Path to daemon config file */
+  daemonConfig?: string;
+  /** Enable auto-commit in daemon mode */
+  daemonAutoCommit?: boolean;
+  /** Enable watchdog in daemon mode */
+  daemonWatchdog?: boolean;
+  /** Enable Telegram alerts in daemon mode */
+  daemonTelegram?: boolean;
+  /** Max restart attempts in daemon mode */
+  daemonMaxRestarts?: number;
+  /** Goal for daemon mode */
+  daemonGoal?: string;
 
   // MCP server presets (from templates)
   /** Preset MCP servers from templates */
@@ -160,6 +190,9 @@ export function parseArgs(): CLIArgs {
       case "-v":
         result.showVersion = true;
         break;
+      case "--status":
+        result.showStatus = true;
+        break;
       case "--debug":
       case "-d":
         result.debug = true;
@@ -201,10 +234,57 @@ export function parseArgs(): CLIArgs {
       case "--long-running-goal":
         result.longRunningGoal = args[++i];
         break;
+      case "--enable-websocket":
+        result.enableWebSocket = true;
+        break;
+      case "--websocket-port":
+        result.websocketPort = parseInt(args[++i] ?? "9876", 10);
+        break;
+      case "--enable-sse":
+        result.enableSSE = true;
+        break;
+      case "--sse-port":
+        result.ssePort = parseInt(args[++i] ?? "9877", 10);
+        break;
       case "--help":
       case "-h":
         printHelp();
         process.exit(0);
+
+      // Daemon mode flags
+      case "--daemon":
+        result.daemon = true;
+        break;
+      case "--daemon-status":
+        result.daemonStatus = true;
+        break;
+      case "--daemon-stop":
+        result.daemonStop = true;
+        break;
+      case "--daemon-config":
+        result.daemonConfig = args[++i];
+        break;
+      case "--daemon-auto-commit":
+        result.daemonAutoCommit = true;
+        break;
+      case "--no-daemon-auto-commit":
+        result.daemonAutoCommit = false;
+        break;
+      case "--daemon-watchdog":
+        result.daemonWatchdog = true;
+        break;
+      case "--no-daemon-watchdog":
+        result.daemonWatchdog = false;
+        break;
+      case "--daemon-telegram":
+        result.daemonTelegram = true;
+        break;
+      case "--daemon-max-restarts":
+        result.daemonMaxRestarts = parseInt(args[++i] ?? "10", 10);
+        break;
+      case "--daemon-goal":
+        result.daemonGoal = args[++i];
+        break;
     }
   }
 
@@ -231,6 +311,7 @@ OPTIONS:
   -p, --permission-mode <mode>  Permission mode (default, acceptEdits, bypassPermissions)
   --max-tokens <tokens>         Maximum output tokens (default: 4096)
   -v, --version                 Show version and exit
+  --status                      Show current Coder status (from background session)
   -d, --debug                   Enable debug output
 
 Extended Thinking:
@@ -273,6 +354,24 @@ Query:
   --continuation, --ralph       Enable autonomous loop continuation (keep working until done)
   --long-running                Enable long-running mode for days/weeks of autonomous work
   --long-running-goal <goal>    Original goal for long-running session (auto-saved milestones)
+
+Real-time Streaming:
+  --enable-websocket            Enable WebSocket streaming for real-time status
+  --websocket-port <port>       WebSocket port (default: 9876)
+  --enable-sse                  Enable SSE streaming for real-time status
+  --sse-port <port>             SSE port (default: 9877)
+
+Daemon Mode (Autonomous Execution):
+  --daemon                      Start daemon mode (auto-restart, watchdog, auto-commit)
+  --daemon-status               Check daemon status
+  --daemon-stop                 Stop running daemon
+  --daemon-config <file>        Load daemon config from JSON file
+  --daemon-goal <goal>          Goal for daemon mode
+  --daemon-max-restarts <n>     Max restart attempts (default: 10)
+  --daemon-telegram             Enable Telegram alerts
+  --no-daemon-auto-commit       Disable auto-commit in daemon mode
+  --no-daemon-watchdog          Disable watchdog in daemon mode
+
   -h, --help                    Show this help message
 
 EXAMPLES:

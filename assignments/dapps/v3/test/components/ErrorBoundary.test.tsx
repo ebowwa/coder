@@ -57,7 +57,7 @@ describe('ErrorBoundary', () => {
         </ErrorBoundary>
       );
       
-      expect(getByText('Something went wrong')).toBeInTheDocument();
+      expect(getByText(/Component Error/i)).toBeInTheDocument();
       expect(getByText('Test error message')).toBeInTheDocument();
     });
 
@@ -92,7 +92,7 @@ describe('ErrorBoundary', () => {
       );
       
       // Error boundary should show error
-      expect(getByText('Something went wrong')).toBeInTheDocument();
+      expect(getByText(/Component Error/i)).toBeInTheDocument();
       
       // Click retry
       shouldThrow = false;
@@ -139,7 +139,7 @@ describe('ErrorBoundary', () => {
       const WrappedComponent = withErrorBoundary(ErrorComponent);
       
       const { getByText } = render(<WrappedComponent />);
-      expect(getByText('Something went wrong')).toBeInTheDocument();
+      expect(getByText(/Component Error/i)).toBeInTheDocument();
     });
 
     it('uses custom fallback when provided', () => {
@@ -162,7 +162,7 @@ describe('ErrorBoundary', () => {
       );
 
       // Verify error boundary caught the error
-      expect(getByText('Something went wrong')).toBeInTheDocument();
+      expect(getByText(/Component Error/i)).toBeInTheDocument();
       expect(getByText('Test error message')).toBeInTheDocument();
     });
   });

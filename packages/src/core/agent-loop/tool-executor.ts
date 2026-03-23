@@ -17,6 +17,9 @@ import type {
 import type { PermissionManager, PermissionResult } from "../permissions.js";
 import type { HookManager } from "../../ecosystem/hooks/index.js";
 
+// Aggressive telemetry - auto-enabled tool call tracking
+import { toolCall as aggressiveToolCall } from "../../telemetry/auto-telemetry.js";
+
 export interface ToolExecutionOptions {
   tools: ToolDefinition[];
   workingDirectory: string;
@@ -30,6 +33,8 @@ export interface ToolExecutionOptions {
   toolRestrictions?: ToolRestrictions;
   /** Teammate ID for per-agent restrictions */
   teammateId?: string;
+  /** Status writer for telemetry tracking */
+  statusWriter?: import("./status-writer.js").StatusWriter;
 }
 
 /**
@@ -39,6 +44,10 @@ interface ToolExecutionResult {
   toolUseId: string;
   result: ToolResultBlock;
   toolResult: { id: string; result: ToolResult } | null;
+  /** Execution time in milliseconds */
+  durationMs?: number;
+  /** Whether the execution was successful */
+  success?: boolean;
 }
 
 /**
@@ -139,11 +148,24 @@ async function executeSingleTool(
 
   // Execute PreToolUse hooks
   if (hookManager) {
+    const hookStartTime = Date.now();
     const hookResult = await hookManager.execute("PreToolUse", {
       tool_name: tool.name,
       tool_input: toInputRecord(toolUse.input),
       session_id: sessionId,
     });
+    const hookDurationMs = Date.now() - hookStartTime;
+
+    // Track hook execution in status writer if available
+    if (options.statusWriter) {
+      options.statusWriter.recordHookExecution(
+        "PreToolUse",
+        tool.name,
+        hookDurationMs,
+        hookResult.decision === "deny" || hookResult.decision === "block",
+        hookResult.reason
+      );
+    }
 
     if (hookResult.decision === "deny" || hookResult.decision === "block") {
       return {
@@ -155,6 +177,8 @@ async function executeSingleTool(
           is_error: true,
         },
         toolResult: null,
+        durationMs: 0,
+        success: false,
       };
     }
 
@@ -165,6 +189,7 @@ async function executeSingleTool(
   }
 
   // Execute tool
+  const toolStartTime = Date.now();
   try {
     // Check if tool has a handler
     if (!tool.handler) {
@@ -177,6 +202,8 @@ async function executeSingleTool(
           is_error: true,
         },
         toolResult: null,
+        durationMs: 0,
+        success: false,
       };
     }
 
@@ -186,9 +213,16 @@ async function executeSingleTool(
       abortSignal: signal,
     });
 
+    const toolEndTime = Date.now();
+    const durationMs = toolEndTime - toolStartTime;
+
+    // Track with aggressive telemetry
+    aggressiveToolCall(tool.name, durationMs, !handlerResult.is_error);
+
     // Execute PostToolUse hooks
     let finalContent = handlerResult.content;
     if (hookManager) {
+      const hookStartTime = Date.now();
       const hookResult = await hookManager.execute("PostToolUse", {
         tool_name: tool.name,
         tool_input: toInputRecord(toolUse.input),
@@ -196,6 +230,18 @@ async function executeSingleTool(
         tool_result_is_error: handlerResult.is_error,
         session_id: sessionId,
       });
+      const hookDurationMs = Date.now() - hookStartTime;
+
+      // Track hook execution in status writer if available
+      if (options.statusWriter) {
+        options.statusWriter.recordHookExecution(
+          "PostToolUse",
+          tool.name,
+          hookDurationMs,
+          hookResult.decision === "deny" || hookResult.decision === "block",
+          hookResult.reason
+        );
+      }
 
       if (hookResult.decision === "deny" || hookResult.decision === "block") {
         return {
@@ -207,6 +253,8 @@ async function executeSingleTool(
             is_error: true,
           },
           toolResult: null,
+          durationMs,
+          success: false,
         };
       }
 
@@ -228,18 +276,48 @@ async function executeSingleTool(
         id: toolUse.id,
         result: { ...handlerResult, content: finalContent },
       },
+      durationMs,
+      success: !handlerResult.is_error,
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    const durationMs = Date.now() - toolStartTime;
+
+    // Track failed tool call with aggressive telemetry
+    aggressiveToolCall(tool.name, durationMs, false, errorMessage);
 
     // Execute PostToolUseFailure hooks
     if (hookManager) {
+      const hookStartTime = Date.now();
       await hookManager.execute("PostToolUseFailure", {
         tool_name: tool.name,
         tool_input: toInputRecord(toolUse.input),
         error: errorMessage,
         session_id: sessionId,
       });
+      const hookDurationMs = Date.now() - hookStartTime;
+
+      // Track hook execution in status writer if available
+      if (options.statusWriter) {
+        options.statusWriter.recordHookExecution(
+          "PostToolUseFailure",
+          tool.name,
+          hookDurationMs,
+          false,
+          errorMessage
+        );
+      }
+    }
+
+    // Track error in status writer if available
+    if (options.statusWriter) {
+      options.statusWriter.recordError(
+        errorMessage,
+        "tool",
+        tool.name,
+        errorStack
+      );
     }
 
     return {
@@ -251,6 +329,8 @@ async function executeSingleTool(
         is_error: true,
       },
       toolResult: null,
+      durationMs,
+      success: false,
     };
   }
 }
@@ -261,7 +341,7 @@ async function executeSingleTool(
 export async function executeTools(
   toolUseBlocks: ToolUseBlock[],
   options: ToolExecutionOptions
-): Promise<ToolResultBlock[]> {
+): Promise<ToolExecutionResult[]> {
   // Check for abort before starting parallel execution
   if (options.signal?.aborted) {
     return [];
@@ -276,13 +356,11 @@ export async function executeTools(
   const executionResults = await Promise.all(toolExecutions);
 
   // Collect results and notify callbacks
-  const toolResults: ToolResultBlock[] = [];
   for (const executionResult of executionResults) {
-    toolResults.push(executionResult.result);
     if (executionResult.toolResult && options.onToolResult) {
       options.onToolResult(executionResult.toolResult);
     }
   }
 
-  return toolResults;
+  return executionResults;
 }

@@ -18,7 +18,7 @@ import type { Message } from "../../schemas/index.js";
 import { DEFAULT_CACHE_CONFIG } from "../../schemas/index.js";
 import { PermissionManager } from "../permissions.js";
 import { DEFAULT_REMINDER_CONFIG } from "../system-reminders.js";
-import { DEFAULT_MODEL } from "../models.js";
+import { DEFAULT_MODEL, getContextWindow } from "../models.js";
 import type { HookManager } from "../../ecosystem/hooks/index.js";
 
 import type { AgentLoopOptions, AgentLoopResult, LoopPersistenceConfig } from "./types.js";
@@ -35,6 +35,20 @@ import {
   type LongRunningIntegrationConfig,
 } from "./long-running-integration.js";
 import { LongRunningMemoryManager } from "./long-running-memory.js";
+import { StatusWriter, formatStatus, getStatusFilePath, getStatusLogPath, getMetricsFilePath, readStatus, type CoderStatus, type StatusWriterOptions } from "./status-writer.js";
+
+// Aggressive telemetry - auto-enabled, always-on observability
+import {
+  setSession as setAggressiveSession,
+  turnStart as aggressiveTurnStart,
+  turnEnd as aggressiveTurnEnd,
+  apiCall as aggressiveApiCall,
+  toolCall as aggressiveToolCall,
+  error as aggressiveTelemetryError,
+  contextUpdate as aggressiveContextUpdate,
+  memoryUpdate as aggressiveMemoryUpdate,
+  getRealtimeMetrics,
+} from "../../telemetry/auto-telemetry.js";
 
 // Re-export types and utilities
 export type { AgentLoopOptions, AgentLoopResult, LoopPersistenceConfig } from "./types.js";
@@ -325,6 +339,7 @@ export async function agentLoop(
 
   // Initialize long-running integration if enabled
   let longRunningIntegration: LongRunningIntegration | null = null;
+  let statusWriter: StatusWriter | null = null;
   if (longRunningOption) {
     const memoryManager = new LongRunningMemoryManager();
     const config: Partial<LongRunningIntegrationConfig> = typeof longRunningOption === "boolean"
@@ -333,7 +348,43 @@ export async function agentLoop(
 
     longRunningIntegration = new LongRunningIntegration(config, memoryManager);
     await longRunningIntegration.initialize();
+
+    // Initialize status writer with full telemetry options
+    const statusWriterOptions: StatusWriterOptions = {
+      sessionId,
+      goal: longRunningGoal || "Autonomous work session",
+      workingDirectory,
+      model,
+      maxTokens,
+      extendedThinking: extendedThinking?.enabled ?? false,
+      effortLevel: extendedThinking?.effort,
+      interleaved: extendedThinking?.interleaved ?? true,
+      contextWindowSize: getContextWindow(model),
+      enableWebSocket: typeof longRunningOption === "object" ? longRunningOption.enableWebSocket ?? false : false,
+      websocketPort: typeof longRunningOption === "object" ? longRunningOption.websocketPort : undefined,
+      enableSSE: typeof longRunningOption === "object" ? longRunningOption.enableSSE ?? false : false,
+      ssePort: typeof longRunningOption === "object" ? longRunningOption.ssePort : undefined,
+      mcpServers: [], // Will be updated as MCP servers connect
+    };
+
+    statusWriter = new StatusWriter(statusWriterOptions);
+    statusWriter.setActivity("Starting session");
+
+    // Update git status if available
+    if (gitStatus) {
+      statusWriter.updateGitStatus(
+        gitStatus.branch,
+        !gitStatus.clean,
+        gitStatus.untracked.length + gitStatus.staged.length,
+        gitStatus.ahead,
+        gitStatus.behind
+      );
+    }
+
     console.log(`Long-running mode enabled for session ${sessionId}`);
+    console.log(`Status file: ${getStatusFilePath()}`);
+    console.log(`Metrics file: ${getMetricsFilePath()}`);
+    console.log(`Monitor with: tail -f ${getStatusFilePath()}`);
   }
 
   const permissionManager = new PermissionManager(permissionMode, onPermissionRequest);
@@ -345,6 +396,10 @@ export async function agentLoop(
       session_id: sessionId,
     });
   }
+
+  // Initialize aggressive telemetry for this session
+  setAggressiveSession(sessionId);
+  aggressiveTurnStart();
 
   // Start loop persistence if enabled
   if (persistence && !resumedFromCheckpoint) {
@@ -398,12 +453,60 @@ export async function agentLoop(
         resultConditions,
         continuation,
         longRunning: longRunningIntegration ?? undefined,
+        statusWriter: statusWriter ?? undefined,
       };
 
       // Execute a single turn
       const turnResult = await executeTurn(state, turnOptions);
 
+      // Track with aggressive telemetry
+      if (turnResult.metrics) {
+        aggressiveTurnEnd(
+          turnResult.metrics.durationMs,
+          {
+            input: turnResult.metrics.usage.input_tokens,
+            output: turnResult.metrics.usage.output_tokens,
+          }
+        );
+        aggressiveApiCall(
+          turnResult.metrics.durationMs,
+          true,
+          {
+            input: turnResult.metrics.usage.input_tokens,
+            output: turnResult.metrics.usage.output_tokens,
+          }
+        );
+      }
+
+      // Track context usage
+      const contextWindow = getContextWindow(model);
+      aggressiveContextUpdate(
+        state.estimatedContextTokens,
+        contextWindow
+      );
+
+      // Track memory usage
+      const memUsage = process.memoryUsage();
+      aggressiveMemoryUpdate(memUsage.heapUsed / (1024 * 1024));
+
+      // Update status writer if enabled
+      if (statusWriter) {
+        statusWriter.update({
+          turnNumber: state.turnNumber,
+          totalCost: state.totalCost,
+          durationMs: Date.now() - state.sessionStartTime,
+          toolUseCount: state.allToolsUsed.length,
+          messageCount: state.messages.length,
+          compactionCount: state.compactionCount,
+        });
+      }
+
       shouldContinue = turnResult.shouldContinue;
+
+      // Start tracking next turn if continuing
+      if (shouldContinue) {
+        aggressiveTurnStart();
+      }
 
       // Call onMetrics callback with the latest metrics
       if (turnResult.metrics && onMetrics) {
@@ -421,6 +524,13 @@ export async function agentLoop(
   } catch (error) {
     lastError = error as Error;
 
+    // Track error with aggressive telemetry
+    aggressiveTelemetryError(
+      (error as Error).name || "AgentLoopError",
+      (error as Error).message,
+      { turnNumber: state.turnNumber, sessionId }
+    );
+
     // Save state on error (mark as interrupted) if persistence is enabled
     if (persistence) {
       const interruptedState = state.serialize(sessionId, {
@@ -435,6 +545,12 @@ export async function agentLoop(
     // Stop auto-save timer
     if (persistence) {
       persistence.stopAutoSaveTimer(sessionId);
+    }
+
+    // Cleanup status writer
+    if (statusWriter) {
+      statusWriter.setActivity("Session ended");
+      statusWriter.cleanup();
     }
   }
 

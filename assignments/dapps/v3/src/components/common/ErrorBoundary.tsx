@@ -54,13 +54,13 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
         return <FallbackComponent error={this.state.error!} retry={this.handleRetry} />;
       }
 
-      // Default fallback UI
+      // Default fallback UI - Dark mode compatible
       return (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-6 m-4">
+        <div className="bg-red-900/20 border border-red-700/50 rounded-lg p-4 m-2">
           <div className="flex items-start space-x-3">
             <div className="flex-shrink-0">
               <svg
-                className="h-6 w-6 text-red-400"
+                className="h-5 w-5 text-red-400"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -73,26 +73,19 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                 />
               </svg>
             </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-medium text-red-800">
-                Something went wrong
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm font-medium text-red-400">
+                Component Error
               </h3>
-              <div className="mt-2 text-sm text-red-700">
-                <p>
-                  {this.state.error?.message || 'An unexpected error occurred while rendering this component.'}
-                </p>
+              <div className="mt-1 text-xs text-red-300/80 font-mono truncate">
+                {this.state.error?.message || 'An unexpected error occurred'}
               </div>
-              <div className="mt-4">
-                <button
-                  onClick={this.handleRetry}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                >
-                  <svg className="-ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  Retry
-                </button>
-              </div>
+              <button
+                onClick={this.handleRetry}
+                className="mt-2 text-xs text-red-400 hover:text-red-300 underline"
+              >
+                Retry
+              </button>
             </div>
           </div>
         </div>

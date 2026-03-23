@@ -530,33 +530,31 @@ describe("PermissionManager Modes", () => {
       expect(result.decision).toBe("allow");
     });
 
-    test("SECURITY GAP: high risk Bash commands (sudo) are NOT prompted - falls through to default allow", async () => {
-      // BUG DOCUMENTATION: acceptEdits mode only checks for low/medium risk
-      // High/critical risk commands fall through to line 293 which defaults to allow
-      // This is a security gap that should be fixed in the implementation
+    test("FIXED: high risk Bash commands (sudo) now require prompt in acceptEdits mode", async () => {
+      // FIXED: High risk commands now always prompt regardless of mode
       const mockPrompt = createMockPrompt("deny");
       manager = new PermissionManager("acceptEdits", mockPrompt);
       const result = await manager.checkPermission("Bash", SAMPLE_INPUTS.bashSudo);
-      // CURRENT BEHAVIOR: Falls through to default allow (bug)
-      expect(result.decision).toBe("allow");
+      // FIXED BEHAVIOR: high risk prompts user
+      expect(result.decision).toBe("deny");
     });
 
-    test("SECURITY GAP: critical Bash commands (rm -rf) are NOT prompted - falls through to default allow", async () => {
-      // BUG DOCUMENTATION: Same issue - critical commands should prompt but don't
+    test("FIXED: critical Bash commands (rm -rf) now require prompt in acceptEdits mode", async () => {
+      // FIXED: Critical commands now always prompt regardless of mode
       const mockPrompt = createMockPrompt("deny");
       manager = new PermissionManager("acceptEdits", mockPrompt);
       const result = await manager.checkPermission("Bash", SAMPLE_INPUTS.bashCritical);
-      // CURRENT BEHAVIOR: Falls through to default allow (bug)
-      expect(result.decision).toBe("allow");
+      // FIXED BEHAVIOR: critical risk prompts user
+      expect(result.decision).toBe("deny");
     });
 
-    test("SECURITY GAP: critical Bash commands (git push --force) are NOT prompted - falls through to default allow", async () => {
-      // BUG DOCUMENTATION: Same issue - critical commands should prompt but don't
+    test("FIXED: critical Bash commands (git push --force) now require prompt in acceptEdits mode", async () => {
+      // FIXED: Critical commands now always prompt regardless of mode
       const mockPrompt = createMockPrompt("deny");
       manager = new PermissionManager("acceptEdits", mockPrompt);
       const result = await manager.checkPermission("Bash", SAMPLE_INPUTS.bashForcePush);
-      // CURRENT BEHAVIOR: Falls through to default allow (bug)
-      expect(result.decision).toBe("allow");
+      // FIXED BEHAVIOR: critical risk prompts user
+      expect(result.decision).toBe("deny");
     });
   });
 
@@ -886,46 +884,46 @@ describe("Security-Critical Paths", () => {
   });
 
   describe("destructive command protection", () => {
-    test("SECURITY GAP: rm -rf does NOT require prompt in acceptEdits mode", async () => {
-      // BUG DOCUMENTATION: Critical commands fall through to default allow
+    test("FIXED: rm -rf now requires prompt in acceptEdits mode", async () => {
+      // FIXED: Critical commands now always prompt regardless of mode
       const mockPrompt = createMockPrompt("deny");
       const manager = new PermissionManager("acceptEdits", mockPrompt);
 
       const result = await manager.checkPermission("Bash", SAMPLE_INPUTS.bashCritical);
-      // CURRENT BEHAVIOR: allow (falls through) - should be deny or prompt
-      expect(result.decision).toBe("allow");
+      // FIXED BEHAVIOR: critical risk prompts user
+      expect(result.decision).toBe("deny");
     });
 
-    test("SECURITY GAP: git push --force does NOT require prompt in acceptEdits mode", async () => {
-      // BUG DOCUMENTATION: Critical commands fall through to default allow
+    test("FIXED: git push --force now requires prompt in acceptEdits mode", async () => {
+      // FIXED: Critical commands now always prompt regardless of mode
       const mockPrompt = createMockPrompt("deny");
       const manager = new PermissionManager("acceptEdits", mockPrompt);
 
       const result = await manager.checkPermission("Bash", SAMPLE_INPUTS.bashForcePush);
-      // CURRENT BEHAVIOR: allow (falls through) - should be deny or prompt
-      expect(result.decision).toBe("allow");
+      // FIXED BEHAVIOR: critical risk prompts user
+      expect(result.decision).toBe("deny");
     });
 
-    test("SECURITY GAP: git reset --hard does NOT require prompt in acceptEdits mode", async () => {
-      // BUG DOCUMENTATION: Critical commands fall through to default allow
+    test("FIXED: git reset --hard now requires prompt in acceptEdits mode", async () => {
+      // FIXED: Critical commands now always prompt regardless of mode
       const mockPrompt = createMockPrompt("deny");
       const manager = new PermissionManager("acceptEdits", mockPrompt);
 
       const result = await manager.checkPermission("Bash", SAMPLE_INPUTS.bashResetHard);
-      // CURRENT BEHAVIOR: allow (falls through) - should be deny or prompt
-      expect(result.decision).toBe("allow");
+      // FIXED BEHAVIOR: critical risk prompts user
+      expect(result.decision).toBe("deny");
     });
   });
 
   describe("privilege escalation protection", () => {
-    test("SECURITY GAP: sudo commands do NOT require prompt in acceptEdits mode", async () => {
-      // BUG DOCUMENTATION: High risk commands fall through to default allow
+    test("FIXED: sudo commands now require prompt in acceptEdits mode", async () => {
+      // FIXED: High risk commands now always prompt regardless of mode
       const mockPrompt = createMockPrompt("deny");
       const manager = new PermissionManager("acceptEdits", mockPrompt);
 
       const result = await manager.checkPermission("Bash", SAMPLE_INPUTS.bashSudo);
-      // CURRENT BEHAVIOR: allow (falls through) - should be deny or prompt
-      expect(result.decision).toBe("allow");
+      // FIXED BEHAVIOR: high risk prompts user
+      expect(result.decision).toBe("deny");
     });
 
     test("chmod commands are correctly identified as high risk", () => {
@@ -1075,7 +1073,7 @@ describe("Integration Tests", () => {
     expect(writeResult.decision).toBe("deny");
   });
 
-  test("SECURITY GAP: full workflow - critical commands do NOT require prompt in acceptEdits", async () => {
+  test("FIXED: full workflow - critical commands now require prompt in acceptEdits", async () => {
     const mockPrompt = createMockPrompt("deny");
     const manager = new PermissionManager("acceptEdits", mockPrompt);
 
@@ -1083,9 +1081,8 @@ describe("Integration Tests", () => {
     const safeResult = await manager.checkPermission("Bash", SAMPLE_INPUTS.bashSafe);
     expect(safeResult.decision).toBe("allow");
 
-    // BUG: Critical commands should require prompt but fall through to allow
+    // FIXED: Critical commands now require prompt (and mock returns deny)
     const criticalResult = await manager.checkPermission("Bash", SAMPLE_INPUTS.bashCritical);
-    // CURRENT BEHAVIOR: allow (falls through) - should be deny or prompt
-    expect(criticalResult.decision).toBe("allow");
+    expect(criticalResult.decision).toBe("deny");
   });
 });

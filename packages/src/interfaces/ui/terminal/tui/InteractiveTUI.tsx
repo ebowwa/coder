@@ -29,6 +29,7 @@ import { SPINNERS, getFrame, nextFrame } from "@ebowwa/tui-core/algorithms";
 import type { PermissionMode, Message as ApiMessage, ToolDefinition } from "../../../../schemas/index.js";
 import type { HookManager } from "../../../../ecosystem/hooks/index.js";
 import { agentLoop } from "../../../../core/agent-loop.js";
+import { createContinuationConfig } from "../../../../core/agent-loop/continuation.js";
 import { getGitStatus } from "../../../../core/git-status.js";
 import { calculateContextInfo, VERSION, getModelDisplayName } from "../shared/status-line.js";
 import { formatCost } from "../../../../core/agent-loop/formatters.js";
@@ -81,6 +82,12 @@ export interface InteractiveTUIProps {
   effort?: "low" | "medium" | "high" | "max";
   /** Enable interleaved thinking */
   interleaved?: boolean;
+  /** Enable autonomous loop continuation (Ralph-style) */
+  continuation?: boolean;
+  /** Enable long-running mode for extended autonomous sessions */
+  longRunning?: boolean;
+  /** Original goal for long-running sessions */
+  longRunningGoal?: string;
 }
 
 export interface InteractiveTUIHandle {
@@ -153,6 +160,9 @@ function InteractiveTUIContent({
   extendedThinking,
   effort,
   interleaved,
+  continuation,
+  longRunning,
+  longRunningGoal,
 }: InteractiveTUIProps): React.ReactElement {
   const app = useAppContext();
   const size = useTerminalSize();
@@ -370,7 +380,7 @@ function InteractiveTUIContent({
 
       const result = await agentLoop(messagesForApi, {
         apiKey,
-        model,
+        model: initialModel,
         maxTokens,
         systemPrompt: systemPrompt ?? "You are a helpful AI assistant.",
         tools: tools ?? [],
@@ -386,6 +396,17 @@ function InteractiveTUIContent({
           : undefined,
         hookManager,
         sessionId,
+        // Autonomous loop continuation (Ralph-style)
+        // Convert boolean to ContinuationConfig using createContinuationConfig
+        continuation: continuation
+          ? {
+              ...createContinuationConfig(true),
+              ...(longRunningGoal ? { persistentGoal: longRunningGoal } : {}),
+            }
+          : undefined,
+        // Long-running mode for extended autonomous sessions
+        longRunning: longRunning ?? false,
+        longRunningGoal,
         onText: (text) => setStreamingText(prev => prev + text),
         onThinking: (thinking) => setStreamingThinking(prev => (prev ?? "") + thinking),
         onToolUse: (tu) => {

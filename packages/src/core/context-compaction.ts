@@ -41,8 +41,14 @@ const DEFAULT_KEEP_FIRST = 1;
 /** Reduced from 8 to 3 to handle short but token-heavy conversations */
 const MIN_MESSAGES_FOR_COMPACTION = 3;
 
-/** Default threshold for proactive compaction (90% of max tokens) */
-const DEFAULT_COMPACTION_THRESHOLD = 0.9;
+/**
+ * Default threshold for proactive compaction (75% of max tokens)
+ * Lowered from 0.9 to prevent context overflow issues
+ * Can be overridden via CONTEXT_WARNING_THRESHOLD environment variable
+ */
+const DEFAULT_COMPACTION_THRESHOLD = parseFloat(
+  process.env.CONTEXT_WARNING_THRESHOLD || "0.75"
+);
 
 /** Maximum length for summary text before truncation */
 const MAX_SUMMARY_LENGTH = 8000;

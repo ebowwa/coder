@@ -46,6 +46,14 @@ export interface LongRunningIntegrationConfig {
   injectContextOnCompaction: boolean;
   /** Verification commands to run */
   verificationCommands: VerificationCommand[];
+  /** Enable WebSocket streaming for real-time status */
+  enableWebSocket?: boolean;
+  /** WebSocket port for streaming */
+  websocketPort?: number;
+  /** Enable SSE streaming for real-time status */
+  enableSSE?: boolean;
+  /** SSE port for streaming */
+  ssePort?: number;
 }
 
 /**

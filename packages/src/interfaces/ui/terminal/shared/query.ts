@@ -109,6 +109,16 @@ export async function runSingleQuery(options: QueryOptions): Promise<void> {
           })
         : undefined,
       continuation: args.continuation ? RALPH_CONTINUATION_CONFIG : undefined,
+      longRunning: args.longRunning
+        ? {
+            enabled: true,
+            enableWebSocket: args.enableWebSocket ?? false,
+            websocketPort: args.websocketPort,
+            enableSSE: args.enableSSE ?? false,
+            ssePort: args.ssePort,
+          }
+        : false,
+      longRunningGoal: args.longRunningGoal,
       onText: (text) => {
         // Label response on first text chunk
         if (!responseLabeled) {

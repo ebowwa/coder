@@ -500,7 +500,8 @@ export class LoopState {
     this.wasCompacted = true;
 
     const stats = getStats(compactionResult);
-    // DISABLED: console.log(`Context compacted: ${stats.reductionPercent}% reduction, ${stats.tokensSaved} tokens saved`);
+    // Log compaction event for user awareness
+    process.stderr.write(`\x1b[90m[Compaction] ${compactionResult.messagesRemoved} messages removed, ${stats.reductionPercent}% reduction (${stats.tokensSaved} tokens saved)\x1b[0m\n`);
 
     return true;
   }

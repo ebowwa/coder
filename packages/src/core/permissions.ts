@@ -259,6 +259,22 @@ export class PermissionManager {
       command: toolName === "Bash" ? toolInput.command as string : undefined,
     };
 
+    // Critical and high risk operations ALWAYS require prompt (safety guardrail)
+    // Note: bypassPermissions and dontAsk modes are already handled above with early returns
+    if (riskLevel === "critical" || riskLevel === "high") {
+      const result = await this.promptCallback(request);
+
+      // Cache "always" decisions
+      if (result.decision === "allowAlways" || result.decision === "denyAlways") {
+        this.cache[cacheKey] = {
+          decision: result.decision,
+          timestamp: Date.now(),
+        };
+      }
+
+      return result;
+    }
+
     // Prompt user for interactive/default modes
     if (this.mode === "interactive" || this.mode === "default") {
       const result = await this.promptCallback(request);
@@ -274,8 +290,8 @@ export class PermissionManager {
       return result;
     }
 
-    // Default to allow for unknown modes
-    return { decision: "allow" };
+    // Default to deny for unknown modes (safer default)
+    return { decision: "deny", reason: `Unknown permission mode: ${this.mode}` };
   }
 
   /**
