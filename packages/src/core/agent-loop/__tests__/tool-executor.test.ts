@@ -60,9 +60,9 @@ describe("executeTools", () => {
       const results = await executeTools(toolUseBlocks, createOptions(tools));
 
       expect(results).toHaveLength(1);
-      expect(results[0]?.tool_use_id).toBe("tool1");
-      expect(results[0]?.content).toBe("Success");
-      expect(results[0]?.is_error).toBeFalsy();
+      expect(results[0]?.result.tool_use_id).toBe("tool1");
+      expect(results[0]?.result.content).toBe("Success");
+      expect(results[0]?.result.is_error).toBeFalsy();
     });
 
     it("should execute multiple tools in parallel", async () => {
@@ -106,8 +106,8 @@ describe("executeTools", () => {
       const results = await executeTools(toolUseBlocks, createOptions(tools));
 
       expect(results).toHaveLength(1);
-      expect(results[0]?.is_error).toBe(true);
-      expect(results[0]?.content).toContain("Unknown tool");
+      expect(results[0]?.result.is_error).toBe(true);
+      expect(results[0]?.result.content).toContain("Unknown tool");
     });
 
     it("should handle tool handler errors", async () => {
@@ -124,8 +124,8 @@ describe("executeTools", () => {
       const results = await executeTools(toolUseBlocks, createOptions(tools));
 
       expect(results).toHaveLength(1);
-      expect(results[0]?.is_error).toBe(true);
-      expect(results[0]?.content).toContain("Handler error");
+      expect(results[0]?.result.is_error).toBe(true);
+      expect(results[0]?.result.content).toContain("Handler error");
     });
 
     it("should pass tool input to handler", async () => {
@@ -240,8 +240,8 @@ describe("executeTools", () => {
       );
 
       expect(results).toHaveLength(1);
-      expect(results[0]?.is_error).toBe(true);
-      expect(results[0]?.content).toContain("Permission denied");
+      expect(results[0]?.result.is_error).toBe(true);
+      expect(results[0]?.result.content).toContain("Permission denied");
     });
 
     it("should allow tool when permission is granted", async () => {
@@ -258,8 +258,8 @@ describe("executeTools", () => {
         createOptions(tools, { permissionManager })
       );
 
-      expect(results[0]?.is_error).toBeFalsy();
-      expect(results[0]?.content).toBe("Success");
+      expect(results[0]?.result.is_error).toBeFalsy();
+      expect(results[0]?.result.content).toBe("Success");
     });
   });
 
@@ -315,8 +315,8 @@ describe("executeTools", () => {
         createOptions(tools, { hookManager: mockHookManager as any })
       );
 
-      expect(results[0]?.is_error).toBe(true);
-      expect(results[0]?.content).toContain("Blocked by hook");
+      expect(results[0]?.result.is_error).toBe(true);
+      expect(results[0]?.result.content).toContain("Blocked by hook");
     });
 
     it("should execute PostToolUse hooks", async () => {
@@ -434,8 +434,8 @@ describe("executeTools", () => {
 
       const results = await executeTools(toolUseBlocks, createOptions(tools));
 
-      expect(results[0]?.is_error).toBe(true);
-      expect(results[0]?.content).toContain("String error");
+      expect(results[0]?.result.is_error).toBe(true);
+      expect(results[0]?.result.content).toContain("String error");
     });
 
     it("should handle null thrown", async () => {
@@ -451,7 +451,7 @@ describe("executeTools", () => {
 
       const results = await executeTools(toolUseBlocks, createOptions(tools));
 
-      expect(results[0]?.is_error).toBe(true);
+      expect(results[0]?.result.is_error).toBe(true);
     });
   });
 });

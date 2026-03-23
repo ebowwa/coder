@@ -96,21 +96,26 @@ async function main(): Promise<void> {
       const uptime = Math.round((Date.now() - lockInfo.startTime) / 1000);
 
       // Read daemon status file for activity info
-      const statusPath = join(homedir(), ".claude", "daemon", "status", `${lockInfo.sessionId}.json`);
+      const statusPath = join(homedir(), ".claude", "daemon", "current.json");
       let activity = "unknown";
       let turns = 0;
       let tokens = 0;
       let cost = 0;
       let currentTask = "";
+      let role = "";
 
       if (existsSync(statusPath)) {
         try {
           const daemonStatus = JSON.parse(readFileSync(statusPath, "utf-8"));
-          activity = daemonStatus.currentActivity || "unknown";
-          turns = daemonStatus.turns || 0;
-          tokens = daemonStatus.tokens || 0;
-          cost = daemonStatus.cost || 0;
-          currentTask = daemonStatus.currentTask || "";
+          // Only use if session matches
+          if (daemonStatus.sessionId === lockInfo.sessionId) {
+            activity = daemonStatus.currentActivity || "unknown";
+            turns = daemonStatus.turns || 0;
+            tokens = daemonStatus.tokens || 0;
+            cost = daemonStatus.cost || 0;
+            currentTask = daemonStatus.currentTask || "";
+            role = daemonStatus.role || "";
+          }
         } catch {}
       }
 
@@ -149,6 +154,9 @@ async function main(): Promise<void> {
       console.log(`  PID: ${lockInfo.pid}`);
       console.log(`  Uptime: ${uptime}s`);
       console.log(`  Turns: ${turns} | Tokens: ${tokens.toLocaleString()} | Cost: $${cost.toFixed(4)}`);
+      if (role) {
+        console.log(`  Role: ${role}`);
+      }
       console.log(`  Goal: ${lockInfo.goal}`);
       console.log(`  Model: ${lockInfo.model}`);
       console.log(`  Working Dir: ${lockInfo.workingDirectory}\n`);
