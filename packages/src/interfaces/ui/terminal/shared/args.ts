@@ -106,6 +106,18 @@ export interface CLIArgs {
   /** Goal for daemon mode */
   daemonGoal?: string;
 
+  // Daemon Observability
+  /** Show daemon logs (real-time event stream) */
+  daemonLogs?: boolean;
+  /** Show daemon progress metrics */
+  daemonProgress?: boolean;
+  /** Show daemon file activity */
+  daemonFiles?: boolean;
+  /** Show daemon tool calls */
+  daemonTools?: boolean;
+  /** Tail mode for logs (follow) */
+  daemonFollow?: boolean;
+
   // MCP server presets (from templates)
   /** Preset MCP servers from templates */
   presetMcpServers?: Record<string, MCPServerConfig>;
@@ -300,6 +312,23 @@ export function parseArgs(): CLIArgs {
       case "--daemon-goal":
         result.daemonGoal = args[++i];
         break;
+      // Observability commands
+      case "--daemon-logs":
+        result.daemonLogs = true;
+        break;
+      case "--daemon-progress":
+        result.daemonProgress = true;
+        break;
+      case "--daemon-files":
+        result.daemonFiles = true;
+        break;
+      case "--daemon-tools":
+        result.daemonTools = true;
+        break;
+      case "-f":
+      case "--follow":
+        result.daemonFollow = true;
+        break;
     }
   }
 
@@ -389,6 +418,13 @@ Daemon Mode (Autonomous Execution):
   --daemon-telegram             Enable Telegram alerts
   --no-daemon-auto-commit       Disable auto-commit in daemon mode
   --no-daemon-watchdog          Disable watchdog in daemon mode
+
+Daemon Observability:
+  --daemon-logs                 Show recent daemon events
+  --daemon-progress             Show daemon progress metrics (turns, tokens, cost)
+  --daemon-files                Show daemon file activity (read, write, create, delete)
+  --daemon-tools                Show daemon tool calls with timing
+  -f, --follow                  Tail mode (follow live updates)
 
   -h, --help                    Show this help message
 

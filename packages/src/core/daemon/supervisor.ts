@@ -23,6 +23,8 @@ import {
   SingletonLock,
   ErrorClassifier,
   WorkerHealthMonitor,
+  createObservabilityStack,
+  type ObservabilityStack,
   type ClassifiedError,
 } from "@ebowwa/daemons"
 import { ChannelAlerter } from "./channel-alerts.js"
@@ -44,6 +46,7 @@ export class DaemonSupervisor extends EventEmitter {
   private healthMonitor: WorkerHealthMonitor
   private permanentFailureCount: number = 0
   private lastClassifiedError: ClassifiedError | null = null
+  private observability: ObservabilityStack | null = null
 
   constructor(config: Partial<DaemonConfig> = {}) {
     super()
@@ -71,6 +74,13 @@ export class DaemonSupervisor extends EventEmitter {
       commitInterval: this.config.autoCommitInterval,
     })
     this.telemetry = new DaemonTelemetry()
+
+    // Initialize observability stack
+    this.observability = createObservabilityStack(this.state.getSessionId(), {
+      goal: this.config.goal,
+      workingDirectory: this.config.workingDirectory,
+      model: this.config.model,
+    })
 
     if (this.config.enableTelegram || this.config.enableWebhook) {
       this.alerter = new ChannelAlerter({
@@ -445,5 +455,98 @@ export class DaemonSupervisor extends EventEmitter {
       restartCount: this.state.restartCount,
       uptime: Date.now() - new Date(this.state.startTime).getTime(),
     }
+  }
+
+  /**
+   * Get observability data for monitoring
+   */
+  getObservability(): {
+    files: { read: number; modified: number; created: number }
+    tools: { calls: number; successRate: number; avgDuration: number }
+    progress: { turns: number; goalProgress: number } | null
+    recentEvents: Array<{ type: string; timestamp: number }>
+  } {
+    if (!this.observability) {
+      return {
+        files: { read: 0, modified: 0, created: 0 },
+        tools: { calls: 0, successRate: 0, avgDuration: 0 },
+        progress: null,
+        recentEvents: [],
+      }
+    }
+
+    const fileSummary = this.observability.fileTracker.getSummary()
+    const toolSummary = this.observability.toolLogger.getSummary()
+    const progressMetrics = this.observability.progressTracker?.getMetrics()
+    const recentEvents = this.observability.eventBus.getHistory(20)
+
+    return {
+      files: {
+        read: fileSummary.reads,
+        modified: fileSummary.modifies,
+        created: fileSummary.creates,
+      },
+      tools: {
+        calls: toolSummary.totalCalls,
+        successRate: toolSummary.successRate,
+        avgDuration: toolSummary.averageDuration,
+      },
+      progress: progressMetrics ? {
+        turns: progressMetrics.turns,
+        goalProgress: progressMetrics.goalProgress || 0,
+      } : null,
+      recentEvents: recentEvents.map(e => ({
+        type: e.type,
+        timestamp: e.timestamp,
+      })),
+    }
+  }
+
+  /**
+   * Subscribe to real-time observability events
+   */
+  subscribeToEvents(
+    handler: (event: { type: string; timestamp: number; data: unknown }) => void
+  ): () => void {
+    if (!this.observability) {
+      return () => {}
+    }
+    return this.observability.eventBus.subscribe("*", handler)
+  }
+
+  /**
+   * Get file activity log
+   */
+  getFileActivity(limit = 50): Array<{
+    path: string
+    action: string
+    timestamp: number
+    tool?: string
+  }> {
+    if (!this.observability) return []
+    return this.observability.fileTracker.getActivities(limit).map(a => ({
+      path: a.path,
+      action: a.action,
+      timestamp: a.timestamp,
+      tool: a.tool,
+    }))
+  }
+
+  /**
+   * Get tool call log
+   */
+  getToolLog(limit = 50): Array<{
+    tool: string
+    durationMs: number
+    success: boolean
+    timestamp: number
+  }> {
+    if (!this.observability) return []
+    return this.observability.toolLogger.getCompletedCalls(limit).map(c => ({
+      tool: c.tool,
+      durationMs: c.durationMs,
+      success: c.success,
+      timestamp: c.timestamp,
+    }))
   }
 }

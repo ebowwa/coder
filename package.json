@@ -58,7 +58,7 @@
     "@ebowwa/channel-core": "^1.16.0",
     "@ebowwa/channel-telegram": "^1.17.2",
     "@ebowwa/coder-native": "^0.2.1",
-    "@ebowwa/daemons": "^0.8.0",
+    "@ebowwa/daemons": "^0.8.2",
     "@ebowwa/logic-spec": "^1.0.1",
     "@ebowwa/quant-rust": "^0.2.2",
     "@ebowwa/sandbox": "^0.2.3",

@@ -18,6 +18,8 @@ import type { MCPClientImpl } from "../../../mcp/client.js";
 import { SessionStore, printSessionsList } from "../../../../core/session-store.js";
 import { LoopPersistence } from "../../../../core/agent-loop/loop-persistence.js";
 import * as readline from "node:readline/promises";
+import { homedir } from "node:os";
+import { existsSync, readFileSync } from "node:fs";
 import { getGitStatus } from "../../../../core/git-status.js";
 import { renderStatusLine, getContextWindow, VERSION, type StatusLineOptions } from "../shared/status-line.js";
 import { readStatus, formatStatus, getStatusFilePath } from "../../../../core/agent-loop/status-writer.js";
@@ -133,6 +135,101 @@ async function main(): Promise<void> {
         console.log("\x1b[90mUse --daemon-stop-all to stop all daemons\x1b[0m");
       }
     }
+    process.exit(0);
+  }
+
+  // Handle daemon observability commands
+  if (args.daemonLogs || args.daemonProgress || args.daemonFiles || args.daemonTools) {
+    const { SingletonLock } = await import("@ebowwa/daemons");
+    const { running, lockInfo } = SingletonLock.checkDirectory(process.cwd());
+
+    if (!running || !lockInfo) {
+      console.log("\x1b[90mNo daemon running for this directory\x1b[0m");
+      process.exit(1);
+    }
+
+    // Read the observability log file
+    const logPath = `${homedir()}/.claude/daemon/logs/${lockInfo.sessionId}.jsonl`;
+    if (!existsSync(logPath)) {
+      console.log("\x1b[90mNo observability data available yet\x1b[0m");
+      process.exit(0);
+    }
+
+    const logContent = readFileSync(logPath, "utf-8");
+    const events = logContent.trim().split("\n").filter(Boolean).map(line => {
+      try {
+        return JSON.parse(line);
+      } catch {
+        return null;
+      }
+    }).filter(Boolean);
+
+    if (args.daemonProgress) {
+      console.log("\x1b[36mDaemon Progress\x1b[0m\n");
+      const progressEvents = events.filter((e: { type: string }) => e.type === "progress:update");
+      const latest = progressEvents[progressEvents.length - 1];
+      if (latest?.data) {
+        const m = latest.data;
+        console.log(`  Turns: ${m.turns}`);
+        console.log(`  Tokens: ${m.totalTokens?.toLocaleString()}`);
+        console.log(`  Cost: $${(m.totalCost || 0).toFixed(4)}`);
+        console.log(`  Tool Calls: ${m.toolCalls}`);
+        console.log(`  Files Read: ${m.filesRead}`);
+        console.log(`  Files Modified: ${m.filesModified}`);
+        console.log(`  Errors: ${m.errors}`);
+        console.log(`  Status: ${m.status}`);
+        if (m.goalProgress) {
+          console.log(`  Goal Progress: ${m.goalProgress}%`);
+        }
+        if (m.currentActivity) {
+          console.log(`  Activity: ${m.currentActivity}`);
+        }
+      } else {
+        console.log("\x1b[90mNo progress data yet\x1b[0m");
+      }
+    }
+
+    if (args.daemonFiles) {
+      console.log("\x1b[36mFile Activity\x1b[0m\n");
+      const fileEvents = events.filter((e: { type: string }) =>
+        e.type?.startsWith("file:")
+      );
+      const recent = fileEvents.slice(-20);
+      for (const e of recent) {
+        const action = e.type.replace("file:", "");
+        const icon = { read: "\x1b[34m→\x1b[0m", write: "\x1b[33m✎\x1b[0m", create: "\x1b[32m+\x1b[0m", delete: "\x1b[31m-\x1b[0m", modify: "\x1b[33m✎\x1b[0m" }[action] || "?";
+        console.log(`  ${icon} ${e.data?.path || "unknown"}`);
+      }
+      if (fileEvents.length === 0) {
+        console.log("\x1b[90mNo file activity yet\x1b[0m");
+      }
+    }
+
+    if (args.daemonTools) {
+      console.log("\x1b[36mTool Calls\x1b[0m\n");
+      const toolEvents = events.filter((e: { type: string }) => e.type === "tool:end");
+      const recent = toolEvents.slice(-15);
+      for (const e of recent) {
+        const d = e.data;
+        const status = d?.success ? "\x1b[32m✓\x1b[0m" : "\x1b[31m✗\x1b[0m";
+        const duration = d?.durationMs ? `${d.durationMs}ms` : "?";
+        console.log(`  ${status} ${d?.tool || "unknown"} (${duration})`);
+      }
+      if (toolEvents.length === 0) {
+        console.log("\x1b[90mNo tool calls yet\x1b[0m");
+      }
+    }
+
+    if (args.daemonLogs) {
+      console.log("\x1b[36mRecent Events\x1b[0m\n");
+      const recent = events.slice(-30);
+      for (const e of recent) {
+        const time = new Date(e.timestamp).toLocaleTimeString();
+        const type = e.type?.split(":")[1] || e.type;
+        console.log(`  \x1b[90m${time}\x1b[0m [${type}]`);
+      }
+    }
+
     process.exit(0);
   }
 
