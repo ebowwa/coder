@@ -373,6 +373,24 @@ export class DaemonSupervisor extends EventEmitter {
     // Final commit
     await this.committer.commit()
 
+    // Emit completion event for observability
+    if (this.observability) {
+      this.observability.eventBus.emitEvent({
+        type: "daemon:complete",
+        timestamp: Date.now(),
+        sessionId: this.state.sessionId,
+        data: {
+          turns: this.state.turns,
+          errors: this.state.errors,
+          restartCount: this.state.restartCount,
+          uptime: Date.now() - new Date(this.state.startTime).getTime()
+        }
+      })
+      if (this.observability.progressTracker) {
+        this.observability.progressTracker.setStatus("completed", "Goal completed")
+      }
+    }
+
     if (this.alerter) {
       await this.alerter.sendCompleteAlert(
         "Goal completed successfully",
