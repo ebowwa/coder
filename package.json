@@ -55,7 +55,10 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
     "@ebowwa/bun-native-page": "0.2.5",
+    "@ebowwa/channel-core": "^1.16.0",
+    "@ebowwa/channel-telegram": "^1.17.2",
     "@ebowwa/coder-native": "^0.2.1",
+    "@ebowwa/daemons": "^0.8.0",
     "@ebowwa/logic-spec": "^1.0.1",
     "@ebowwa/quant-rust": "^0.2.2",
     "@ebowwa/sandbox": "^0.2.3",

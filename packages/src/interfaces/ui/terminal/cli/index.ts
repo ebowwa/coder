@@ -63,38 +63,75 @@ async function main(): Promise<void> {
   }
 
   // Handle daemon mode flags
-  if (args.daemonStatus) {
-    const { DaemonState } = await import("../../../../core/daemon/daemon-state.js");
-    const state = DaemonState.load();
-    if (state) {
-      console.log("Daemon Status:");
-      console.log(`  Session: ${state.sessionId}`);
-      console.log(`  Status: ${state.status}`);
-      console.log(`  Goal: ${state.goal}`);
-      console.log(`  PID: ${state.pid ?? "none"}`);
-      console.log(`  Turns: ${state.turns}`);
-      console.log(`  Restarts: ${state.restartCount}`);
-      console.log(`  Errors: ${state.errors}`);
-      console.log(`  Started: ${state.startTime}`);
-      console.log(`  Last Activity: ${state.lastActivity}`);
+  if (args.daemonList) {
+    const { SingletonLock } = await import("@ebowwa/daemons");
+    const locks = SingletonLock.listAll();
+
+    if (locks.length === 0) {
+      console.log("No daemon instances found");
     } else {
-      console.log("No active daemon session found");
+      console.log(`\n\x1b[36mActive Daemon Instances (${locks.length})\x1b[0m\n`);
+      for (const lock of locks) {
+        const status = lock.isAlive ? "\x1b[32mrunning\x1b[0m" : "\x1b[31mdead\x1b[0m";
+        const uptime = Math.round((Date.now() - lock.startTime) / 1000);
+        console.log(`  ${lock.sessionId.slice(0, 8)}... [${status}]`);
+        console.log(`    PID: ${lock.pid} | Uptime: ${uptime}s`);
+        console.log(`    Dir: ${lock.workingDirectory}`);
+        console.log(`    Goal: ${lock.goal.slice(0, 50)}${lock.goal.length > 50 ? "..." : ""}`);
+        console.log(``);
+      }
+    }
+    process.exit(0);
+  }
+
+  if (args.daemonStatus) {
+    const { SingletonLock } = await import("@ebowwa/daemons");
+    const { running, lockInfo, isAlive } = SingletonLock.checkDirectory(process.cwd());
+
+    if (lockInfo) {
+      const status = isAlive ? "\x1b[32mrunning\x1b[0m" : "\x1b[31mdead (stale lock)\x1b[0m";
+      const uptime = Math.round((Date.now() - lockInfo.startTime) / 1000);
+
+      console.log(`\n\x1b[36mDaemon Status\x1b[0m`);
+      console.log(`  Status: ${status}`);
+      console.log(`  Session: ${lockInfo.sessionId}`);
+      console.log(`  PID: ${lockInfo.pid}`);
+      console.log(`  Uptime: ${uptime}s`);
+      console.log(`  Goal: ${lockInfo.goal}`);
+      console.log(`  Model: ${lockInfo.model}`);
+      console.log(`  Working Dir: ${lockInfo.workingDirectory}\n`);
+    } else {
+      console.log("\x1b[90mNo daemon running for this directory\x1b[0m");
     }
     process.exit(0);
   }
 
   if (args.daemonStop) {
-    const { DaemonState } = await import("../../../../core/daemon/daemon-state.js");
-    const state = DaemonState.load();
-    if (state && state.pid) {
-      try {
-        process.kill(state.pid, "SIGTERM");
-        console.log(`Sent SIGTERM to daemon process ${state.pid}`);
-      } catch (error) {
-        console.log(`Failed to stop daemon: ${error}`);
+    const { SingletonLock } = await import("@ebowwa/daemons");
+
+    if (args.daemonStopAll) {
+      // Stop all daemons
+      const locks = SingletonLock.listAll().filter((l: { isAlive: boolean }) => l.isAlive);
+      if (locks.length === 0) {
+        console.log("No active daemons to stop");
+      } else {
+        console.log(`Stopping ${locks.length} daemon(s)...`);
+        for (const lock of locks) {
+          const result = await SingletonLock.stopDaemon(lock.lockFile);
+          console.log(`  ${result.message}`);
+        }
       }
     } else {
-      console.log("No active daemon session found");
+      // Stop daemon for current directory only
+      const { running, lockInfo } = SingletonLock.checkDirectory(process.cwd());
+      if (running && lockInfo) {
+        const lockFile = SingletonLock.getLockFilePath(process.cwd());
+        const result = await SingletonLock.stopDaemon(lockFile);
+        console.log(result.message);
+      } else {
+        console.log("No daemon running for this directory");
+        console.log("\x1b[90mUse --daemon-stop-all to stop all daemons\x1b[0m");
+      }
     }
     process.exit(0);
   }
@@ -106,14 +143,14 @@ async function main(): Promise<void> {
 
     const goal = args.daemonGoal || args.query || "Work autonomously on the codebase";
 
-    console.log("\x1b[36m🐍 Starting Coder Daemon Mode\x1b[0m");
+    console.log("\x1b[36m Daemon Starting\x1b[0m");
     console.log(`\x1b[90m  Goal: ${goal}\x1b[0m`);
     console.log(`\x1b[90m  Working directory: ${process.cwd()}\x1b[0m`);
     console.log(`\x1b[90m  Model: ${args.model}\x1b[0m`);
     console.log(`\x1b[90m  Auto-restart: ${args.daemonMaxRestarts ?? 10} max attempts\x1b[0m`);
     console.log(`\x1b[90m  Auto-commit: ${args.daemonAutoCommit !== false ? 'enabled' : 'disabled'}\x1b[0m`);
     console.log(`\x1b[90m  Watchdog: ${args.daemonWatchdog !== false ? 'enabled' : 'disabled'}\x1b[0m`);
-    console.log(`\x1b[90m  Telegram alerts: ${args.daemonTelegram ? 'enabled' : 'disabled'}\x1b[0m\n`);
+    console.log(`\x1b[90m  Channel alerts: ${args.daemonTelegram ? 'enabled' : 'disabled'}\x1b[0m\n`);
 
     const supervisor = new DaemonSupervisor({
       ...DEFAULT_DAEMON_CONFIG,
@@ -129,9 +166,10 @@ async function main(): Promise<void> {
 
     // Handle supervisor events
     supervisor.on("started", (sessionId) => {
-      console.log(`\x1b[32m✓ Daemon started: ${sessionId}\x1b[0m`);
+      console.log(`\x1b[32m Daemon started: ${sessionId}\x1b[0m`);
       console.log(`\x1b[90m  Check status: coder --daemon-status\x1b[0m`);
-      console.log(`\x1b[90m  Stop daemon: coder --daemon-stop\x1b[0m\n`);
+      console.log(`\x1b[90m  Stop daemon: coder --daemon-stop\x1b[0m`);
+      console.log(`\x1b[90m  List all: coder --daemon-list\x1b[0m\n`);
     });
 
     supervisor.on("output", (output) => {
@@ -147,19 +185,24 @@ async function main(): Promise<void> {
     });
 
     supervisor.on("completed", () => {
-      console.log(`\x1b[32m✓ Daemon completed successfully\x1b[0m`);
+      console.log(`\x1b[32m Daemon completed successfully\x1b[0m`);
     });
 
     supervisor.on("failed", (reason) => {
-      console.error(`\x1b[31m✗ Daemon failed: ${reason}\x1b[0m`);
+      console.error(`\x1b[31m Daemon failed: ${reason}\x1b[0m`);
     });
 
     supervisor.on("shutdown", () => {
       console.log(`\x1b[90mDaemon shutdown\x1b[0m`);
     });
 
-    // Start the daemon
-    await supervisor.start();
+    // Start the daemon with lock acquisition
+    // The supervisor handles the lock internally now
+    const started = await supervisor.start(args.daemonReplace === true);
+    if (!started) {
+      // Supervisor already printed detailed message about existing daemon
+      process.exit(1);
+    }
     return;
   }
 

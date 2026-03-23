@@ -87,6 +87,12 @@ export interface CLIArgs {
   daemonStatus?: boolean;
   /** Stop running daemon */
   daemonStop?: boolean;
+  /** Stop all running daemons */
+  daemonStopAll?: boolean;
+  /** List all running daemons */
+  daemonList?: boolean;
+  /** Force replace existing daemon */
+  daemonReplace?: boolean;
   /** Path to daemon config file */
   daemonConfig?: string;
   /** Enable auto-commit in daemon mode */
@@ -261,6 +267,15 @@ export function parseArgs(): CLIArgs {
       case "--daemon-stop":
         result.daemonStop = true;
         break;
+      case "--daemon-stop-all":
+        result.daemonStopAll = true;
+        break;
+      case "--daemon-list":
+        result.daemonList = true;
+        break;
+      case "--daemon-replace":
+        result.daemonReplace = true;
+        break;
       case "--daemon-config":
         result.daemonConfig = args[++i];
         break;
@@ -363,8 +378,11 @@ Real-time Streaming:
 
 Daemon Mode (Autonomous Execution):
   --daemon                      Start daemon mode (auto-restart, watchdog, auto-commit)
-  --daemon-status               Check daemon status
-  --daemon-stop                 Stop running daemon
+  --daemon-status               Check daemon status for current directory
+  --daemon-stop                 Stop daemon for current directory
+  --daemon-stop-all             Stop all running daemons
+  --daemon-list                 List all running daemons
+  --daemon-replace              Force replace existing daemon for this directory
   --daemon-config <file>        Load daemon config from JSON file
   --daemon-goal <goal>          Goal for daemon mode
   --daemon-max-restarts <n>     Max restart attempts (default: 10)

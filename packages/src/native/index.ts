@@ -314,6 +314,269 @@ export interface TuiPadding {
   bottom: number;
 }
 
+// ===== Cognitive Security Types =====
+
+/** Agent identity information */
+export interface AgentIdentity {
+  name: string;
+  description: string;
+  capabilities: string[];
+  constraints: string[];
+}
+
+/** Agent purpose definition */
+export interface AgentPurpose {
+  goals: Goal[];
+  nonGoals: string[];
+  boundaries: Boundary[];
+}
+
+/** Agent principles */
+export interface AgentPrinciples {
+  values: string[];
+  priorities: string[];
+  forbidden: string[];
+}
+
+/** A goal with priority */
+export interface Goal {
+  id: string;
+  description: string;
+  priority: "critical" | "high" | "medium" | "low";
+  measurable: boolean;
+  successCriteria?: string;
+}
+
+/** A boundary constraint */
+export interface Boundary {
+  id: string;
+  description: string;
+  enforcement: "never" | "require_approval" | "log_only";
+  domain: string;
+  pattern?: string;
+}
+
+/** Signed agent intent */
+export interface AgentIntent {
+  id: string;
+  version: number;
+  identity: AgentIdentity;
+  purpose: AgentPurpose;
+  principles: AgentPrinciples;
+  signature?: string;
+  createdAt: number;
+  signedBy?: string;
+}
+
+/** Key pair for signing intents */
+export interface IntentKeypair {
+  privateKey: string;
+  publicKey: string;
+}
+
+/** Action context for alignment scoring */
+export interface ActionContext {
+  actionType: string;
+  domain: string;
+  operation: string;
+  target?: string;
+  params?: Record<string, unknown>;
+  reasoning?: string;
+}
+
+/** Alignment scoring result */
+export interface AlignmentResult {
+  score: number;
+  reasoning: string;
+  servesGoals: string[];
+  hindersGoals: string[];
+  boundaryConcerns: string[];
+  confidence: number;
+  shouldBlock: boolean;
+  requiresReview: boolean;
+}
+
+/** Intent integrity verification result */
+export interface IntegrityResult {
+  valid: boolean;
+  error?: string;
+  signatureValid: boolean;
+  contentIntact: boolean;
+  expired: boolean;
+}
+
+/** Intent validation result */
+export interface IntentValidationResult {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+}
+
+/** Classified action result */
+export interface ClassifiedAction {
+  actionType: string;
+  riskLevel: number;
+  domain: string;
+  operation: string;
+  description: string;
+}
+
+/** Behavior snapshot for drift detection */
+export interface BehaviorSnapshot {
+  timestamp: number;
+  actionCount: number;
+  alignmentDistribution: AlignmentDistribution;
+  actionsByDomain: DomainCount[];
+  actionsByType: TypeCount[];
+  boundaryViolations: number;
+  actionsBlocked: number;
+}
+
+/** Alignment score distribution */
+export interface AlignmentDistribution {
+  mean: number;
+  variance: number;
+  min: number;
+  max: number;
+  belowThresholdCount: number;
+}
+
+/** Domain count entry */
+export interface DomainCount {
+  domain: string;
+  count: number;
+}
+
+/** Action type count entry */
+export interface TypeCount {
+  actionType: string;
+  count: number;
+}
+
+/** Corruption analysis result */
+export interface CorruptionAnalysis {
+  riskScore: number;
+  indicators: CorruptionIndicator[];
+  recommendation: "continue" | "monitor" | "alert" | "pause" | "reset" | "investigate";
+  explanation: string;
+}
+
+/** Corruption indicator */
+export interface CorruptionIndicator {
+  indicatorType: string;
+  severity: string;
+  description: string;
+  evidence: string;
+}
+
+/** Drift detection result */
+export interface DriftResult {
+  overallDrift: number;
+  driftFactors: DriftFactor[];
+  concernLevel: "none" | "low" | "medium" | "high" | "critical";
+}
+
+/** Drift factor */
+export interface DriftFactor {
+  factorType: string;
+  drift: number;
+  description: string;
+}
+
+/** Data classification result */
+export interface DataClassification {
+  id: string;
+  sensitivity: "public" | "internal" | "confidential" | "secret";
+  category: string;
+  source: string;
+  tags: string[];
+  can_log: boolean;
+  can_transmit: boolean;
+  can_store: boolean;
+  expires_at: number | null;
+  created_at: number;
+}
+
+/** Flow policy */
+export interface FlowPolicy {
+  id: string;
+  name: string;
+  description: string;
+  rules: FlowPolicyRule[];
+  defaultAction: "allow" | "deny" | "log";
+}
+
+/** Flow policy rule */
+export interface FlowPolicyRule {
+  id: string;
+  source: string;
+  target: string;
+  action: "allow" | "deny" | "log" | "approve";
+  conditions: string[];
+}
+
+/** Flow policy engine handle */
+export interface FlowPolicyEngine {
+  addPolicy(policy: FlowPolicy): void;
+  evaluate(data: DataClassification, source: string, target: string): PolicyEvaluationResult;
+  policies: FlowPolicy[];
+}
+
+/** Policy evaluation result */
+export interface PolicyEvaluationResult {
+  allowed: boolean;
+  matchedRule?: string;
+  reason: string;
+  requiresApproval: boolean;
+}
+
+/** Flow tracker handle */
+export interface FlowTracker {
+  recordFlow(data: DataClassification, source: string, target: string): void;
+  getFlows(): DataFlowRecord[];
+  detectAnomalies(): DataFlowAnomaly[];
+}
+
+/** Data flow record */
+export interface DataFlowRecord {
+  id: string;
+  dataId: string;
+  source: string;
+  target: string;
+  timestamp: number;
+}
+
+/** Data flow anomaly */
+export interface DataFlowAnomaly {
+  type: string;
+  severity: string;
+  description: string;
+  flowIds: string[];
+}
+
+/** Leak prevention engine handle */
+export interface LeakPreventionEngine {
+  check(content: string, channel: string): LeakCheckResult;
+  addPattern(pattern: string, severity: "low" | "medium" | "high"): void;
+}
+
+/** Leak check result */
+export interface LeakCheckResult {
+  hasLeak: boolean;
+  leakType?: string;
+  severity: string;
+  matchedPatterns: string[];
+  redactedContent?: string;
+}
+
+/** Taint tracker handle */
+export interface TaintTracker {
+  taint(dataId: string, source: string): void;
+  propagate(fromId: string, toId: string): void;
+  isTainted(dataId: string): boolean;
+  getTaintSource(dataId: string): string | null;
+}
+
 export interface NativeModule {
   /** Syntax highlight code with ANSI escape codes */
   highlight_code: (code: string, language: string) => HighlightResult;
@@ -480,8 +743,8 @@ export interface NativeModule {
 
   // ===== Cognitive Security - Action Module =====
 
-  /** Classify an operation into an action type */
-  classify_operation: (operation: string, domain: string, target?: string | null, reasoning?: string | null) => any;
+  /** Classified action result */
+  classify_operation: (operation: string, domain: string, target?: string | null, reasoning?: string | null) => ClassifiedAction;
 
   /** Get all supported action types */
   get_action_types: () => string[];
@@ -490,77 +753,77 @@ export interface NativeModule {
   get_action_risk_levels: () => Array<{ actionType: string; riskLevel: number }>;
 
   /** Create a deny-all policy */
-  create_deny_all_policy: () => any;
+  create_deny_all_policy: () => FlowPolicy;
 
   /** Create an observe-only policy */
-  create_observe_only_policy: () => any;
+  create_observe_only_policy: () => FlowPolicy;
 
   /** Create a transfer approval policy */
-  create_transfer_approval_policy: () => any;
+  create_transfer_approval_policy: () => FlowPolicy;
 
   // ===== Cognitive Security - Intent Module =====
 
   /** Generate a new Ed25519 keypair for signing intents */
-  cs_generate_keypair: () => { privateKey: string; publicKey: string };
+  cs_generate_keypair: () => IntentKeypair;
 
   /** Sign an agent intent with a private key */
-  cs_sign_intent: (intent: any, privateKey: string) => any;
+  cs_sign_intent: (intent: AgentIntent, privateKey: string) => AgentIntent;
 
   /** Verify an intent's signature */
-  cs_verify_intent: (intent: any) => any;
+  cs_verify_intent: (intent: AgentIntent) => IntegrityResult;
 
   /** Hash an intent for comparison */
-  cs_hash_intent: (intent: any) => string;
+  cs_hash_intent: (intent: AgentIntent) => string;
 
   /** Check if two intents are equivalent */
-  cs_intents_equivalent: (intent1: any, intent2: any) => boolean;
+  cs_intents_equivalent: (intent1: AgentIntent, intent2: AgentIntent) => boolean;
 
   /** Score how well an action aligns with an intent */
-  cs_score_alignment: (action: any, intent: any) => any;
+  cs_score_alignment: (action: ActionContext, intent: AgentIntent) => AlignmentResult;
 
   /** Batch score multiple actions against an intent */
-  cs_batch_score_alignment: (actions: any[], intent: any) => any[];
+  cs_batch_score_alignment: (actions: ActionContext[], intent: AgentIntent) => AlignmentResult[];
 
   /** Check if any action in a sequence would violate intent */
-  cs_check_sequence_violations: (actions: any[], intent: any) => number[];
+  cs_check_sequence_violations: (actions: ActionContext[], intent: AgentIntent) => number[];
 
   /** Load intent from a JSON file */
-  cs_load_intent: (path: string) => any;
+  cs_load_intent: (path: string) => AgentIntent;
 
   /** Save intent to a JSON file */
-  cs_save_intent: (intent: any, path: string) => void;
+  cs_save_intent: (intent: AgentIntent, path: string) => void;
 
   /** Parse intent from JSON string */
-  cs_parse_intent: (json: string) => any;
+  cs_parse_intent: (json: string) => AgentIntent;
 
   /** Serialize intent to JSON string */
-  cs_serialize_intent: (intent: any) => string;
+  cs_serialize_intent: (intent: AgentIntent) => string;
 
   /** Validate intent structure */
-  cs_validate_intent: (intent: any) => any;
+  cs_validate_intent: (intent: AgentIntent) => IntentValidationResult;
 
   /** Create a default data collector intent */
-  cs_create_data_collector_intent: (name: string, description: string) => any;
+  cs_create_data_collector_intent: (name: string, description: string) => AgentIntent;
 
   /** Merge two intents (child overrides parent) */
-  cs_merge_intents: (base: any, override: any) => any;
+  cs_merge_intents: (base: AgentIntent, override: Partial<AgentIntent>) => AgentIntent;
 
   /** Analyze behavior for signs of intent corruption */
-  cs_analyze_corruption: (snapshot: any, intent: any) => any;
+  cs_analyze_corruption: (snapshot: BehaviorSnapshot, intent: AgentIntent) => CorruptionAnalysis;
 
   /** Detect behavioral drift between two snapshots */
-  cs_detect_drift: (baseline: any, current: any) => any;
+  cs_detect_drift: (baseline: BehaviorSnapshot, current: BehaviorSnapshot) => DriftResult;
 
   /** Create an empty behavior snapshot */
-  cs_create_empty_snapshot: () => any;
+  cs_create_empty_snapshot: () => BehaviorSnapshot;
 
   /** Update a snapshot with a new action result */
-  cs_update_snapshot: (snapshot: any, action: any, alignment: any) => any;
+  cs_update_snapshot: (snapshot: BehaviorSnapshot, action: ActionContext, alignment: AlignmentResult) => BehaviorSnapshot;
 
   // ===== Cognitive Security - Flow Module =====
 
   /** Classify data based on content and source */
-  classify_data: (content: string, source: string, tags: string[]) => any;
+  classify_data: (content: string, source: string, tags: string[]) => DataClassification;
 
   /** Check if content contains sensitive data */
   contains_sensitive_data: (content: string) => boolean;
@@ -575,31 +838,31 @@ export interface NativeModule {
   get_data_categories: () => Array<{ name: string; description: string }>;
 
   /** Create a flow policy engine */
-  create_flow_policy_engine: () => any;
+  create_flow_policy_engine: () => FlowPolicyEngine;
 
   /** Create an allow-all flow policy */
-  create_allow_all_flow_policy: () => any;
+  create_allow_all_flow_policy: () => FlowPolicy;
 
   /** Create a deny-all flow policy */
-  create_deny_all_flow_policy: () => any;
+  create_deny_all_flow_policy: () => FlowPolicy;
 
   /** Create a strict flow policy */
-  create_strict_flow_policy: () => any;
+  create_strict_flow_policy: () => FlowPolicy;
 
   /** Create a flow tracker */
-  create_flow_tracker: () => any;
+  create_flow_tracker: () => FlowTracker;
 
   /** Create a leak prevention engine */
-  create_leak_prevention: () => any;
+  create_leak_prevention: () => LeakPreventionEngine;
 
   /** Check content for leaks */
-  check_for_leaks: (content: string, channel: string) => any;
+  check_for_leaks: (content: string, channel: string) => LeakCheckResult;
 
   /** Sanitize content */
   sanitize_content: (content: string) => string;
 
   /** Create a taint tracker */
-  create_taint_tracker: () => any;
+  create_taint_tracker: () => TaintTracker;
 
   // ===== Terminal Input =====
 
@@ -1863,49 +2126,36 @@ function getFallbackModule(): NativeModule {
     // ===== Cognitive Security Fallbacks =====
 
     // Action Module
-    classify_operation: (operation: string, domain: string, target?: string | null, reasoning?: string | null) => {
-      const id = `action_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    classify_operation: (operation: string, domain: string, target?: string | null, reasoning?: string | null): ClassifiedAction => {
       let actionType = "observe";
       let riskLevel = 1;
-      let hasSideEffects = false;
-      let requiresApproval = false;
+      let description = `Observation action in ${domain}`;
 
       const op = operation.toLowerCase();
       if (op.includes("write") || op.includes("edit") || op.includes("create") || op.includes("delete")) {
         actionType = "modify";
         riskLevel = 3;
-        hasSideEffects = true;
-        requiresApproval = true;
+        description = `Modification action: ${operation} in ${domain}`;
       } else if (op.includes("execute") || op.includes("run") || op.includes("bash")) {
         actionType = "execute";
         riskLevel = 4;
-        hasSideEffects = true;
-        requiresApproval = true;
+        description = `Execution action: ${operation} in ${domain}`;
       } else if (op.includes("send") || op.includes("post") || op.includes("transmit")) {
         actionType = "communicate";
         riskLevel = 2;
-        hasSideEffects = true;
-        requiresApproval = domain === "external";
+        description = `Communication action: ${operation} in ${domain}`;
       } else if (op.includes("read") || op.includes("get") || op.includes("list") || op.includes("search")) {
         actionType = "observe";
         riskLevel = 1;
-        hasSideEffects = false;
-        requiresApproval = false;
+        description = `Observation action: ${operation} in ${domain}`;
       }
 
       return {
-        id,
         actionType,
+        riskLevel,
         domain,
         operation,
-        target: target || null,
-        flowDirection: "outbound",
-        riskLevel,
-        hasSideEffects,
-        requiresApproval,
-        reasoning: reasoning || `Classified as ${actionType} based on operation name`,
-        timestamp: Date.now(),
-        metadata: null,
+        description: reasoning || description,
       };
     },
 
@@ -1921,37 +2171,40 @@ function getFallbackModule(): NativeModule {
       { actionType: "delete", riskLevel: 5 },
     ],
 
-    create_deny_all_policy: () => ({
+    create_deny_all_policy: (): FlowPolicy => ({
       id: "deny_all",
+      name: "Deny All Policy",
       description: "Deny all actions",
-      actionTypes: [],
-      domains: [],
-      operations: [],
-      effect: "deny",
-      priority: 1000,
-      enabled: true,
+      rules: [],
+      defaultAction: "deny",
     }),
 
-    create_observe_only_policy: () => ({
+    create_observe_only_policy: (): FlowPolicy => ({
       id: "observe_only",
+      name: "Observe Only Policy",
       description: "Allow observe actions only",
-      actionTypes: ["observe"],
-      domains: [],
-      operations: [],
-      effect: "allow",
-      priority: 100,
-      enabled: true,
+      rules: [{
+        id: "rule_observe",
+        source: "*",
+        target: "*",
+        action: "allow",
+        conditions: ["actionType:observe"],
+      }],
+      defaultAction: "deny",
     }),
 
-    create_transfer_approval_policy: () => ({
+    create_transfer_approval_policy: (): FlowPolicy => ({
       id: "transfer_approval",
+      name: "Transfer Approval Policy",
       description: "Require approval for transfer actions",
-      actionTypes: ["transfer"],
-      domains: [],
-      operations: [],
-      effect: "require_approval",
-      priority: 200,
-      enabled: true,
+      rules: [{
+        id: "rule_transfer",
+        source: "*",
+        target: "*",
+        action: "approve",
+        conditions: ["actionType:transfer"],
+      }],
+      defaultAction: "allow",
     }),
 
     // Intent Module
@@ -1966,7 +2219,7 @@ function getFallbackModule(): NativeModule {
 
     cs_verify_intent: (_intent: any) => ({
       valid: true,
-      error: null,
+      error: undefined,
       signatureValid: true,
       contentIntact: true,
       expired: false,
@@ -2109,8 +2362,8 @@ function getFallbackModule(): NativeModule {
     },
 
     // Flow Module
-    classify_data: (content: string, source: string, tags: string[]) => {
-      let sensitivity = "internal";
+    classify_data: (content: string, source: string, tags: string[]): DataClassification => {
+      let sensitivity: "internal" | "public" | "confidential" | "secret" = "internal";
       let category = "generic";
 
       if (content.includes("password") || content.includes("secret") || content.includes("key")) {
@@ -2128,7 +2381,7 @@ function getFallbackModule(): NativeModule {
         source,
         tags,
         can_log: sensitivity !== "secret",
-        can_transmit: sensitivity === "public" || sensitivity === "internal",
+        can_transmit: sensitivity === "internal",
         can_store: true,
         expires_at: null,
         created_at: Date.now(),
@@ -2170,128 +2423,99 @@ function getFallbackModule(): NativeModule {
     create_flow_policy_engine: () => ({
       addPolicy: (_policy: any) => {},
       removePolicy: (_id: string) => true,
-      evaluate: (_data: any, _source: string, _target: string) => ({
+      evaluate: (_data: any, _source: string, _target: string): PolicyEvaluationResult => ({
         allowed: true,
         reason: "Fallback: allowed by default",
-        applied_policy: null,
-        can_log: true,
-        can_transmit: true,
-        can_store: true,
-        transformations: [],
-        confidence: 0.5,
-        warnings: ["Fallback implementation - native module not available"],
+        matchedRule: undefined,
+        requiresApproval: false,
       }),
       listPolicies: () => [],
       setDefaultAction: (_action: string) => {},
       setBlpMode: (_mode: string) => {},
+      policies: [],
     }),
 
     // Flow Policies
-    create_allow_all_flow_policy: () => ({
+    create_allow_all_flow_policy: (): FlowPolicy => ({
       id: "allow_all",
+      name: "Allow All Flows",
       description: "Allow all flows",
-      source_pattern: "*",
-      target_pattern: "*",
-      min_source_sensitivity: null,
-      max_target_sensitivity: null,
-      categories: [],
-      effect: "allow",
-      priority: 0,
-      required_transforms: [],
-      log_flow: false,
-      require_approval: false,
-      conditions: null,
-      enabled: true,
+      rules: [{
+        id: "rule_allow_all",
+        source: "*",
+        target: "*",
+        action: "allow",
+        conditions: [],
+      }],
+      defaultAction: "allow",
     }),
 
-    create_deny_all_flow_policy: () => ({
+    create_deny_all_flow_policy: (): FlowPolicy => ({
       id: "deny_all",
+      name: "Deny All Flows",
       description: "Deny all flows",
-      source_pattern: "*",
-      target_pattern: "*",
-      min_source_sensitivity: null,
-      max_target_sensitivity: null,
-      categories: [],
-      effect: "deny",
-      priority: 1000,
-      required_transforms: [],
-      log_flow: false,
-      require_approval: false,
-      conditions: null,
-      enabled: true,
+      rules: [],
+      defaultAction: "deny",
     }),
 
-    create_strict_flow_policy: () => ({
+    create_strict_flow_policy: (): FlowPolicy => ({
       id: "strict",
-      description: "Strict flow policy",
-      source_pattern: "*",
-      target_pattern: "*",
-      min_source_sensitivity: "internal",
-      max_target_sensitivity: null,
-      categories: [],
-      effect: "transform",
-      priority: 500,
-      required_transforms: ["redact_sensitive"],
-      log_flow: true,
-      require_approval: true,
-      conditions: null,
-      enabled: true,
+      name: "Strict Flow Policy",
+      description: "Strict flow policy with approval required",
+      rules: [{
+        id: "rule_strict",
+        source: "*",
+        target: "*",
+        action: "approve",
+        conditions: ["sensitivity:confidential", "sensitivity:secret"],
+      }],
+      defaultAction: "deny",
     }),
 
     // Flow Tracker
-    create_flow_tracker: () => ({
-      record: (_data: any, _source: string, _target: string, _direction: string, _validation: any, _sessionId: string | null, _actionId: string | null) => ({
-        id: `flow_${Date.now()}`,
-        data_id: _data.id,
-        source_domain: _source,
-        target_domain: _target,
-        direction: _direction,
-        allowed: _validation.allowed,
-        reason: _validation.reason,
-        policy_id: _validation.applied_policy || null,
-        session_id: _sessionId,
-        action_id: _actionId,
-        timestamp: Date.now(),
-        data_hash: "",
-      }),
-      getFlow: (_id: string) => null,
-      getLineage: (_dataId: string) => [],
-      bySource: (_domain: string) => [],
-      byTarget: (_domain: string) => [],
-      bySession: (_sessionId: string) => [],
-      blocked: () => [],
-      allowed: () => [],
-      recent: (_limit: number) => [],
-      stats: () => ({
-        total_flows: 0,
-        allowed_count: 0,
-        blocked_count: 0,
-        by_direction: [],
-        by_source_domain: [],
-        by_target_domain: [],
-        first_timestamp: Date.now(),
-        last_timestamp: Date.now(),
-      }),
-      domainStats: (_domain: string) => null,
-      count: () => 0,
-      clear: () => {},
-      setMaxFlows: (_max: number) => {},
-      exportJsonl: () => "",
-    }),
+    create_flow_tracker: (): FlowTracker => {
+      const flows: DataFlowRecord[] = [];
+      return {
+        recordFlow: (data: DataClassification, source: string, target: string) => {
+          flows.push({
+            id: `flow_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+            dataId: data.id,
+            source,
+            target,
+            timestamp: Date.now(),
+          });
+        },
+        getFlows: () => flows,
+        detectAnomalies: (): DataFlowAnomaly[] => [],
+      };
+    },
 
     // Leak Prevention
     create_leak_prevention: () => ({
-      check: (_content: string, _channel: string) => ({
-        action: "allow",
-        detections: [],
-        channel_allowed: true,
-        checked_at: Date.now(),
-      }),
+      check: (content: string, _channel: string): LeakCheckResult => {
+        const patterns = ["password", "secret", "api_key", "token"];
+        const matchedPatterns: string[] = [];
+        let hasLeak = false;
+
+        for (const pattern of patterns) {
+          if (content.toLowerCase().includes(pattern)) {
+            hasLeak = true;
+            matchedPatterns.push(pattern);
+          }
+        }
+
+        return {
+          hasLeak,
+          severity: hasLeak ? "high" : "none",
+          matchedPatterns,
+        };
+      },
       sanitize: (content: string) => content
         .replace(/password[=:]\s*\S+/gi, "password=[REDACTED]")
         .replace(/api[_-]?key[=:]\s*\S+/gi, "api_key=[REDACTED]")
         .replace(/token[=:]\s*\S+/gi, "token=[REDACTED]")
         .replace(/secret[=:]\s*\S+/gi, "secret=[REDACTED]"),
+      addPattern: (_pattern: string) => {},
       registerSensitive: (_data: string) => {},
       addChannel: (_channel: string) => {},
       removeChannel: (_channel: string) => {},
@@ -2306,12 +2530,24 @@ function getFallbackModule(): NativeModule {
     }),
 
     // Leak Prevention helpers
-    check_for_leaks: (content: string, channel: string) => ({
-      action: "allow",
-      detections: [],
-      channel_allowed: true,
-      checked_at: Date.now(),
-    }),
+    check_for_leaks: (content: string, channel: string): LeakCheckResult => {
+      const patterns = ["password", "secret", "api_key", "token"];
+      const matchedPatterns: string[] = [];
+      let hasLeak = false;
+
+      for (const pattern of patterns) {
+        if (content.toLowerCase().includes(pattern)) {
+          hasLeak = true;
+          matchedPatterns.push(pattern);
+        }
+      }
+
+      return {
+        hasLeak,
+        severity: hasLeak ? "high" : "none",
+        matchedPatterns,
+      };
+    },
 
     sanitize_content: (content: string) => content
       .replace(/password[=:]\s*\S+/gi, "password=[REDACTED]")
@@ -2320,23 +2556,22 @@ function getFallbackModule(): NativeModule {
       .replace(/secret[=:]\s*\S+/gi, "secret=[REDACTED]"),
 
     // Taint Tracker
-    create_taint_tracker: () => ({
-      registerSource: (_type: string, _sensitivity: string, _tags: string[]) => `source_${Date.now()}`,
-      taint: (_sourceId: string, _data: string, _locationType: string, _identifier: string) => `taint_${Date.now()}`,
-      propagate: (_sourceTaintId: string, _newData: string, _locationType: string, _identifier: string, _propagationType: string, _operation: string) => `prop_${Date.now()}`,
-      canFlow: (_taintId: string, _sink: string) => ({ allowed: true, reason: "Fallback", requires_sanitization: false }),
-      isTainted: (_data: string) => false,
-      getTaint: (_taintId: string) => null,
-      stats: () => ({
-        total_sources: 0,
-        total_tainted: 0,
-        total_propagations: 0,
-        by_source_type: {},
-        by_sensitivity: {},
-      }),
-      clear: (_taintId: string) => false,
-      clearAll: () => {},
-    }),
+    create_taint_tracker: (): TaintTracker => {
+      const taintedData = new Map<string, string>();
+      return {
+        taint: (dataId: string, source: string) => {
+          taintedData.set(dataId, source);
+        },
+        propagate: (fromId: string, toId: string) => {
+          const source = taintedData.get(fromId);
+          if (source) {
+            taintedData.set(toId, source);
+          }
+        },
+        isTainted: (dataId: string) => taintedData.has(dataId),
+        getTaintSource: (dataId: string) => taintedData.get(dataId) || null,
+      };
+    },
 
     // Quant Functions (stubs)
     quant_version: () => "0.1.0-fallback",

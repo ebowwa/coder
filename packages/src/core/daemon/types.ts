@@ -81,6 +81,26 @@ export interface DaemonConfig {
 
   /** Enable webhook alerts */
   enableWebhook: boolean
+
+  // --- NEW SAFEGUARDS ---
+
+  /** Enable continuous loop mode (24/7 operation) */
+  continuousLoop: boolean
+
+  /** Delay between goal completions in continuous mode (ms) */
+  loopDelay: number
+
+  /** Time to wait for worker startup (ms) */
+  workerStartupTimeout: number
+
+  /** Max time without output before considering worker unhealthy (ms) */
+  workerNoOutputTimeout: number
+
+  /** Enable singleton lock (prevent multiple daemons) */
+  enableSingletonLock: boolean
+
+  /** Max permanent failures before giving up */
+  maxPermanentFailures: number
 }
 
 /**
@@ -111,4 +131,11 @@ export const DEFAULT_DAEMON_CONFIG: DaemonConfig = {
   alertOnProgress: false,
   webhookUrl: undefined,
   enableWebhook: false,
+  // NEW SAFEGUARDS
+  continuousLoop: false,
+  loopDelay: 60000,
+  workerStartupTimeout: 30000,
+  workerNoOutputTimeout: 120000,
+  enableSingletonLock: true,
+  maxPermanentFailures: 2,
 }
