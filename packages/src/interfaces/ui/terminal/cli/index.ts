@@ -225,6 +225,24 @@ async function main(): Promise<void> {
     process.exit(0);
   }
 
+  // Handle daemon inject command
+  if (args.daemonInject) {
+    const { SingletonLock } = await import("@ebowwa/daemons");
+    const { AutonomousDaemon } = await import("../../../core/daemon/autonomous.js");
+    const { running, lockInfo } = SingletonLock.checkDirectory(process.cwd());
+
+    if (!running || !lockInfo) {
+      console.log("\x1b[90mNo daemon running for this directory\x1b[0m");
+      process.exit(1);
+    }
+
+    // Inject the message to the daemon's inject file
+    AutonomousDaemon.injectToFile(lockInfo.sessionId, args.daemonInject);
+    console.log(`\x1b[32mMessage injected to daemon ${lockInfo.sessionId}\x1b[0m`);
+    console.log(`\x1b[90mThe daemon will process this message on its next turn.\x1b[0m`);
+    process.exit(0);
+  }
+
   // Handle daemon observability commands
   if (args.daemonLogs || args.daemonProgress || args.daemonFiles || args.daemonTools) {
     const { SingletonLock } = await import("@ebowwa/daemons");

@@ -572,6 +572,17 @@ export class AutonomousDaemon extends EventEmitter {
           await this.sleep(this.config.turnCooldown)
         }
 
+        // Check for injected messages and add to conversation
+        const injectedMessage = this.checkInjectedMessages()
+        if (injectedMessage) {
+          console.log(`\x1b[33m[Daemon] Processing injected message: ${injectedMessage.slice(0, 50)}...\x1b[0m`)
+          this.messages.push({
+            role: "user",
+            content: [{ type: "text", text: `[HUMAN INPUT] ${injectedMessage}` }],
+          })
+          this.logEvent("inject:processed", { message: injectedMessage.slice(0, 100) })
+        }
+
         this.saveStatus()
 
       } catch (error) {

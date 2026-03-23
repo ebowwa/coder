@@ -129,6 +129,8 @@ export interface CLIArgs {
   daemonCooldown?: number;
   /** Max turns per session (0 = unlimited) */
   daemonMaxTurns?: number;
+  /** Inject a message into a running daemon */
+  daemonInject?: string;
 
   // MCP server presets (from templates)
   /** Preset MCP servers from templates */
@@ -357,6 +359,9 @@ export function parseArgs(): CLIArgs {
       case "--daemon-max-turns":
         result.daemonMaxTurns = parseInt(args[++i] ?? "0", 10);
         break;
+      case "--daemon-inject":
+        result.daemonInject = args[++i];
+        break;
     }
   }
 
@@ -453,6 +458,7 @@ Autonomous Daemon (Self-directing):
   --daemon-custom-prompt <txt>  Custom role prompt (for role: custom)
   --daemon-cooldown <ms>        Turn cooldown in ms (default: 5000)
   --daemon-max-turns <n>        Max turns per session (0 = unlimited)
+  --daemon-inject <message>     Inject a message into running daemon (redirect/guide)
 
 Daemon Observability:
   --daemon-logs                 Show recent daemon events
