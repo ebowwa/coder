@@ -118,6 +118,18 @@ export interface CLIArgs {
   /** Tail mode for logs (follow) */
   daemonFollow?: boolean;
 
+  // Autonomous Daemon
+  /** Daemon role: maintainer, developer, reviewer, watcher, researcher, custom */
+  daemonRole?: "maintainer" | "developer" | "reviewer" | "watcher" | "researcher" | "custom";
+  /** Jurisdiction - directory/domain the daemon is responsible for */
+  daemonJurisdiction?: string;
+  /** Custom role prompt (for role: "custom") */
+  daemonCustomPrompt?: string;
+  /** Turn cooldown in ms */
+  daemonCooldown?: number;
+  /** Max turns per session (0 = unlimited) */
+  daemonMaxTurns?: number;
+
   // MCP server presets (from templates)
   /** Preset MCP servers from templates */
   presetMcpServers?: Record<string, MCPServerConfig>;
@@ -329,6 +341,22 @@ export function parseArgs(): CLIArgs {
       case "--follow":
         result.daemonFollow = true;
         break;
+      // Autonomous daemon options
+      case "--daemon-role":
+        result.daemonRole = args[++i] as CLIArgs["daemonRole"];
+        break;
+      case "--daemon-jurisdiction":
+        result.daemonJurisdiction = args[++i];
+        break;
+      case "--daemon-custom-prompt":
+        result.daemonCustomPrompt = args[++i];
+        break;
+      case "--daemon-cooldown":
+        result.daemonCooldown = parseInt(args[++i] ?? "5000", 10);
+        break;
+      case "--daemon-max-turns":
+        result.daemonMaxTurns = parseInt(args[++i] ?? "0", 10);
+        break;
     }
   }
 
@@ -418,6 +446,13 @@ Daemon Mode (Autonomous Execution):
   --daemon-telegram             Enable Telegram alerts
   --no-daemon-auto-commit       Disable auto-commit in daemon mode
   --no-daemon-watchdog          Disable watchdog in daemon mode
+
+Autonomous Daemon (Self-directing):
+  --daemon-role <role>          Daemon role: maintainer, developer, reviewer, watcher, researcher, custom
+  --daemon-jurisdiction <dir>   Directory/domain daemon is responsible for
+  --daemon-custom-prompt <txt>  Custom role prompt (for role: custom)
+  --daemon-cooldown <ms>        Turn cooldown in ms (default: 5000)
+  --daemon-max-turns <n>        Max turns per session (0 = unlimited)
 
 Daemon Observability:
   --daemon-logs                 Show recent daemon events
