@@ -19,6 +19,7 @@ import { SessionStore, printSessionsList } from "../../../../core/session-store.
 import { LoopPersistence } from "../../../../core/agent-loop/loop-persistence.js";
 import * as readline from "node:readline/promises";
 import { homedir } from "node:os";
+import { join } from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 import { getGitStatus } from "../../../../core/git-status.js";
 import { renderStatusLine, getContextWindow, VERSION, type StatusLineOptions } from "../shared/status-line.js";
