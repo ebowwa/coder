@@ -63,6 +63,8 @@ export interface AutonomousDaemonConfig {
   sessionId?: string
   /** API key */
   apiKey: string
+  /** Tools available to the daemon */
+  tools?: any[]
   /** Hook manager */
   hookManager?: any
   /** MCP client */
@@ -352,6 +354,7 @@ export class AutonomousDaemon extends EventEmitter {
       apiKey: this.config.apiKey,
       model: this.config.model as any,
       systemPrompt,
+      tools: this.config.tools || [],
       permissionMode: this.config.permissionMode as any,
       workingDirectory: this.config.workingDirectory,
       continuation: true, // Enable continuation for autonomous behavior
