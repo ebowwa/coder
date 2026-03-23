@@ -90,6 +90,12 @@ export interface DaemonStatus {
   activityTime: Record<ActivityType, number>
   /** Tokens used per activity type */
   activityTokens: Record<ActivityType, number>
+  /** Brief description of what's being worked on */
+  currentWork?: string
+  /** Recently read files */
+  filesRead: string[]
+  /** Recently modified/created files */
+  filesModified: string[]
   recentActions: string[]
   errors: number
 }
@@ -408,6 +414,7 @@ export class AutonomousDaemon extends EventEmitter {
   private status: DaemonStatus
   private isRunning: boolean = false
   private isShuttingDown: boolean = false
+  private gracefulShutdownRequested: boolean = false
   private singletonLock: SingletonLock | null = null
   private currentLoopPromise: Promise<AgentLoopResult> | null = null
   private messages: Message[] = []
@@ -464,6 +471,9 @@ export class AutonomousDaemon extends EventEmitter {
       lastActivity: Date.now(),
       activityTime: { ...emptyActivityTracking },
       activityTokens: { ...emptyActivityTracking },
+      currentWork: "",
+      filesRead: [],
+      filesModified: [],
       recentActions: [],
       errors: 0,
     }
@@ -575,12 +585,43 @@ export class AutonomousDaemon extends EventEmitter {
         // Check for injected messages and add to conversation
         const injectedMessage = this.checkInjectedMessages()
         if (injectedMessage) {
-          console.log(`\x1b[33m[Daemon] Processing injected message: ${injectedMessage.slice(0, 50)}...\x1b[0m`)
-          this.messages.push({
-            role: "user",
-            content: [{ type: "text", text: `[HUMAN INPUT] ${injectedMessage}` }],
-          })
-          this.logEvent("inject:processed", { message: injectedMessage.slice(0, 100) })
+          // Handle special commands
+          const cmd = injectedMessage.toLowerCase().trim()
+          if (cmd === "shutdown" || cmd === "stop" || cmd === "exit" || cmd === "quit") {
+            console.log(`\x1b[33m[Daemon] Received graceful shutdown command - asking model to wrap up\x1b[0m`)
+            this.logEvent("inject:shutdown", { message: injectedMessage })
+            // Tell the model to finish up gracefully
+            this.messages.push({
+              role: "user",
+              content: [{
+                type: "text",
+                text: `[HUMAN INPUT] Please wrap up your current work. Finish what you're doing, provide a brief summary of what you accomplished, and then stop. This is a graceful shutdown request.`
+              }],
+            })
+            // Set flag to stop after this turn completes
+            this.gracefulShutdownRequested = true
+          } else if (cmd === "pause" || cmd === "wait") {
+            console.log(`\x1b[33m[Daemon] Pausing for 60 seconds...\x1b[0m`)
+            this.logEvent("inject:pause", { message: injectedMessage })
+            await this.sleep(60000)
+            continue
+          } else if (cmd === "status" || cmd === "report") {
+            // Inject a request for status report
+            const statusMsg = `[HUMAN INPUT] Please provide a brief status report: what have you accomplished, what are you working on, and what's next?`
+            this.messages.push({
+              role: "user",
+              content: [{ type: "text", text: statusMsg }],
+            })
+            this.logEvent("inject:status", { message: injectedMessage })
+          } else {
+            // Regular message - add to conversation
+            console.log(`\x1b[33m[Daemon] Processing injected message: ${injectedMessage.slice(0, 50)}...\x1b[0m`)
+            this.messages.push({
+              role: "user",
+              content: [{ type: "text", text: `[HUMAN INPUT] ${injectedMessage}` }],
+            })
+            this.logEvent("inject:processed", { message: injectedMessage.slice(0, 100) })
+          }
         }
 
         this.saveStatus()
@@ -602,6 +643,9 @@ export class AutonomousDaemon extends EventEmitter {
     if (this.isShuttingDown) {
       this.updateStatus("shutdown")
     }
+
+    // Generate and print session summary
+    this.printSessionSummary()
 
     this.saveStatus()
     await this.shutdown()
@@ -646,6 +690,13 @@ export class AutonomousDaemon extends EventEmitter {
         this.updateActivity(activity)
         // Set pending activity for token attribution (next API call processes this tool)
         this.pendingActivityToken = activity
+
+        // Track file activity
+        this.trackFileActivity(toolUse.name, input)
+
+        // Update current work description based on activity
+        this.updateCurrentWork(activity, input)
+
         this.logEvent("tool:use", { tool: toolUse.name, input: toolUse.input })
         this.emit("tool", { tool: toolUse.name, input: toolUse.input })
       },
@@ -760,11 +811,23 @@ What's the next most important thing to work on in your jurisdiction? If you're 
    * Check if daemon should continue running
    */
   private shouldContinue(): boolean {
-    // Only stop on explicit shutdown signal
-    if (this.isShuttingDown) return false
-    if (!this.isRunning) return false
+    // Stop on explicit shutdown signal
+    if (this.isShuttingDown) {
+      console.log(`\x1b[33m[Daemon] shouldContinue: isShuttingDown=true, stopping\x1b[0m`)
+      return false
+    }
+    // Stop after graceful shutdown was requested and model finished
+    if (this.gracefulShutdownRequested) {
+      console.log(`\x1b[33m[Daemon] shouldContinue: gracefulShutdownRequested=true, stopping\x1b[0m`)
+      return false
+    }
+    if (!this.isRunning) {
+      console.log(`\x1b[33m[Daemon] shouldContinue: isRunning=false, stopping\x1b[0m`)
+      return false
+    }
     // Max turns is optional - 0 or undefined means unlimited
     // When set, it's a soft limit for planning, not a hard stop
+    console.log(`\x1b[90m[Daemon] shouldContinue: continuing (turns=${this.status.turns})\x1b[0m`)
     return true
   }
 
@@ -904,6 +967,91 @@ What's the next most important thing to work on in your jurisdiction? If you're 
   }
 
   /**
+   * Track file activity (read/modified)
+   */
+  private trackFileActivity(toolName: string, input: Record<string, unknown>): void {
+    const filePath = String(input.file_path || input.path || "")
+
+    if (!filePath) return
+
+    // Track reads
+    if (toolName === "Read" || toolName === "Glob" || toolName === "Grep" || toolName === "LSP") {
+      if (!this.status.filesRead.includes(filePath)) {
+        this.status.filesRead.push(filePath)
+        // Keep only last 20 files
+        if (this.status.filesRead.length > 20) {
+          this.status.filesRead.shift()
+        }
+      }
+    }
+
+    // Track modifications
+    if (toolName === "Write" || toolName === "Edit" || toolName === "MultiEdit") {
+      if (!this.status.filesModified.includes(filePath)) {
+        this.status.filesModified.push(filePath)
+        // Keep only last 20 files
+        if (this.status.filesModified.length > 20) {
+          this.status.filesModified.shift()
+        }
+      }
+    }
+  }
+
+  /**
+   * Update current work description based on activity
+   */
+  private updateCurrentWork(activity: ActivityType, input: Record<string, unknown>): void {
+    const filePath = String(input.file_path || input.path || "")
+    const command = String(input.command || "")
+    const description = String(input.description || "")
+
+    switch (activity) {
+      case "reading":
+        this.status.currentWork = filePath ? `Reading ${this.shortenPath(filePath)}` : "Reading files"
+        break
+      case "editing":
+        this.status.currentWork = filePath ? `Editing ${this.shortenPath(filePath)}` : "Editing files"
+        break
+      case "creating":
+        this.status.currentWork = filePath ? `Creating ${this.shortenPath(filePath)}` : "Creating files"
+        break
+      case "searching":
+        this.status.currentWork = description || command ? `Searching: ${(description || command).slice(0, 40)}` : "Searching codebase"
+        break
+      case "executing":
+        this.status.currentWork = description ? description.slice(0, 50) : (command ? command.slice(0, 40) : "Running commands")
+        break
+      case "testing":
+        this.status.currentWork = "Running tests"
+        break
+      case "committing":
+        this.status.currentWork = "Git operations"
+        break
+      case "thinking":
+        this.status.currentWork = "Analyzing and planning"
+        break
+      default:
+        this.status.currentWork = activity
+    }
+  }
+
+  /**
+   * Shorten a file path for display
+   */
+  private shortenPath(path: string): string {
+    const cwd = this.config.workingDirectory
+    if (path.startsWith(cwd)) {
+      return "." + path.slice(cwd.length)
+    }
+    // Show last 3 parts of path
+    const parts = path.split("/")
+    if (parts.length > 3) {
+      return ".../" + parts.slice(-3).join("/")
+    }
+    return path
+  }
+
+  /**
    * Add a recent action to the log
    */
   private addRecentAction(action: string): void {
@@ -941,6 +1089,115 @@ What's the next most important thing to work on in your jurisdiction? If you're 
    */
   private sleep(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms))
+  }
+
+  /**
+   * Generate a summary of the daemon session
+   */
+  private printSessionSummary(): void {
+    const duration = Date.now() - this.status.startTime
+    const durationSec = Math.floor(duration / 1000)
+    const durationMin = Math.floor(duration / 60)
+
+    console.log(`\n\x1b[36m${"=".repeat(50)}${"="}`)
+    console.log(`\x1b[36m Daemon Session Summary`)
+    console.log(`\x1b[36m${"=".repeat(50)}${"="}\n`)
+
+    console.log(`  Session: ${this.sessionId}`)
+    console.log(`  Role: ${this.config.role}`)
+    console.log(`  Duration: ${durationMin}m ${durationSec}s`)
+    console.log(`  Turns: ${this.status.turns}`)
+    console.log(`  Tokens: ${this.status.tokens.toLocaleString()}`)
+    console.log(`  Cost: $${this.status.cost.toFixed(4)}`)
+
+    console.log(`\n  \x1b[33mFiles Modified:\x1b[0m`)
+    const modifiedCount = this.status.filesModified.length
+    if (modifiedCount > 0) {
+      this.status.filesModified.forEach(f => {
+        console.log(`    - ${this.shortenPath(f)}`)
+      })
+    } else {
+      console.log(`    (none)`)
+    }
+
+    console.log(`\n  \x1b[34mFiles Read:\x1b[0m`)
+    const readCount = this.status.filesRead.length
+    if (readCount > 0) {
+      // Show last 10 files read
+      const recentRead = this.status.filesRead.slice(-10)
+      recentRead.forEach(f => {
+        console.log(`    - ${this.shortenPath(f)}`)
+      })
+    } else {
+      console.log(`    (none)`)
+    }
+
+    console.log(`\n  \x1b[90mActivity Breakdown:\x1b[0m`)
+    const activities = Object.entries(this.status.activityTime)
+      .filter(([_, time]) => time > 0)
+      .sort((a, b) => b[1] - a[1])
+
+    activities.forEach(([activity, time]) => {
+      const tokens = this.status.activityTokens[activity as ActivityType] || 0
+      const percent = duration > 0 ? Math.round((time / duration) * 100) : 0
+      const emoji = this.getActivityEmoji(activity as ActivityType)
+      const paddedActivity = activity.padEnd(12, " ")
+      console.log(`  ${emoji} ${paddedActivity} ${Math.floor(time / 1000)}s (${percent}%) | ${tokens.toLocaleString()} tokens`)
+    })
+
+    console.log(`\n  \x1b[33mKey Accomplishments:\x1b[0m`)
+    const accomplishments = this.extractAccomplishments()
+    if (accomplishments.length > 0) {
+      accomplishments.forEach(a => console.log(`  - ${a}`))
+    } else {
+      console.log(`  (session ended before explicit accomplishments)`)
+    }
+
+    console.log(`\n\x1b[36m${"=".repeat(50)}${"="}\n`)
+  }
+
+  /**
+   * Extract accomplishments from recent actions
+   */
+  private extractAccomplishments(): string[] {
+    const accomplishments: string[] = []
+    const actions = this.status.recentActions.filter(a => a.trim())
+
+    for (const action of actions) {
+      // Look for completion indicators
+      if (action.includes("completed") || action.includes("fixed") || action.includes("added") || action.includes("updated") || action.includes("removed")) {
+        accomplishments.push(action.slice(0, 100))
+      }
+    }
+
+    // Also check files modified for concrete accomplishments
+    if (this.status.filesModified.length > 0) {
+      accomplishments.push(`Modified ${this.status.filesModified.length} file(s)`)
+    }
+
+    return Array.from(new Set(accomplishments))
+  }
+
+  /**
+   * Get emoji for activity type
+   */
+  private getActivityEmoji(activity: ActivityType): string {
+    const emojis: Record<ActivityType, string> = {
+      starting: "🚀",
+      reading: "📖",
+      thinking: "🧠",
+      editing: "✏️",
+      creating: "📝",
+      deleting: "🗑️",
+      searching: "🔍",
+      executing: "⚡",
+      committing: "📦",
+      testing: "🧪",
+      waiting: "⏳",
+      error: "❌",
+      shutdown: "🛑",
+    }
+    return emojis[activity] || "❓"
   }
 
   /**
