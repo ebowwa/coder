@@ -601,7 +601,7 @@ export class DaemonSupervisor extends EventEmitter {
     tool?: string
   }> {
     if (!this.observability) return []
-    return this.observability.fileTracker.getActivities(limit).map(a => ({
+    return this.observability.fileTracker.getActivities(limit).map((a: { path: string; action: string; timestamp: number; tool?: string }) => ({
       path: a.path,
       action: a.action,
       timestamp: a.timestamp,
@@ -619,7 +619,7 @@ export class DaemonSupervisor extends EventEmitter {
     timestamp: number
   }> {
     if (!this.observability) return []
-    return this.observability.toolLogger.getCompletedCalls(limit).map(c => ({
+    return this.observability.toolLogger.getCompletedCalls(limit).map((c: { tool: string; durationMs: number; success: boolean; timestamp: number }) => ({
       tool: c.tool,
       durationMs: c.durationMs,
       success: c.success,
