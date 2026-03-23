@@ -571,7 +571,7 @@ What's the next most important thing to work on in your jurisdiction? If you're 
  */
 export function getDaemonStatusForDirectory(directory: string): LockInfo | null {
   const { running, lockInfo } = SingletonLock.checkDirectory(directory)
-  return running ? lockInfo : null
+  return running && lockInfo ? lockInfo : null
 }
 
 /**
