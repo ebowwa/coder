@@ -290,8 +290,12 @@ export class AutonomousDaemon extends EventEmitter {
         const result = await this.runTurn(systemPrompt)
 
         if (result) {
-          // Calculate total tokens from metrics
-          const totalTokens = result.metrics.reduce((sum, m) => sum + (m.inputTokens || 0) + (m.outputTokens || 0), 0)
+          // Calculate total tokens from metrics (usage.input_tokens + usage.output_tokens)
+          const totalTokens = result.metrics.reduce((sum, m) => {
+            const input = m.usage?.input_tokens || 0
+            const output = m.usage?.output_tokens || 0
+            return sum + input + output
+          }, 0)
 
           // Update metrics
           this.status.turns++
