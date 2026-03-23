@@ -143,17 +143,17 @@ export const TEAMMATE_TEMPLATES: Record<string, TeammateTemplate> = {
       hetzner: {
         type: "stdio",
         command: "bun",
-        args: ["run", "/packages/mcp/mcp-hetzner/dist/index.js"],
+        args: ["run", "/packages/src/products/mcp/mcp-hetzner/dist/index.js"],
       },
       git: {
         type: "stdio",
         command: "bun",
-        args: ["run", "/packages/mcp/mcp-git/dist/index.js"],
+        args: ["run", "/packages/src/products/mcp/mcp-git/dist/index.js"],
       },
       "npm-publish": {
         type: "stdio",
         command: "bun",
-        args: ["run", "/packages/mcp/mcp-npm-publish/dist/index.js"],
+        args: ["run", "/packages/src/products/mcp/mcp-npm-publish/dist/index.js"],
       },
     },
     claudeMd: `# Developer Agent
@@ -215,12 +215,12 @@ You are an AI coding assistant focused on software development.
       "prediction-markets": {
         type: "stdio",
         command: "bun",
-        args: ["run", "/packages/mcp/mcp-prediction-markets/dist/index.js"],
+        args: ["run", "/packages/src/products/mcp/mcp-prediction-markets/dist/index.js"],
       },
       hetzner: {
         type: "stdio",
         command: "bun",
-        args: ["run", "/packages/mcp/mcp-hetzner/dist/index.js"],
+        args: ["run", "/packages/src/products/mcp/mcp-hetzner/dist/index.js"],
       },
     },
     claudeMd: `# Quant Trading Agent
@@ -294,12 +294,12 @@ You are an AI trading agent focused on prediction markets and quantitative analy
       hetzner: {
         type: "stdio",
         command: "bun",
-        args: ["run", "/packages/mcp/mcp-hetzner/dist/index.js"],
+        args: ["run", "/packages/src/products/mcp/mcp-hetzner/dist/index.js"],
       },
       tailscale: {
         type: "stdio",
         command: "bun",
-        args: ["run", "/packages/mcp/mcp-tailscale/dist/index.js"],
+        args: ["run", "/packages/src/products/mcp/mcp-tailscale/dist/index.js"],
       },
     },
     claudeMd: `# Robotics Fleet Agent
@@ -374,7 +374,7 @@ You are an AI fleet operator for coordinating and controlling robots.
       hetzner: {
         type: "stdio",
         command: "bun",
-        args: ["run", "/packages/mcp/mcp-hetzner/dist/index.js"],
+        args: ["run", "/packages/src/products/mcp/mcp-hetzner/dist/index.js"],
       },
     },
     claudeMd: `# Infrastructure Agent

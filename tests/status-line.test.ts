@@ -172,10 +172,9 @@ describe("Status Line", () => {
       };
 
       const result = renderStatusLine(options);
-      expect(result).toContain("Context left until auto-compact");
-      expect(result).toContain("100%");
-      expect(result).toContain("0 tokens");
+      // Status line simplified - no longer shows context/tokens (user is token rich)
       expect(result).toContain("default");
+      expect(result).not.toContain("Context left until auto-compact");
     });
 
     test("renders bypass permissions status", () => {
@@ -274,9 +273,10 @@ describe("Status Line", () => {
   });
 
   describe("shouldShowAutoCompactWarning", () => {
-    test("returns true for low context", () => {
+    test("returns false for low context (DISABLED - user is token rich)", () => {
       const info = calculateContextInfo(180_000, "claude-sonnet-4-6");
-      expect(shouldShowAutoCompactWarning(info)).toBe(true);
+      // Auto-compact warnings are intentionally disabled
+      expect(shouldShowAutoCompactWarning(info)).toBe(false);
     });
 
     test("returns false for normal context", () => {
@@ -286,18 +286,18 @@ describe("Status Line", () => {
   });
 
   describe("renderAutoCompactWarning", () => {
-    test("renders critical warning", () => {
+    test("returns empty string for critical context (DISABLED - user is token rich)", () => {
       const info = calculateContextInfo(195_000, "claude-sonnet-4-6");
       const warning = renderAutoCompactWarning(info);
-      expect(warning).toContain("critical");
-      expect(warning).toContain("Auto-compact");
+      // Auto-compact warnings are intentionally disabled
+      expect(warning).toBe("");
     });
 
-    test("renders low warning", () => {
+    test("returns empty string for low context", () => {
       // Use 175,000 tokens which leaves 12.5% - in the low range (8-15%)
       const info = calculateContextInfo(175_000, "claude-sonnet-4-6");
       const warning = renderAutoCompactWarning(info);
-      expect(warning).toContain("low");
+      expect(warning).toBe("");
     });
 
     test("returns empty string for normal context", () => {

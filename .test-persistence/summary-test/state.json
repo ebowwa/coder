@@ -1,7 +1,7 @@
 {
   "version": 1,
   "sessionId": "summary-test",
-  "timestamp": 1774299177007,
+  "timestamp": 1774299294039,
   "messages": [],
   "metrics": [],
   "allToolsUsed": [],
@@ -51,6 +51,6 @@
     "parallelTools": true,
     "detailedMetrics": true
   },
-  "sessionStartTime": 1774299177007,
+  "sessionStartTime": 1774299294039,
   "checkpoints": []
 }

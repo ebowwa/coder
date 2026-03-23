@@ -1,16 +1,18 @@
 /**
  * Tests for Spinner component
+ * 
+ * NOTE: Spinner class has been removed and replaced with @ebowwa/tui-core/algorithms
+ * These tests are temporarily disabled pending refactor to use new spinner implementation
  */
 
 import { test, expect, describe, beforeEach, afterEach } from "bun:test";
+// Spinner imports disabled - functionality moved to @ebowwa/tui-core
 import {
-  Spinner,
-  getSpinner,
-  resetSpinner,
-  defaultFrames,
-  dotFrames,
-  arrowFrames,
-} from "../packages/src/interfaces/ui/spinner.js";
+  spinnerFrames,
+  dotSpinnerFrames,
+  arrowSpinnerFrames,
+  createSpinnerIterator,
+} from "../packages/src/interfaces/ui/terminal/tui/spinner.js";
 import {
   LoadingState,
   setLoading,
@@ -20,81 +22,23 @@ import {
 } from "../packages/src/interfaces/ui/terminal/shared/loading-state.js";
 
 describe("Spinner", () => {
-  beforeEach(() => {
-    resetSpinner();
+  // NOTE: Spinner class tests temporarily disabled - functionality moved to @ebowwa/tui-core
+  
+  test("has spinner frames defined", () => {
+    expect(spinnerFrames.length).toBeGreaterThan(0);
+    expect(dotSpinnerFrames.length).toBeGreaterThan(0);
+    expect(arrowSpinnerFrames.length).toBeGreaterThan(0);
   });
 
-  afterEach(() => {
-    resetSpinner();
-  });
-
-  test("creates spinner with default options", () => {
-    const spinner = new Spinner();
-    expect(spinner.isActive()).toBe(false);
-  });
-
-  test("starts and stops spinner", () => {
-    const spinner = new Spinner(); // Not disabled
-    spinner.start("Loading...");
-
-    // Check internal state via getState
-    const state = spinner.getState();
-    expect(state.startTime).toBeGreaterThan(0);
-    expect(spinner.isActive()).toBe(true);
-
-    spinner.stop();
-    expect(spinner.isActive()).toBe(false);
-  });
-
-  test("updates tip text", () => {
-    const spinner = new Spinner({ disabled: true });
-    spinner.start("Initial");
-    spinner.updateTip("Updated tip");
-
-    const state = spinner.getState();
-    expect(state.currentTip).toBe("Updated tip");
-
-    spinner.stop();
-  });
-
-  test("tracks elapsed time", () => {
-    const spinner = new Spinner({ disabled: true });
-    spinner.start("Testing time");
-
-    // Wait a bit
-    const start = Date.now();
-    while (Date.now() - start < 100) {
-      // Busy wait 100ms
-    }
-
-    const elapsed = spinner.getElapsedSeconds();
-    expect(elapsed).toBeGreaterThanOrEqual(0);
-
-    spinner.stop();
-  });
-
-  test("singleton pattern works", () => {
-    const s1 = getSpinner();
-    const s2 = getSpinner();
-    expect(s1).toBe(s2);
-  });
-
-  test("has default frames defined", () => {
-    expect(defaultFrames.length).toBeGreaterThan(0);
-    expect(dotFrames.length).toBeGreaterThan(0);
-    expect(arrowFrames.length).toBeGreaterThan(0);
-  });
-
-  test("disabled spinner doesn't spin", () => {
-    const spinner = new Spinner({ disabled: true });
-    spinner.start("Test");
-
-    // Should not be active since disabled
-    expect(spinner.isActive()).toBe(false);
-
-    // Stop should work without error
-    spinner.stop();
-    expect(spinner.isActive()).toBe(false);
+  test("createSpinnerIterator works", () => {
+    const iterator = createSpinnerIterator(spinnerFrames);
+    const frame1 = iterator.next();
+    const frame2 = iterator.next();
+    
+    expect(frame1.value).toBeDefined();
+    expect(frame2.value).toBeDefined();
+    expect(typeof frame1.value).toBe("string");
+    expect(typeof frame2.value).toBe("string");
   });
 });
 

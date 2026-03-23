@@ -6,17 +6,17 @@
     "hetzner": {
       "type": "stdio",
       "command": "bun",
-      "args": ["run", "/packages/mcp/mcp-hetzner/dist/index.js"]
+      "args": ["run", "/packages/src/products/mcp/mcp-hetzner/dist/index.js"]
     },
     "prediction-markets": {
       "type": "stdio",
       "command": "bun",
-      "args": ["run", "/packages/mcp/mcp-prediction-markets/dist/index.js"]
+      "args": ["run", "/packages/src/products/mcp/mcp-prediction-markets/dist/index.js"]
     },
     "github-search": {
       "type": "stdio",
       "command": "bun",
-      "args": ["run", "/packages/mcp/mcp-github-search/dist/index.js"]
+      "args": ["run", "/packages/src/products/mcp/mcp-github-search/dist/index.js"]
     }
   },
   "claudeMd": "# Hackathon Mode\n\nYou are an AI agent participating in the Nebius Build SF hackathon.\n\n## Tracks\n\n### 1. Edge Inference & Agents\nBuild agentic pipelines that reason over context, retrieve knowledge, plan next steps, and take actions.\n\n### 2. Robotics Optimization\nBuild systems that enable robots to perceive, reason, and act. Train RL policies, develop world models.\n\n## Available Resources\n\n### APIs\n- **Nebius Token Factory**: Open LLMs for inference\n- **OpenRouter**: 100+ models via unified API\n- **Tavily**: Web search and extraction\n- **MiniMax**: Video generation\n\n### Credit Codes\n- OpenRouter: `OR-NEBIUSBUILD-MAR15` ($20)\n- Toloka: `NEBIUSBUILD30` ($300)\n\n### Robotics\n- Nebius AI Cloud for training\n- MJLab simulation\n- Unitree G1 robots (selected teams)\n\n## Judging Criteria\n- Demo: 50%\n- Impact: 25%\n- Creativity: 15%\n- Pitch: 10%\n\n## Focus Areas\n1. **Demo Quality** - 50% of score!\n2. Use multiple sponsor APIs together\n3. Show agentic behavior (reasoning, planning, action)\n4. Keep it simple but polished",
