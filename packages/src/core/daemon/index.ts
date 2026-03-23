@@ -6,6 +6,10 @@ export type { DaemonConfig } from "./types.js"
 export { DEFAULT_DAEMON_CONFIG } from "./types.js"
 export { DaemonSupervisor } from "./supervisor.js"
 
+// Autonomous Daemon (self-directing coder)
+export { AutonomousDaemon, getDaemonStatusForDirectory, listAllDaemons, stopDaemonForDirectory } from "./autonomous.js"
+export type { DaemonRole, AutonomousDaemonConfig, DaemonStatus } from "./autonomous.js"
+
 // Re-export from @ebowwa/daemons for convenience
 export {
   AutoRestartManager,
