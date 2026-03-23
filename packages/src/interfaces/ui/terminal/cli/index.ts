@@ -195,9 +195,10 @@ async function main(): Promise<void> {
         e.type?.startsWith("file:")
       );
       const recent = fileEvents.slice(-20);
+      const iconMap: Record<string, string> = { read: "\x1b[34m→\x1b[0m", write: "\x1b[33m✎\x1b[0m", create: "\x1b[32m+\x1b[0m", delete: "\x1b[31m-\x1b[0m", modify: "\x1b[33m✎\x1b[0m" };
       for (const e of recent) {
-        const action = e.type.replace("file:", "");
-        const icon = { read: "\x1b[34m→\x1b[0m", write: "\x1b[33m✎\x1b[0m", create: "\x1b[32m+\x1b[0m", delete: "\x1b[31m-\x1b[0m", modify: "\x1b[33m✎\x1b[0m" }[action] || "?";
+        const action = String(e.type).replace("file:", "");
+        const icon = iconMap[action] || "?";
         console.log(`  ${icon} ${e.data?.path || "unknown"}`);
       }
       if (fileEvents.length === 0) {
