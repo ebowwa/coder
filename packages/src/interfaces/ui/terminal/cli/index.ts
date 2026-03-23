@@ -228,7 +228,7 @@ async function main(): Promise<void> {
   // Handle daemon inject command
   if (args.daemonInject) {
     const { SingletonLock } = await import("@ebowwa/daemons");
-    const { AutonomousDaemon } = await import("../../../core/daemon/autonomous.js");
+    const { AutonomousDaemon } = await import("../../../../core/daemon/autonomous.js");
     const { running, lockInfo } = SingletonLock.checkDirectory(process.cwd());
 
     if (!running || !lockInfo) {
