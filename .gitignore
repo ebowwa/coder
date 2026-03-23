@@ -43,3 +43,8 @@ lmdb/
 
 # Rust build artifacts
 packages/rust/target/
+
+# Test artifacts
+.test-persistence/
+*.test.ts.snap
+
