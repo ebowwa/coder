@@ -348,7 +348,7 @@ export async function createMessageStream(
       }
     }
 
-    log.info(`Using OpenAI format, endpoint: ${apiEndpoint}`);
+    console.log(`Using OpenAI format, endpoint: ${apiEndpoint}`);
   }
 
   // Determine thinking configuration
@@ -412,7 +412,7 @@ export async function createMessageStream(
       jitterFactor: 0, // No jitter - fixed delay
       retryableStatusCodes: [429, 500, 502, 503, 504, 529],
       onRetry: (attempt, error, delayMs) => {
-        log.warn(`API retry ${attempt}/10 after 15s: ${error.message}`);
+        console.warn(`API retry ${attempt}/10 after 15s: ${error.message}`);
       },
     };
 
@@ -512,11 +512,11 @@ export async function createMessageStream(
         backupRetryOptions
       );
 
-      log.info(`Backup model succeeded`);
+      console.log(`Backup model succeeded`);
     } else {
       // No backup model available or attempts exhausted
       if (backupModel && !canUseBackup) {
-        log.warn(
+        console.warn(
           `\x1b[33mBackup model available but max attempts (${BACKUP_MODEL_MAX_ATTEMPTS}) exhausted\x1b[0m`
         );
       }
@@ -581,7 +581,7 @@ export async function createMessageStream(
 
           // Debug: Log event types
           if (process.env.DEBUG_API === '1' && event.type) {
-            log.debug('SSE event type:', event.type);
+            console.debug('SSE event type:', event.type);
           }
 
           switch (event.type) {
@@ -874,7 +874,7 @@ export async function createMessageStream(
     } else {
       // Debug: Log what we did receive
       if (process.env.DEBUG_API === '1') {
-        log.debug('No message_start event received. Buffer:', buffer.substring(0, 500));
+        console.debug('No message_start event received. Buffer:', buffer.substring(0, 500));
       }
       throw new Error("No message received from API");
     }
