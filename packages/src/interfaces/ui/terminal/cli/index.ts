@@ -242,6 +242,13 @@ async function main(): Promise<void> {
       const { AutonomousDaemon } = await import("../../../../core/daemon/autonomous.js");
       const apiKey = requireApiKey();
 
+      // Setup session to get tools and hooks
+      const setup = await setupSession({
+        args,
+        apiKey,
+        workingDirectory: process.cwd(),
+      });
+
       const role = args.daemonRole || "maintainer";
       const jurisdiction = args.daemonJurisdiction || process.cwd();
 
@@ -272,6 +279,8 @@ async function main(): Promise<void> {
         maxTurnsPerSession: args.daemonMaxTurns ?? 0,
         enableStatus: true,
         apiKey,
+        tools: setup.tools,
+        hookManager: setup.hookManager,
         goal: args.daemonGoal,
       });
 
