@@ -598,9 +598,13 @@ export class AutonomousDaemon extends EventEmitter {
       },
       hookManager: this.config.hookManager,
       onText: (text) => {
+        this.updateActivity("thinking")
         this.emit("output", text)
       },
       onToolUse: (toolUse) => {
+        // Track activity type based on tool
+        const activity = this.getActivityFromTool(toolUse.name, toolUse.input)
+        this.updateActivity(activity)
         this.logEvent("tool:use", { tool: toolUse.name, input: toolUse.input })
         this.emit("tool", { tool: toolUse.name, input: toolUse.input })
       },
@@ -708,6 +712,62 @@ What's the next most important thing to work on in your jurisdiction? If you're 
     if (task) {
       this.status.currentTask = task
     }
+  }
+
+  /**
+   * Update current activity for observability
+   */
+  private updateActivity(activity: ActivityType, details?: string): void {
+    this.status.currentActivity = activity
+    this.status.lastActivity = Date.now()
+    if (details) {
+      this.status.currentTask = details
+    }
+    // Save status so observers can see current activity
+    this.saveStatus()
+  }
+
+  /**
+   * Determine activity type from tool name and input
+   */
+  private getActivityFromTool(toolName: string, input: Record<string, unknown>): ActivityType {
+    // Direct mapping
+    if (TOOL_TO_ACTIVITY[toolName]) {
+      return TOOL_TO_ACTIVITY[toolName]
+    }
+
+    // Analyze Bash commands for more specific activity
+    if (toolName === "Bash") {
+      const command = String(input.command || "").toLowerCase()
+
+      // Git operations
+      if (command.includes("git ")) {
+        if (command.includes("commit")) return "committing"
+        if (command.includes("push") || command.includes("pull")) return "committing"
+        if (command.includes("branch") || command.includes("checkout")) return "committing"
+        return "committing"
+      }
+
+      // Test operations
+      if (command.includes("test") || command.includes("jest") || command.includes("vitest") || command.includes("bun test")) {
+        return "testing"
+      }
+
+      // Delete operations
+      if (command.includes("rm ") || command.includes("rmdir") || command.includes("unlink")) {
+        return "deleting"
+      }
+
+      // Create operations
+      if (command.includes("mkdir") || command.includes("touch ")) {
+        return "creating"
+      }
+
+      // Default for bash
+      return "executing"
+    }
+
+    return "thinking"
   }
 
   /**
