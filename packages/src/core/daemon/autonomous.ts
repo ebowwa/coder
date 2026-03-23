@@ -363,23 +363,29 @@ export class AutonomousDaemon extends EventEmitter {
       tools: this.config.tools || [],
       permissionMode: this.config.permissionMode as any,
       workingDirectory: this.config.workingDirectory,
-      continuation: true, // Enable continuation for autonomous behavior
+      sessionId: this.sessionId,
+      continuation: {
+        enabled: true,
+        conditions: [],
+        maxContinuations: 100,
+        defaultPrompt: this.getContinuationPrompt(),
+        stuckPrompt: "You seem to be stuck. Try a different approach or report your current status.",
+      },
       persistence: {
         enabled: true,
-        sessionId: this.sessionId,
       },
       hookManager: this.config.hookManager,
       onText: (text) => {
         this.emit("output", text)
       },
-      onToolUse: (tool, input) => {
-        this.logEvent("tool:use", { tool, input })
-        this.emit("tool", { tool, input })
+      onToolUse: (toolUse) => {
+        this.logEvent("tool:use", { tool: toolUse.name, input: toolUse.input })
+        this.emit("tool", { tool: toolUse.name, input: toolUse.input })
       },
-      onToolResult: (tool, result) => {
-        const success = result && !result.error
-        this.logEvent("tool:result", { tool, success })
-        this.emit("toolResult", { tool, result })
+      onToolResult: (result) => {
+        const success = result && result.result && !result.result.is_error
+        this.logEvent("tool:result", { tool: result.id, success })
+        this.emit("toolResult", { tool: result.id, result: result.result })
       },
       onMetrics: (metrics) => {
         this.emit("metrics", metrics)
@@ -394,14 +400,6 @@ export class AutonomousDaemon extends EventEmitter {
       // Update messages for next turn
       if (result.messages) {
         this.messages = result.messages
-      }
-
-      // If the model ended without tools, inject continuation prompt
-      if (result.stopReason === "end_turn" && this.isRunning) {
-        this.messages.push({
-          role: "user",
-          content: this.getContinuationPrompt(),
-        })
       }
 
       return result
