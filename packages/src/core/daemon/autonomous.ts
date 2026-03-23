@@ -371,7 +371,8 @@ export class AutonomousDaemon extends EventEmitter {
         this.emit("tool", { tool, input })
       },
       onToolResult: (tool, result) => {
-        this.logEvent("tool:result", { tool, success: !result.error })
+        const success = result && !result.error
+        this.logEvent("tool:result", { tool, success })
         this.emit("toolResult", { tool, result })
       },
       onMetrics: (metrics) => {
