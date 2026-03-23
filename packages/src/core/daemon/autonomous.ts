@@ -818,9 +818,3 @@ export function listRoles(): Array<{
     restrictedSkills: def.restrictedSkills || [],
   }))
 }
-  if (!running || !lockInfo) return false
-
-  const lockFile = SingletonLock.getLockFilePath(directory)
-  await SingletonLock.stopDaemon(lockFile)
-  return true
-}
