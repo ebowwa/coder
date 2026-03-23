@@ -76,7 +76,7 @@ export class DaemonSupervisor extends EventEmitter {
     this.telemetry = new DaemonTelemetry()
 
     // Initialize observability stack
-    this.observability = createObservabilityStack(this.state.getSessionId(), {
+    this.observability = createObservabilityStack(this.state.sessionId, {
       goal: this.config.goal,
       workingDirectory: this.config.workingDirectory,
       model: this.config.model,
