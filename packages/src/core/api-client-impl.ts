@@ -348,7 +348,7 @@ export async function createMessageStream(
       }
     }
 
-    console.log(`[API] Using OpenAI format, endpoint: ${apiEndpoint}`);
+    log.info(`Using OpenAI format, endpoint: ${apiEndpoint}`);
   }
 
   // Determine thinking configuration
