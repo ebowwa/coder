@@ -374,6 +374,8 @@ export class AutonomousDaemon extends EventEmitter {
         maxContinuations: 100,
         defaultPrompt: this.getContinuationPrompt(),
         stuckPrompt: "You seem to be stuck. Try a different approach or report your current status.",
+        stuckThreshold: 3,
+        includeReasoning: true,
       },
       persistence: {
         enabled: true,
