@@ -41,6 +41,7 @@ import {
   checkAllResults,
   type ResultConditionsConfig,
 } from "./result-conditions.js";
+import type { StatusWriter } from "./status-writer.js";
 
 /**
  * Options for turn execution
@@ -78,6 +79,8 @@ export interface TurnExecutorOptions {
   continuation?: ContinuationConfig;
   /** Long-running integration for extended autonomous sessions */
   longRunning?: LongRunningIntegration;
+  /** Status writer for visibility during long-running sessions */
+  statusWriter?: StatusWriter;
 }
 
 /**
@@ -137,11 +140,17 @@ export async function executeTurn(
 
   const turnNumber = state.turnNumber;
 
+  // Get context window for this model (used for compaction and token warnings)
+  // IMPORTANT: Use contextWindow (e.g., 200000), NOT maxTokens (e.g., 4096)
+  // maxTokens is the OUTPUT limit, contextWindow is the CONTEXT limit
+  const contextWindow = getContextWindow(model);
+
   // Build system reminder for this turn
   // In long-running mode (continuation enabled), tell model to ignore token limits
   const reminder = buildCombinedReminder({
     usage: state.currentUsage,
     maxTokens,
+    contextWindowSize: contextWindow,
     totalCost: state.totalCost,
     previousCost: state.previousCost,
     toolsUsed: state.allToolsUsed,
@@ -156,12 +165,7 @@ export async function executeTurn(
     onReminder?.(reminder);
   }
 
-  // Get context window for this model (used for compaction, not output limit)
-  const contextWindow = getContextWindow(model);
-
   // Proactive compaction check - compact BEFORE hitting the limit
-  // IMPORTANT: Use contextWindow (e.g., 200000), NOT maxTokens (e.g., 4096)
-  // maxTokens is the OUTPUT limit, contextWindow is the CONTEXT limit
   await handleProactiveCompaction(state, contextWindow, DEFAULT_PROACTIVE_OPTIONS);
 
   // Build API messages with system reminders
@@ -197,6 +201,16 @@ export async function executeTurn(
   });
 
   const { message, usage, cacheMetrics, costUSD, durationMs, ttftMs } = streamResult;
+
+  // Record API latency in status writer
+  if (options.statusWriter) {
+    options.statusWriter.recordApiLatency(durationMs);
+    // Update token metrics
+    options.statusWriter.updateTokens(
+      usage.input_tokens,
+      usage.output_tokens
+    );
+  }
 
   // Track metrics
   const queryMetrics = state.addTurnResult({
@@ -323,6 +337,79 @@ export async function executeTurn(
   // Track all tools used for summary
   state.trackToolUse(toolUseBlocks);
 
+  // Update status writer with tool usage
+  if (options.statusWriter && toolUseBlocks.length > 0) {
+    const toolNames = toolUseBlocks.map(b => b.name).join(", ");
+    options.statusWriter.setActivity(`Using tools: ${toolNames}`);
+  }
+
+  // Execute tools in parallel and collect results
+  const toolExecutionOptions: ToolExecutionOptions = {
+    tools,
+    workingDirectory,
+    permissionMode,
+    hookManager,
+    sessionId,
+    signal,
+    permissionManager,
+    onToolResult,
+    statusWriter: options.statusWriter,
+  };
+
+  const toolResults = await executeTools(toolUseBlocks, toolExecutionOptions);
+
+  // Record tool execution times in status writer
+  if (options.statusWriter) {
+    for (let i = 0; i < toolResults.length; i++) {
+      const execResult = toolResults[i];
+      const toolUse = toolUseBlocks[i];
+      if (toolUse && execResult && execResult.durationMs !== undefined) {
+        const isError = execResult.result.is_error ?? false;
+        options.statusWriter.recordToolUse(
+          toolUse.name,
+          execResult.durationMs,
+          execResult.success ?? !isError,
+          isError ? String(execResult.result.content).slice(0, 200) : undefined
+        );
+
+        // Track file operations based on tool name
+        if (toolUse.name === "Read" && !isError) {
+          const filePath = (toolUse.input as Record<string, unknown>)?.file_path as string | undefined;
+          if (filePath) {
+            options.statusWriter.recordFileRead(filePath);
+          }
+        } else if (toolUse.name === "Edit" && !isError) {
+          const filePath = (toolUse.input as Record<string, unknown>)?.file_path as string | undefined;
+          if (filePath) {
+            options.statusWriter.recordFileEdit(filePath);
+          }
+        } else if (toolUse.name === "Write" && !isError) {
+          const filePath = (toolUse.input as Record<string, unknown>)?.file_path as string | undefined;
+          if (filePath) {
+            options.statusWriter.recordFileCreate(filePath);
+          }
+        }
+
+        // Track MCP calls
+        if (toolUse.name.startsWith("mcp__") && !isError) {
+          const parts = toolUse.name.split("__");
+          if (parts.length >= 2) {
+            const serverName = parts[1] ?? "";
+            const toolName = parts.slice(2).join("__");
+            if (serverName) {
+              options.statusWriter.recordMcpCall(
+                serverName,
+                toolName,
+                execResult.durationMs,
+                isError
+              );
+            }
+          }
+        }
+      }
+    }
+  }
+
   if (toolUseBlocks.length === 0) {
     // No tools used - check continuation for autonomous loops
     if (options.continuation?.enabled) {
@@ -385,25 +472,14 @@ export async function executeTurn(
     };
   }
 
-  // Execute tools in parallel and collect results
-  const toolExecutionOptions: ToolExecutionOptions = {
-    tools,
-    workingDirectory,
-    permissionMode,
-    hookManager,
-    sessionId,
-    signal,
-    permissionManager,
-    onToolResult,
-  };
-
-  const toolResults = await executeTools(toolUseBlocks, toolExecutionOptions);
-
   // Check result conditions if configured (verified loop control)
+  // Extract just the ToolResultBlocks for state management
+  const toolResultBlocks = toolResults.map(tr => tr.result);
+
   if (options.resultConditions) {
     const resultsToCheck = toolResults.map((tr) => ({
-      toolName: toolUseBlocks.find((b) => b.id === tr.tool_use_id)?.name ?? "unknown",
-      result: tr,
+      toolName: toolUseBlocks.find((b) => b.id === tr.toolUseId)?.name ?? "unknown",
+      result: tr.result,
     }));
 
     const conditionResult = checkAllResults(
@@ -419,7 +495,7 @@ export async function executeTurn(
 
     // If condition says stop, respect it
     if (!conditionResult.shouldContinue) {
-      state.addUserMessage(toolResults);
+      state.addUserMessage(toolResultBlocks);
       console.log(
         `[ResultCondition] Loop stopped: ${conditionResult.stopReason}` +
           (conditionResult.condition ? ` (${conditionResult.condition.id})` : "")
@@ -433,18 +509,23 @@ export async function executeTurn(
   }
 
   // Add tool results as user message
-  state.addUserMessage(toolResults);
+  state.addUserMessage(toolResultBlocks);
 
   // Process turn completion for long-running integration
   if (options.longRunning) {
     const turnOutput = extractTextFromBlocks(message.content);
-    await options.longRunning.processTurnCompletion(
+    const lrResult = await options.longRunning.processTurnCompletion(
       turnNumber,
       toolUseBlocks,
-      toolResults,
+      toolResultBlocks,
       turnOutput,
       costUSD ?? 0
     );
+
+    // Record milestone in status writer
+    if (options.statusWriter && lrResult.milestone) {
+      options.statusWriter.recordMilestone(lrResult.milestone.description);
+    }
   }
 
   // Continue loop to process tool results

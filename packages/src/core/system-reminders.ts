@@ -280,6 +280,8 @@ export function buildEnvInfo(options: EnvInfoOptions): string {
 export interface CombinedReminderOptions {
   usage: UsageMetrics;
   maxTokens: number;
+  /** Context window size for token warning calculation (e.g., 200000) */
+  contextWindowSize?: number;
   totalCost: number;
   previousCost?: number;
   toolsUsed: ToolUseBlock[];
@@ -313,10 +315,13 @@ export function buildCombinedReminder(options: CombinedReminderOptions): string 
   const reminders: string[] = [];
 
   // Token warning (always check)
+  // Use contextWindowSize for accurate context tracking, not maxTokens (output limit)
+  // Default to 200000 if not provided (standard context window)
+  const contextLimit = options.contextWindowSize ?? 200000;
   const currentTokens = usage.input_tokens + usage.output_tokens;
   const tokenWarning = buildTokenWarning({
     current: currentTokens,
-    max: maxTokens,
+    max: contextLimit,
     threshold: config.tokenWarningThreshold,
     longRunningMode,
   });

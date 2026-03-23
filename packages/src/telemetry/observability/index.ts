@@ -124,6 +124,106 @@ export {
 } from "./dashboard.js";
 
 // ============================================
+// AGENT ANALYTICS
+// ============================================
+
+export {
+  // Types
+  DecisionTypeSchema,
+  DecisionOutcomeSchema,
+  AgentDecisionSchema,
+  LoopStopReasonSchema,
+  LoopIterationSchema,
+  LoopAnalyticsSchema,
+  ToolSelectionContextSchema,
+  ToolUsagePatternSchema,
+  PlanAnalyticsSchema,
+  CompactionTriggerSchema,
+  CompactionAnalyticsSchema,
+  ContextGrowthSchema,
+  TeammateRoleSchema,
+  TeammateSpawnSchema,
+  InterAgentMessageSchema,
+  TeamCoordinationSchema,
+  type DecisionType,
+  type DecisionOutcome,
+  type AgentDecision,
+  type LoopStopReason,
+  type LoopIteration,
+  type LoopAnalytics,
+  type ToolSelectionContext,
+  type ToolUsagePattern,
+  type PlanStepStatus,
+  type PlanAnalytics,
+  type RefinementLevelAnalytics,
+  type CompactionTrigger,
+  type CompactionAnalytics,
+  type ContextGrowth,
+  type TeammateRole,
+  type TeammateSpawn,
+  type InterAgentMessage,
+  type TeamCoordination,
+  // Engine
+  AgentAnalyticsEngine,
+  getAgentAnalytics,
+  resetAgentAnalytics,
+  createAgentAnalytics,
+} from "./agent-analytics.js";
+
+// ============================================
+// ERROR ANALYTICS
+// ============================================
+
+export {
+  // Types
+  ErrorCategorySchema,
+  ErrorSeveritySchema,
+  ErrorRecoverabilitySchema,
+  ErrorContextSchema,
+  ErrorRecordSchema,
+  ErrorPatternSchema,
+  RootCauseAnalysisSchema,
+  type ErrorCategory,
+  type ErrorSeverity,
+  type ErrorRecoverability,
+  type ErrorContext,
+  type ErrorRecord,
+  type ErrorPattern,
+  type RootCauseAnalysis,
+  // Engine
+  ErrorAnalyticsEngine,
+  getErrorAnalytics,
+  resetErrorAnalytics,
+} from "./error-analytics.js";
+
+// ============================================
+// PERFORMANCE ANALYTICS
+// ============================================
+
+export {
+  // Types
+  PercentileMetricsSchema,
+  BottleneckTypeSchema,
+  BottleneckSchema,
+  ResourceUsageSchema,
+  ResourceThresholdsSchema,
+  OperationProfileSchema,
+  SessionPerformanceProfileSchema,
+  type PercentileMetrics,
+  type BottleneckType,
+  type Bottleneck,
+  type ResourceUsage,
+  type ResourceThresholds,
+  type OperationProfile,
+  type SessionPerformanceProfile,
+  // Engine
+  PerformanceAnalyticsEngine,
+  getPerformanceAnalytics,
+  resetPerformanceAnalytics,
+  createPerformanceAnalytics,
+} from "./performance-analytics.js";
+
+// ============================================
 // OBSERVABILITY SINGLETON
 // ============================================
 
@@ -132,6 +232,9 @@ import * as alertsModule from "./alerts.js";
 import * as insightsModule from "./insights.js";
 import * as reportsModule from "./reports.js";
 import * as dashboardModule from "./dashboard.js";
+import * as agentAnalyticsModule from "./agent-analytics.js";
+import * as errorAnalyticsModule from "./error-analytics.js";
+import * as performanceAnalyticsModule from "./performance-analytics.js";
 
 /**
  * Observability singleton - Main API for observability operations
@@ -202,11 +305,52 @@ export const observability = {
   },
 
   /**
+   * Agent behavior analytics
+   */
+  agent: {
+    get: agentAnalyticsModule.getAgentAnalytics,
+    reset: agentAnalyticsModule.resetAgentAnalytics,
+    create: agentAnalyticsModule.createAgentAnalytics,
+  },
+
+  /**
+   * Error analytics
+   */
+  error: {
+    get: errorAnalyticsModule.getErrorAnalytics,
+    reset: errorAnalyticsModule.resetErrorAnalytics,
+  },
+
+  /**
+   * Performance analytics
+   */
+  perf: {
+    get: performanceAnalyticsModule.getPerformanceAnalytics,
+    reset: performanceAnalyticsModule.resetPerformanceAnalytics,
+    create: performanceAnalyticsModule.createPerformanceAnalytics,
+  },
+
+  /**
    * Initialize all observability systems
    */
   initialize(): void {
     this.health.initialize();
     this.alerts.initialize();
+  },
+
+  /**
+   * Initialize for a new session
+   */
+  initializeSession(sessionId: string): {
+    agent: agentAnalyticsModule.AgentAnalyticsEngine;
+    perf: performanceAnalyticsModule.PerformanceAnalyticsEngine;
+    error: errorAnalyticsModule.ErrorAnalyticsEngine;
+  } {
+    const agent = agentAnalyticsModule.createAgentAnalytics(sessionId);
+    const perf = performanceAnalyticsModule.createPerformanceAnalytics(sessionId);
+    const error = errorAnalyticsModule.getErrorAnalytics();
+
+    return { agent, perf, error };
   },
 
   /**
@@ -229,6 +373,48 @@ export const observability = {
       insights,
       performance,
     };
+  },
+
+  /**
+   * Get comprehensive session analytics
+   */
+  getSessionAnalytics(sessionId?: string): {
+    agent?: ReturnType<agentAnalyticsModule.AgentAnalyticsEngine["export"]>;
+    error: ReturnType<errorAnalyticsModule.ErrorAnalyticsEngine["getStatistics"]>;
+    perf?: ReturnType<performanceAnalyticsModule.PerformanceAnalyticsEngine["export"]>;
+    patterns: errorAnalyticsModule.ErrorPattern[];
+    suggestions: string[];
+  } {
+    const error = errorAnalyticsModule.getErrorAnalytics().getStatistics();
+    const patterns = errorAnalyticsModule.getErrorAnalytics().getPatterns();
+
+    let agent: ReturnType<agentAnalyticsModule.AgentAnalyticsEngine["export"]> | undefined;
+    let perf: ReturnType<performanceAnalyticsModule.PerformanceAnalyticsEngine["export"]> | undefined;
+    const suggestions: string[] = [];
+
+    try {
+      const agentEngine = agentAnalyticsModule.getAgentAnalytics(sessionId);
+      agent = agentEngine.export();
+    } catch {
+      // Not initialized
+    }
+
+    try {
+      const perfEngine = performanceAnalyticsModule.getPerformanceAnalytics(sessionId);
+      perf = perfEngine.export();
+      suggestions.push(...perf.suggestions);
+    } catch {
+      // Not initialized
+    }
+
+    // Add error-based suggestions
+    for (const pattern of patterns) {
+      if (pattern.occurrences > 3) {
+        suggestions.push(`Pattern detected: ${pattern.description}. See suggestions in pattern.`);
+      }
+    }
+
+    return { agent, error, perf, patterns, suggestions };
   },
 };
 

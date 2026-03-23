@@ -363,5 +363,46 @@ export {
   observability,
 } from "./observability/index.js";
 
+// ============================================
+// UNIFIED TELEMETRY
+// ============================================
+
+export {
+  UnifiedTelemetryManager,
+  type UnifiedTelemetryConfig,
+  type SessionAnalytics,
+  getUnifiedTelemetry,
+  getExistingUnifiedTelemetry,
+  removeUnifiedTelemetry,
+  getAllUnifiedTelemetry,
+} from "./unified-telemetry.js";
+
+// ============================================
+// AGGRESSIVE TELEMETRY (Always-on)
+// ============================================
+
+export {
+  aggressiveTelemetry,
+  AGGRESSIVE_CONFIG,
+  setSession,
+  turnStart,
+  turnEnd,
+  apiCall,
+  toolCall,
+  error as recordTelemetryError,
+  contextUpdate,
+  memoryUpdate,
+  getState,
+  getRealtimeMetrics,
+  getAlerts,
+  reset as resetAggressiveTelemetry,
+  wrapAsync,
+  wrapSync,
+  Tracked,
+} from "./auto-telemetry.js";
+
+// Auto-import aggressive telemetry (side effect - initializes on load)
+import "./auto-telemetry.js";
+
 // Default export
 export default telemetry;

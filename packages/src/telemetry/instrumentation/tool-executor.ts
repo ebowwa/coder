@@ -10,6 +10,17 @@ import { logger } from "../logger.js";
 import { METRIC_NAMES } from "../types.js";
 
 /**
+ * Tool execution result (from tool-executor)
+ */
+interface ToolExecutionResult {
+  toolUseId: string;
+  result: ToolResultBlock;
+  toolResult: { id: string; result: unknown } | null;
+  durationMs?: number;
+  success?: boolean;
+}
+
+/**
  * Tool execution options (re-exported from tool-executor)
  */
 export interface ToolExecutionOptions {
@@ -42,7 +53,8 @@ export async function executeInstrumentedTools(
 ): Promise<ToolResultBlock[]> {
   if (!shouldInstrument()) {
     const executeTools = await getOriginalExecuteTools();
-    return executeTools(toolUseBlocks, options as Parameters<typeof executeTools>[1]);
+    const results = await executeTools(toolUseBlocks, options as Parameters<typeof executeTools>[1]);
+    return results.map(r => r.result);
   }
 
   const span = startSpan("coder.tools.execute_batch", "internal");
@@ -57,23 +69,23 @@ export async function executeInstrumentedTools(
 
   try {
     const executeTools = await getOriginalExecuteTools();
-    const results = await executeTools(toolUseBlocks, options as Parameters<typeof executeTools>[1]);
+    const execResults = await executeTools(toolUseBlocks, options as Parameters<typeof executeTools>[1]);
 
     const duration = performance.now() - startTime;
-    const errorCount = results.filter((r) => r.is_error).length;
+    const errorCount = execResults.filter((r) => r.result.is_error).length;
 
     // Record metrics for each tool
     for (const toolUse of toolUseBlocks) {
-      const result = results.find((r) => r.tool_use_id === toolUse.id);
+      const execResult = execResults.find((r) => r.toolUseId === toolUse.id);
       metrics.incrementCounter(METRIC_NAMES.TOOL_CALLS_TOTAL, 1, {
         tool_name: toolUse.name,
         session_id: options.sessionId,
       });
       metrics.recordHistogram(METRIC_NAMES.TOOL_DURATION_MS, duration / toolUseBlocks.length, {
         tool_name: toolUse.name,
-        is_error: result?.is_error ? "true" : "false",
+        is_error: execResult?.result.is_error ? "true" : "false",
       });
-      if (result?.is_error) {
+      if (execResult?.result.is_error) {
         metrics.incrementCounter(METRIC_NAMES.TOOL_ERRORS_TOTAL, 1, {
           tool_name: toolUse.name,
         });
@@ -83,7 +95,7 @@ export async function executeInstrumentedTools(
     span
       .setAttributes({
         duration_ms: duration,
-        result_count: results.length,
+        result_count: execResults.length,
         error_count: errorCount,
       })
       .addEvent("tools.batch_completed")
@@ -96,7 +108,7 @@ export async function executeInstrumentedTools(
     });
 
     span.end();
-    return results;
+    return execResults.map(r => r.result);
   } catch (error) {
     const duration = performance.now() - startTime;
 
