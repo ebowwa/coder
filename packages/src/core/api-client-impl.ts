@@ -581,7 +581,7 @@ export async function createMessageStream(
 
           // Debug: Log event types
           if (process.env.DEBUG_API === '1' && event.type) {
-            console.log('\x1b[90m[DEBUG] SSE event type:\x1b[0m', event.type);
+            log.debug('SSE event type:', event.type);
           }
 
           switch (event.type) {
@@ -874,7 +874,7 @@ export async function createMessageStream(
     } else {
       // Debug: Log what we did receive
       if (process.env.DEBUG_API === '1') {
-        console.log('\x1b[91m[DEBUG] No message_start event received. Buffer:\x1b[0m', buffer.substring(0, 500));
+        log.debug('No message_start event received. Buffer:', buffer.substring(0, 500));
       }
       throw new Error("No message received from API");
     }
