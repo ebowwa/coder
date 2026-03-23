@@ -572,7 +572,7 @@ export class DaemonSupervisor extends EventEmitter {
         turns: progressMetrics.turns,
         goalProgress: progressMetrics.goalProgress || 0,
       } : null,
-      recentEvents: recentEvents.map(e => ({
+      recentEvents: recentEvents.map((e: { type: string; timestamp: number }) => ({
         type: e.type,
         timestamp: e.timestamp,
       })),
