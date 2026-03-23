@@ -412,7 +412,7 @@ export async function createMessageStream(
       jitterFactor: 0, // No jitter - fixed delay
       retryableStatusCodes: [429, 500, 502, 503, 504, 529],
       onRetry: (attempt, error, delayMs) => {
-        console.log(`\x1b[33mAPI retry ${attempt}/10 after 15s: ${error.message}\x1b[0m`);
+        log.warn(`API retry ${attempt}/10 after 15s: ${error.message}`);
       },
     };
 
@@ -512,11 +512,11 @@ export async function createMessageStream(
         backupRetryOptions
       );
 
-      console.log(`\x1b[32mBackup model succeeded\x1b[0m`);
+      log.info(`Backup model succeeded`);
     } else {
       // No backup model available or attempts exhausted
       if (backupModel && !canUseBackup) {
-        console.log(
+        log.warn(
           `\x1b[33mBackup model available but max attempts (${BACKUP_MODEL_MAX_ATTEMPTS}) exhausted\x1b[0m`
         );
       }
