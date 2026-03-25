@@ -50,11 +50,14 @@ export class MCPClientImpl {
   }
 
   async connect(): Promise<void> {
-    if (this.config.type === "stdio") {
+    // Infer type if not specified - stdio is default when command is present
+    const inferredType = this.config.type || (this.config.command ? "stdio" : "http");
+
+    if (inferredType === "stdio") {
       await this.connectStdio();
-    } else if (this.config.type === "http" || this.config.type === "sse") {
+    } else if (inferredType === "http" || inferredType === "sse") {
       await this.connectHttp();
-    } else if (this.config.type === "ws") {
+    } else if (inferredType === "ws") {
       await this.connectWebSocket();
     }
   }
@@ -83,16 +86,30 @@ export class MCPClientImpl {
       this.log(`Process error: ${error.message}`);
     });
 
-    this.process.on("close", (code: number) => {
-      this.log(`Process closed with code ${code}`);
+    this.process.on("close", (code: number, signal: string | null) => {
+      this.log(`Process closed with code ${code}, signal=${signal}`);
       this.connected = false;
     });
 
-    // Wait for process to start
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    // Wait for process to be ready (check stdin is writable)
+    let retries = 0;
+    const maxRetries = 50; // 5 seconds max
+    while (!this.process.stdin?.writable && retries < maxRetries) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      retries++;
+    }
+
+    if (!this.process.stdin?.writable) {
+      throw new Error("Process stdin not writable after 5 seconds");
+    }
+
+    if (retries > 0) {
+      this.log(`Process ready after ${retries * 100}ms`);
+    }
 
     // Initialize connection
     await this.initialize();
+    this.log(`Connected: ${this.connected}`);
   }
 
   private async connectHttp(): Promise<void> {
@@ -204,27 +221,42 @@ export class MCPClientImpl {
   }
 
   private async initialize(): Promise<void> {
-    const result = await this.request("initialize", {
-      protocolVersion: "2024-11-05",
-      capabilities: {
-        tools: {},
-        resources: {},
-        prompts: {},
-      },
-      clientInfo: {
-        name: "coder",
-        version: VERSION,
-      },
-    });
+    this.log("Sending initialize request...");
 
-    this.log(`Initialized with: ${JSON.stringify(result)}`);
-    this.connected = true;
+    try {
+      // Add a 10 second timeout for initialization
+      const initTimeout = 10000;
+      const result = await Promise.race([
+        this.request("initialize", {
+          protocolVersion: "2024-11-05",
+          capabilities: {
+            tools: {},
+            resources: {},
+            prompts: {},
+          },
+          clientInfo: {
+            name: "coder",
+            version: VERSION,
+          },
+        }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Initialize timeout after 10s")), initTimeout)
+        ),
+      ]);
 
-    // Send initialized notification
-    this.notify("notifications/initialized", {});
+      this.log(`Initialized with: ${JSON.stringify(result).slice(0, 200)}`);
+      this.connected = true;
 
-    // Load tools
-    await this.loadTools();
+      // Send initialized notification
+      this.notify("notifications/initialized", {});
+
+      // Load tools
+      await this.loadTools();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.log(`Initialize failed: ${errorMessage}`);
+      throw error;
+    }
   }
 
   private async loadTools(): Promise<void> {
@@ -399,7 +431,12 @@ export class MCPClientImpl {
   }
 
   private log(message: string): void {
-    this.onLog?.(`[MCP:${this.name}] ${message}`);
+    const formatted = `[MCP:${this.name}] ${message}`;
+    // Always log to console for debugging
+    if (process.env.DEBUG_API === '1') {
+      console.log(`\x1b[90m${formatted}\x1b[0m`);
+    }
+    this.onLog?.(formatted);
   }
 }
 
@@ -419,7 +456,14 @@ export async function createMCPClients(
 
     try {
       await client.connect();
-      clients.set(name, client);
+
+      // Only add to clients map if connection was successful
+      if (client.connected) {
+        clients.set(name, client);
+        onLog?.(`[MCP:${name}] Connected with ${client.tools.length} tools`);
+      } else {
+        onLog?.(`[MCP:${name}] Connection failed (connected=false after connect())`);
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       onLog?.(`[MCP:${name}] Failed to connect: ${errorMessage}`);

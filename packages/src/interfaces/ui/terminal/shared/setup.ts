@@ -86,7 +86,14 @@ export async function loadMCPConfig(configPath: string): Promise<Record<string, 
 export function mcpToolsToToolDefinitions(mcpClients: Map<string, MCPClientImpl>): ToolDefinition[] {
   const tools: ToolDefinition[] = [];
 
+  if (process.env.DEBUG_API === '1') {
+    console.log(`\x1b[90m[DEBUG] mcpToolsToToolDefinitions: ${mcpClients.size} clients\x1b[0m`);
+  }
+
   for (const [serverName, client] of mcpClients) {
+    if (process.env.DEBUG_API === '1') {
+      console.log(`\x1b[90m[DEBUG]   ${serverName}: ${client.tools.length} tools, connected=${client.connected}\x1b[0m`);
+    }
     for (const mcpTool of client.tools) {
       tools.push({
         name: `mcp__${serverName}__${mcpTool.name}`,
@@ -288,6 +295,16 @@ export async function setupSession(options: SetupOptions): Promise<SessionSetup>
     ...builtInTools,
     ...mcpToolsToToolDefinitions(mcpClients),
   ];
+
+  // Debug: Log tool counts
+  if (process.env.DEBUG_API === '1') {
+    const mcpToolCount = tools.length - builtInTools.length;
+    console.log(`\x1b[90m[DEBUG] Tools: ${builtInTools.length} built-in + ${mcpToolCount} MCP = ${tools.length} total\x1b[0m`);
+    if (mcpToolCount > 0) {
+      const mcpToolNames = tools.slice(builtInTools.length).map(t => t.name).slice(0, 10);
+      console.log(`\x1b[90m[DEBUG] MCP tools sample: ${mcpToolNames.join(', ')}${mcpToolCount > 10 ? '...' : ''}\x1b[0m`);
+    }
+  }
 
   return {
     loadedConfig,
