@@ -10,7 +10,7 @@ import {
   estimateMessagesTokens,
   type CompactionResult,
 } from "../context-compaction.js";
-import type { LoopState } from "./loop-state.js";
+import type { ILoopState } from "./types.js";
 
 /**
  * Compaction options
@@ -43,7 +43,7 @@ export const DEFAULT_REACTIVE_OPTIONS: CompactionOptions = {
  * @returns true if compaction was applied
  */
 export async function handleProactiveCompaction(
-  state: LoopState,
+  state: ILoopState,
   maxTokens: number,
   options: CompactionOptions = DEFAULT_PROACTIVE_OPTIONS
 ): Promise<boolean> {
@@ -72,7 +72,7 @@ export async function handleProactiveCompaction(
  * @returns true if compaction was applied and loop should continue
  */
 export async function handleReactiveCompaction(
-  state: LoopState,
+  state: ILoopState,
   maxTokens: number,
   options: CompactionOptions = DEFAULT_REACTIVE_OPTIONS
 ): Promise<boolean> {

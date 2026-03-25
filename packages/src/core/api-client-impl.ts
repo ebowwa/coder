@@ -351,7 +351,11 @@ export async function createMessageStream(
       }
     }
 
-    console.log(`Using OpenAI format, endpoint: ${apiEndpoint}`);
+    // Debug: Log tool count for OpenAI format
+    if (process.env.DEBUG_API === '1') {
+      const toolCount = (openaiRequest.tools as unknown[])?.length || 0;
+      console.log(`\x1b[90m[DEBUG] OpenAI format: ${toolCount} tools, endpoint: ${apiEndpoint}\x1b[0m`);
+    }
   }
 
   // Determine thinking configuration
@@ -573,6 +577,14 @@ export async function createMessageStream(
 
         const data = line.slice(6);
         if (!data) continue;
+
+        // Handle OpenAI-format [DONE] marker - this signals end of stream
+        if (data === "[DONE]" || data.trim() === "[DONE]") {
+          if (process.env.DEBUG_API === '1') {
+            console.log('\x1b[90m[DEBUG] SSE stream complete [DONE]\x1b[0m');
+          }
+          continue;
+        }
 
         // Debug: Log all SSE data when debug enabled
         if (process.env.DEBUG_API === '1') {
@@ -822,6 +834,19 @@ export async function createMessageStream(
                     currentToolUseBlock = null;
                     toolUseInput = "";
                   }
+                  // Map OpenAI finish_reason to Anthropic stop_reason
+                  // OpenAI: "stop", "length", "tool_calls", "content_filter"
+                  // Anthropic: "end_turn", "max_tokens", "stop_sequence", "tool_use"
+                  let stopReason: StopReason;
+                  if (choice.finish_reason === "stop") {
+                    stopReason = "end_turn";
+                  } else if (choice.finish_reason === "length") {
+                    stopReason = "max_tokens";
+                  } else if (choice.finish_reason === "tool_calls") {
+                    stopReason = "tool_use";  // CRITICAL: Must map to tool_use for agent loop to continue
+                  } else {
+                    stopReason = "end_turn";
+                  }
                   if (!message) {
                     message = {
                       id: `msg-${Date.now()}`,
@@ -829,12 +854,12 @@ export async function createMessageStream(
                       role: "assistant",
                       content: currentContent,
                       model: model,
-                      stop_reason: (choice.finish_reason === "stop" ? "end_turn" : choice.finish_reason === "length" ? "max_tokens" : "end_turn") as StopReason,
+                      stop_reason: stopReason,
                       stop_sequence: null,
                       usage: { input_tokens: 0, output_tokens: 0 },
                     };
                   } else {
-                    message.stop_reason = (choice.finish_reason === "stop" ? "end_turn" : choice.finish_reason === "length" ? "max_tokens" : "end_turn") as StopReason;
+                    message.stop_reason = stopReason;
                   }
                 }
               }

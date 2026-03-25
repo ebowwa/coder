@@ -23,6 +23,11 @@ import type { HookManager } from "../../ecosystem/hooks/index.js";
 
 import type { AgentLoopOptions, AgentLoopResult, LoopPersistenceConfig } from "./types.js";
 import { LoopState, type LoopStateOptions } from "./loop-state.js";
+import {
+  FSMIntegratedLoopState,
+  createIntegratedLoopState,
+  createIntegratedLoopStateFromLoopState,
+} from "./fsm-integration.js";
 import { executeTurn, type TurnExecutorOptions } from "./turn-executor.js";
 import {
   LoopPersistence,
@@ -55,6 +60,33 @@ export type { AgentLoopOptions, AgentLoopResult, LoopPersistenceConfig } from ".
 export type { LoopStateOptions } from "./loop-state.js";
 export { formatCost, formatMetrics, formatCostBrief, formatCacheMetrics } from "./formatters.js";
 export { LoopState } from "./loop-state.js";
+
+// Re-export FSM integration
+export {
+  FSMIntegratedLoopState,
+  createIntegratedLoopState,
+  createIntegratedLoopStateFromLoopState,
+  type FSMIntegrationEvent,
+  type FSMIntegrationOptions,
+  type FSMTurnResult,
+  type CombinedState,
+} from "./fsm-integration.js";
+
+// Re-export Workflow integration
+export {
+  createFSMStepProcessor,
+  FSMWorkflowSyncManager,
+  createAgentWorkflow,
+  fsmEventToWorkflowMessage,
+  workflowMessageToFSMEvent,
+  isFSMWorkflowMessage,
+  createCombinedContext,
+  type FSMWorkflowIntegrationConfig,
+  type SyncEvent,
+  type FSMWorkflowMessageType,
+  type SyncDirection,
+  type CombinedWorkflowContext,
+} from "./workflow-integration.js";
 export { executeTurn } from "./turn-executor.js";
 export { executeTools, type ToolExecutionOptions } from "./tool-executor.js";
 export { buildAPIMessages, injectReminderIntoContent } from "./message-builder.js";
@@ -307,7 +339,7 @@ export async function agentLoop(
 
   // Initialize persistence manager if enabled
   let persistence: LoopPersistence | null = null;
-  let state: LoopState;
+  let state: FSMIntegratedLoopState;
   let resumedFromCheckpoint = false;
 
   if (persistenceConfig.enabled) {
@@ -319,22 +351,34 @@ export async function agentLoop(
 
       if (recovered.success && recovered.state) {
         // Restore state from persisted data
-        state = LoopState.deserialize(recovered.state);
+        const loopState = LoopState.deserialize(recovered.state);
+        state = createIntegratedLoopStateFromLoopState(loopState, {
+          enableFSMLogging: false,
+        });
         resumedFromCheckpoint = true;
 
         console.log(`Resumed loop from session ${resumeFrom.sessionId} at turn ${state.turnNumber}`);
       } else {
         // Failed to recover, start fresh
         console.warn(`Failed to resume session ${resumeFrom.sessionId}: ${recovered.error}`);
-        state = new LoopState(initialMessages);
+        state = createIntegratedLoopState({
+          initialMessages,
+          enableFSMLogging: false,
+        });
       }
     } else {
       // Start fresh
-      state = new LoopState(initialMessages);
+      state = createIntegratedLoopState({
+        initialMessages,
+        enableFSMLogging: false,
+      });
     }
   } else {
-    // No persistence, use in-memory state
-    state = new LoopState(initialMessages);
+    // No persistence, use in-memory state with FSM tracking
+    state = createIntegratedLoopState({
+      initialMessages,
+      enableFSMLogging: false,
+    });
   }
 
   // Initialize long-running integration if enabled
@@ -418,9 +462,14 @@ export async function agentLoop(
   let shouldContinue = true;
   let lastError: Error | null = null;
 
+  // Emit FSM START event to begin the loop
+  state.start(longRunningGoal || "Interactive session");
+
   try {
     while (shouldContinue) {
       if (signal?.aborted) {
+        // Emit FSM CANCEL event on abort
+        state.cancel("User aborted via signal");
         break;
       }
 
@@ -503,6 +552,28 @@ export async function agentLoop(
 
       shouldContinue = turnResult.shouldContinue;
 
+      // Emit FSM TURN_COMPLETE event
+      const usage = turnResult.metrics?.usage;
+      const inputTokens = usage?.input_tokens ?? 0;
+      const outputTokens = usage?.output_tokens ?? 0;
+      const fsmStopReason = turnResult.stopReason ?? (shouldContinue ? "continue" : "end_turn");
+
+      if (process.env.DEBUG_API === '1') {
+        console.log(`\x1b[90m[DEBUG] FSM: shouldContinue=${shouldContinue}, stopReason=${fsmStopReason}\x1b[0m`);
+      }
+
+      const turnCompleteResult = state.completeTurn({
+        turnNumber: state.turnNumber,
+        tokensUsed: inputTokens + outputTokens,
+        cost: turnResult.metrics?.costUSD ?? 0,
+        stopReason: turnResult.stopReason ?? (shouldContinue ? "continue" : "end_turn"),
+      });
+
+      // Check if FSM reached a final state
+      if (turnCompleteResult.isComplete) {
+        shouldContinue = false;
+      }
+
       // Start tracking next turn if continuing
       if (shouldContinue) {
         aggressiveTurnStart();
@@ -523,6 +594,9 @@ export async function agentLoop(
     }
   } catch (error) {
     lastError = error as Error;
+
+    // Emit FSM ERROR event
+    state.reportError(error as Error, false);
 
     // Track error with aggressive telemetry
     aggressiveTelemetryError(
@@ -552,6 +626,11 @@ export async function agentLoop(
       statusWriter.setActivity("Session ended");
       statusWriter.cleanup();
     }
+  }
+
+  // Emit FSM STOP event on normal completion (not on error, which was already emitted)
+  if (!lastError && !state.isComplete) {
+    state.stop(shouldContinue ? "User requested stop" : "Task completed");
   }
 
   // End loop persistence

@@ -20,6 +20,10 @@ import { getContextWindow } from "../models.js";
 import type { PermissionManager } from "../permissions.js";
 import type { HookManager } from "../../ecosystem/hooks/index.js";
 import type { LoopState } from "./loop-state.js";
+import type { ILoopState } from "./types.js";
+
+// Type alias for backwards compatibility - both LoopState and FSMIntegratedLoopState work
+type StateParam = ILoopState;
 import { buildAPIMessages } from "./message-builder.js";
 import { handleProactiveCompaction, handleReactiveCompaction, DEFAULT_PROACTIVE_OPTIONS, DEFAULT_REACTIVE_OPTIONS } from "./compaction.js";
 import { executeTools, type ToolExecutionOptions } from "./tool-executor.js";
@@ -103,7 +107,7 @@ export interface ExecuteTurnResult {
  * Execute a single turn of the agent loop
  */
 export async function executeTurn(
-  state: LoopState,
+  state: ILoopState,
   options: TurnExecutorOptions
 ): Promise<ExecuteTurnResult> {
   const {
@@ -225,6 +229,12 @@ export async function executeTurn(
 
   // Add assistant message to history
   state.addAssistantMessage(message.content);
+
+  // Debug: Log stop reason
+  if (process.env.DEBUG_API === '1') {
+    const toolCount = message.content.filter(b => b.type === "tool_use").length;
+    console.log(`\x1b[90m[DEBUG] stop_reason=${message.stop_reason}, tools=${toolCount}\x1b[0m`);
+  }
 
   // Check stop reason
   if (message.stop_reason === "end_turn" || message.stop_reason === "stop_sequence") {

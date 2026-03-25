@@ -670,15 +670,21 @@ export class AutonomousDaemon extends EventEmitter {
       permissionMode: this.config.permissionMode as any,
       workingDirectory: this.config.workingDirectory,
       sessionId: this.sessionId,
-      // Enable continuation for autonomous operation (no limit - daemon runs until stopped)
+      // Enable continuation for autonomous operation with smart controls
       continuation: {
         enabled: true,
         conditions: [],
-        maxContinuations: 0, // 0 = unlimited
+        maxContinuations: 50, // Cap to prevent infinite loops
         defaultPrompt: this.getContinuationPrompt(),
         stuckPrompt: "You seem to be stuck. Try a different approach or report your current status.",
-        stuckThreshold: 3,
+        stuckThreshold: 5, // More tolerant before declaring stuck
         includeReasoning: true,
+        // Smart continuation controls - prevent burning turns without action
+        cooldownTurns: 2, // Wait between continuation checks
+        activeWorkTools: ["Edit", "Write", "Bash", "Read", "Grep", "Glob", "MultiEdit"],
+        activeWorkWindow: 3, // Check last 3 turns for active work
+        requireVerification: true, // Require verification before accepting completion
+        persistentGoal: this.config.goal, // Keep original goal through compaction
       },
       persistence: {
         enabled: true,

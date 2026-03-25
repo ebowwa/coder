@@ -169,3 +169,84 @@ export interface ToolExecutionOptions {
 
 // Re-export permission types for convenience
 export type { PermissionRequest, PermissionResult, PermissionManager } from "../permissions.js";
+
+/**
+ * Interface for loop state management
+ *
+ * Both LoopState and FSMIntegratedLoopState implement this interface,
+ * allowing either to be used in the agent loop.
+ */
+export interface ILoopState {
+  // Properties
+  messages: Message[];
+  metrics: QueryMetrics[];
+  allToolsUsed: ToolUseBlock[];
+  totalCost: number;
+  previousCost: number;
+  totalDuration: number;
+  turnNumber: number;
+  sessionStartTime: number;
+  compactionCount: number;
+  totalTokensCompacted: number;
+  cacheMetrics: import("../../schemas/index.js").CacheMetrics;
+  retryCount: number;
+  consecutiveContinuations: number;
+  wasCompacted: boolean;
+  recentToolNames: string[];
+  loopBehavior: import("../../ecosystem/presets/types.js").LoopBehavior;
+  template: import("../../ecosystem/presets/types.js").TeammateTemplate | null;
+  estimatedContextTokens: number;
+  currentUsage: import("../../schemas/index.js").UsageMetrics;
+
+  // Getters
+  readonly isMaxTurnsExceeded: boolean;
+  readonly shouldWarnTurns: boolean;
+  readonly isSessionTimeoutExceeded: boolean;
+  readonly isCostThresholdExceeded: boolean;
+  readonly shouldWarnCost: boolean;
+  readonly remainingTurns: number;
+  readonly remainingSessionTime: number;
+  readonly shouldContinue: boolean;
+  readonly stopReason: import("../../schemas/index.js").StopReason | null;
+  readonly compactionThresholdTokens: number;
+  readonly shouldProactiveCompact: boolean;
+  readonly latestMetrics: QueryMetrics | undefined;
+
+  // Methods
+  addTurnResult(result: {
+    message: { content: unknown[]; stop_reason: import("../../schemas/index.js").StopReason; id: string };
+    usage: import("../../schemas/index.js").UsageMetrics;
+    cacheMetrics?: import("../../schemas/index.js").CacheMetrics;
+    costUSD: number;
+    durationMs: number;
+    model: string;
+    messageCount: number;
+  }): QueryMetrics;
+  addAssistantMessage(content: unknown[]): void;
+  addUserMessage(content: import("../../schemas/index.js").ToolResultBlock[] | import("../../schemas/index.js").TextBlock[] | string): void;
+  trackToolUse(toolUseBlocks: ToolUseBlock[]): void;
+  incrementTurn(): number;
+  applyCompaction(
+    compactionResult: import("../context-compaction.js").CompactionResult,
+    getStats: typeof import("../context-compaction.js").getCompactionStats
+  ): boolean;
+  markCostWarningIssued(): void;
+  markTurnWarningIssued(): void;
+  isToolAllowed(toolName: string): boolean;
+  serialize(sessionId: string, options?: {
+    interrupted?: boolean;
+    endedAt?: number;
+    endReason?: string;
+  }): import("./loop-serializer.js").PersistedLoopState;
+  toResult(): AgentLoopResult;
+  getStatusSummary(): {
+    templateName: string | null;
+    turnNumber: number;
+    remainingTurns: number | "unlimited";
+    totalCost: number;
+    costStatus: "ok" | "warning" | "exceeded";
+    sessionDuration: number;
+    compactionCount: number;
+    toolUseCount: number;
+  };
+}
