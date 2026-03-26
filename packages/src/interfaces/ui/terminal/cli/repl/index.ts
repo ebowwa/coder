@@ -180,6 +180,7 @@ export async function runCoderREPL(options: REPLOptions): Promise<void> {
             enabled: true,
             sessionId: daemonSessionId,
             originalGoal: daemonGoal,
+            storageDir: join(homedir(), ".claude", "daemon", "memory"),
           },
           longRunningGoal: daemonGoal,
         }),
