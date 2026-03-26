@@ -8,6 +8,8 @@
 
 import * as readline from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
+import { homedir } from "os";
+import { join } from "path";
 import type { Message, ToolDefinition, PermissionMode, ClaudeModel } from "../../../../../schemas/index.js";
 import type { HookManager } from "../../../../../ecosystem/hooks/index.js";
 import type { SkillManager } from "../../../../../ecosystem/skills/index.js";
