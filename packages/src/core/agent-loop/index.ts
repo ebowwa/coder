@@ -385,7 +385,12 @@ export async function agentLoop(
   let longRunningIntegration: LongRunningIntegration | null = null;
   let statusWriter: StatusWriter | null = null;
   if (longRunningOption) {
-    const memoryManager = new LongRunningMemoryManager();
+    // Extract storageDir if provided, otherwise use default
+    const storageDir = typeof longRunningOption === "object" && longRunningOption.storageDir
+      ? longRunningOption.storageDir
+      : undefined;
+
+    const memoryManager = new LongRunningMemoryManager(storageDir ? { storageDir } : undefined);
     const config: Partial<LongRunningIntegrationConfig> = typeof longRunningOption === "boolean"
       ? { enabled: longRunningOption, sessionId, originalGoal: longRunningGoal || "Autonomous work session" }
       : { enabled: true, sessionId, originalGoal: longRunningGoal || "Autonomous work session", ...longRunningOption };
