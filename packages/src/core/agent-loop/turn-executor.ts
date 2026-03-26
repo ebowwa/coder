@@ -202,6 +202,13 @@ export async function executeTurn(
     onToolUse,
     signal,
     stopSequences,
+    // Enable repetition detection for daemon mode to prevent loops
+    enableRepetitionDetection: true,
+    onRepetitionDetected: (phrase: string, count: number) => {
+      console.log(`\x1b[33m[RepetitionDetector] Detected loop: "${phrase.slice(0, 50)}..." (x${count})\x1b[0m`);
+      // Return true to force stop the stream
+      return true;
+    },
   });
 
   const { message, usage, cacheMetrics, costUSD, durationMs, ttftMs } = streamResult;

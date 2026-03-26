@@ -43,6 +43,12 @@ export const StreamOptionsSchema = z.object({
   onRedactedThinking: z.custom<(data: string) => void>().optional(),
   onToolUse: z.custom<OnToolUseCallback>().optional(),
   signal: z.custom<AbortSignal>().optional(),
+  /** Timeout in milliseconds for API requests (default: 120000 = 2 minutes) */
+  timeout: z.number().int().positive().optional(),
+  /** Enable repetition detection to stop loops (default: true for daemon mode) */
+  enableRepetitionDetection: z.boolean().optional(),
+  /** Called when repetition is detected, return true to force stop */
+  onRepetitionDetected: z.custom<(phrase: string, count: number) => boolean | void>().optional(),
 });
 
 // ============================================

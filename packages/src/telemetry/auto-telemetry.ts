@@ -40,7 +40,7 @@ export const AGGRESSIVE_CONFIG = {
   alertOnHighMemory: 500 * 1024 * 1024, // 500MB
   alertOnHighErrorRate: 0.1, // 10%
   alertOnContextNearFull: 0.8, // 80%
-  alertOnStuckLoop: 60000, // 60s without progress
+  alertOnStuckLoop: 180000, // 180s without progress (for slow APIs like GLM-5)
 
   // Granular tracking
   tokenGranularity: true, // Track per-token timing

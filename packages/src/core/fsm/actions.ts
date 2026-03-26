@@ -282,8 +282,9 @@ export function emit<TContext>(
         ? (detail as (ctx: FSMContext<TContext>) => unknown)(context)
         : detail;
 
-    if (typeof process !== "undefined" && process.emit) {
-      process.emit(eventName, eventDetail);
+    if (typeof process !== "undefined" && typeof process.emit === "function") {
+      // Use type assertion to bypass strict signal typing for custom events
+      (process as { emit: (event: string, data: unknown) => boolean }).emit(eventName, { detail: eventDetail });
     } else if (typeof globalThis !== "undefined" && "window" in globalThis) {
       (globalThis as unknown as { dispatchEvent: (event: Event) => boolean }).dispatchEvent(
         new CustomEvent(eventName, { detail: eventDetail })

@@ -42,6 +42,7 @@ import {
   BACKUP_MODEL_MAX_ATTEMPTS,
 } from "./models.js";
 import { createLogger } from "./logger.js";
+import { createRepetitionDetector, type RepetitionDetectorOptions } from "./repetition-detector.js";
 
 const logger = createLogger("[API]");
 
@@ -192,6 +193,9 @@ export function calculateCacheMetrics(usage: UsageMetrics): CacheMetrics {
 /**
  * Create a streaming message request to Anthropic API
  */
+// Default timeout for API requests (2 minutes)
+const DEFAULT_API_TIMEOUT_MS = 120_000;
+
 export async function createMessageStream(
   messages: Message[],
   options: StreamOptions
@@ -210,8 +214,32 @@ export async function createMessageStream(
     onThinking,
     onRedactedThinking,
     onToolUse,
-    signal,
+    signal: externalSignal,
+    enableRepetitionDetection = true,
+    onRepetitionDetected,
   } = options;
+
+  // Create internal AbortController with timeout
+  const internalController = new AbortController();
+  const timeoutMs = options.timeout ?? DEFAULT_API_TIMEOUT_MS;
+  const timeoutId = setTimeout(() => {
+    console.error(`\x1b[31m[API] Request timed out after ${timeoutMs / 1000}s\x1b[0m`);
+    internalController.abort();
+  }, timeoutMs);
+
+  // Chain external signal if provided
+  if (externalSignal) {
+    if (externalSignal.aborted) {
+      clearTimeout(timeoutId);
+      internalController.abort();
+    } else {
+      externalSignal.addEventListener("abort", () => {
+        clearTimeout(timeoutId);
+        internalController.abort();
+      });
+    }
+  }
+  const signal = internalController.signal;
 
   // Determine apiFormat from model provider if not explicitly provided
   const modelDefForFormat = getModel(model);
@@ -527,16 +555,19 @@ export async function createMessageStream(
           `\x1b[33mBackup model available but max attempts (${BACKUP_MODEL_MAX_ATTEMPTS}) exhausted\x1b[0m`
         );
       }
+      clearTimeout(timeoutId);
       throw mainError;
     }
   }
 
   if (!response.ok) {
     const error = await response.text();
+    clearTimeout(timeoutId);
     throw new Error(`API error: ${response.status} - ${error}`);
   }
 
   if (!response.body) {
+    clearTimeout(timeoutId);
     throw new Error("No response body");
   }
 
@@ -561,10 +592,30 @@ export async function createMessageStream(
 
   const buffer = "";
 
+  // Initialize repetition detector
+  const repetitionDetector = enableRepetitionDetection
+    ? createRepetitionDetector({
+        maxConsecutiveRepeats: 3,
+        windowSize: 150,
+        minPhraseLength: 15,
+        debug: process.env.DEBUG_REPETITION === "1",
+      })
+    : null;
+  let repetitionDetected = false;
+  let repetitionPhrase = "";
+  let repetitionCount = 0;
+
   try {
     let buffer = "";
 
     while (true) {
+      // Early exit if repetition was detected
+      if (repetitionDetected) {
+        if (process.env.DEBUG_REPETITION === "1") {
+          console.log(`\x1b[33m[RepetitionDetector] Stopping stream due to repetition: "${repetitionPhrase}"\x1b[0m`);
+        }
+        break;
+      }
       const { done, value } = await reader.read();
       if (done) break;
 
@@ -645,6 +696,23 @@ export async function createMessageStream(
                 const text = delta.text as string;
                 currentTextBlock.text += text;
                 onToken?.(text);
+
+                // Check for repetition
+                if (repetitionDetector && currentTextBlock.text.length > 50) {
+                  const result = repetitionDetector.process(text);
+                  if (result.detected && result.phrase) {
+                    repetitionDetected = true;
+                    repetitionPhrase = result.phrase;
+                    repetitionCount = result.count || 0;
+
+                    // Notify callback if provided
+                    const shouldStop = onRepetitionDetected?.(result.phrase, repetitionCount);
+                    if (shouldStop === false) {
+                      // Callback returned false, continue anyway
+                      repetitionDetected = false;
+                    }
+                  }
+                }
 
                 if (firstToken) {
                   ttft = Date.now() - startTime;
@@ -742,6 +810,23 @@ export async function createMessageStream(
                     currentTextBlock = { type: "text", text };
                   }
                   onToken?.(text);
+
+                  // Check for repetition (OpenAI format)
+                  if (repetitionDetector && currentTextBlock.text.length > 50) {
+                    const result = repetitionDetector.process(text);
+                    if (result.detected && result.phrase) {
+                      repetitionDetected = true;
+                      repetitionPhrase = result.phrase;
+                      repetitionCount = result.count || 0;
+
+                      // Notify callback if provided
+                      const shouldStop = onRepetitionDetected?.(result.phrase, repetitionCount);
+                      if (shouldStop === false) {
+                        repetitionDetected = false;
+                      }
+                    }
+                  }
+
                   if (firstToken) {
                     ttft = Date.now() - startTime;
                     firstToken = false;
@@ -884,6 +969,19 @@ export async function createMessageStream(
     }
   } finally {
     reader.releaseLock();
+    clearTimeout(timeoutId);
+  }
+
+  // Handle repetition detection - finalize content and set stop reason
+  if (repetitionDetected && currentTextBlock) {
+    // Push any remaining content
+    currentContent.push(currentTextBlock);
+    currentTextBlock = null;
+
+    // Log the detection
+    console.log(
+      `\x1b[33m[RepetitionDetector] Stopped stream - detected repeat: "${repetitionPhrase.slice(0, 50)}..." (x${repetitionCount})\x1b[0m`
+    );
   }
 
   if (!message) {
@@ -910,6 +1008,11 @@ export async function createMessageStream(
 
   message.content = currentContent;
 
+  // Override stop_reason if repetition was detected
+  if (repetitionDetected) {
+    message.stop_reason = "stop_sequence"; // Treat as stop_sequence to signal early termination
+  }
+
   // Fallback: estimate tokens if API didn't return usage (e.g., OpenAI-compatible APIs like Z.AI)
   if (usage.input_tokens === 0 && usage.output_tokens === 0) {
     // Estimate output tokens from response content
@@ -934,6 +1037,9 @@ export async function createMessageStream(
   cacheMetrics.estimatedSavingsUSD = estimatedSavingsUSD;
 
   const durationMs = Date.now() - startTime;
+
+  // Cleanup timeout
+  clearTimeout(timeoutId);
 
   return {
     message,

@@ -20,7 +20,8 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "coder": "dist/interfaces/ui/terminal/cli/index.js"
+    "coder": "dist/interfaces/ui/terminal/cli/index.js",
+    "safe-rm": "bin/safe-rm"
   },
   "scripts": {
     "build": "rm -rf dist && bun run build:native && bun run build:ts && bun run build:types && bun run link",
@@ -36,6 +37,7 @@
     "test": "bun test"
   },
   "files": [
+    "bin",
     "dist",
     "native",
     "packages/src"

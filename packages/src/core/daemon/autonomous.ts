@@ -21,6 +21,7 @@ import { existsSync, mkdirSync, writeFileSync, readFileSync, appendFileSync } fr
 import { agentLoop, type AgentLoopOptions, type AgentLoopResult } from "../agent-loop/index.js"
 import { SingletonLock, type LockInfo } from "@ebowwa/daemons"
 import type { Message } from "../../schemas/index.js"
+import { LongRunningMemoryManager, DEFAULT_LONG_RUNNING_CONFIG, type Discovery, type Decision as MemoryDecision } from "../agent-loop/long-running-memory.js"
 
 // ============================================
 // TYPES
@@ -425,8 +426,12 @@ export class AutonomousDaemon extends EventEmitter {
   private lastActivityType: ActivityType = "starting"
   /** Activity to attribute next token usage to */
   private pendingActivityToken: ActivityType = "thinking"
+  /** Pending tool name for discovery recording (maps tool call ID to tool name) */
+  private pendingToolNames: Map<string, string> = new Map()
   /** Queue of injected messages to process */
   private injectedMessages: string[] = []
+  /** Long-running memory manager for context persistence */
+  private memoryManager!: LongRunningMemoryManager
 
   constructor(config: AutonomousDaemonConfig) {
     super()
@@ -513,7 +518,16 @@ export class AutonomousDaemon extends EventEmitter {
 
     this.emit("started", this.sessionId)
 
-    // Build initial prompt based on role
+    // Initialize long-running memory manager
+    this.memoryManager = new LongRunningMemoryManager({
+      ...DEFAULT_LONG_RUNNING_CONFIG,
+      storageDir: join(homedir(), ".claude", "daemon", "memory"),
+    })
+    const goal = this.config.goal || `Autonomous ${this.config.role} for ${this.config.jurisdiction}`
+    await this.memoryManager.initialize(this.sessionId, goal)
+    console.log(`\x1b[90m[Daemon] Memory manager initialized\x1b[0m`)
+
+    // Build initial prompt based on role (includes memory context)
     const systemPrompt = this.buildRolePrompt()
     const initialPrompt = this.config.goal || this.getInitialPrompt()
 
@@ -710,13 +724,28 @@ export class AutonomousDaemon extends EventEmitter {
         // Update current work description based on activity
         this.updateCurrentWork(activity, input)
 
-        this.logEvent("tool:use", { tool: toolUse.name, input: toolUse.input })
+        // Store tool name by ID for result lookup
+        if (toolUse.id) {
+          this.pendingToolNames.set(toolUse.id, toolUse.name)
+        }
+
+        this.logEvent("tool:use", { tool: toolUse.name, id: toolUse.id, input: toolUse.input })
         this.emit("tool", { tool: toolUse.name, input: toolUse.input })
       },
       onToolResult: (result) => {
         const success = result && result.result && !result.result.is_error
-        this.logEvent("tool:result", { tool: result.id, success })
-        this.emit("toolResult", { tool: result.id, result: result.result })
+        // Get the actual tool name from our tracking map
+        const toolName = this.pendingToolNames.get(result.id) || result.id
+        this.logEvent("tool:result", { tool: toolName, callId: result.id, success })
+        this.emit("toolResult", { tool: toolName, result: result.result })
+
+        // Record discoveries from successful tool results
+        if (success && this.memoryManager) {
+          this.recordDiscoveryFromTool(toolName, result.result)
+        }
+
+        // Clean up the pending tool name
+        this.pendingToolNames.delete(result.id)
       },
       onMetrics: (metrics) => {
         // Track tokens and cost in real-time
@@ -725,8 +754,17 @@ export class AutonomousDaemon extends EventEmitter {
         const totalTokens = inputTokens + outputTokens
         this.status.tokens += totalTokens
         this.status.cost += metrics.costUSD || 0
-        this.status.turns++ // Each API call is a "turn"
+        this.status.turns++ // Each APIcall is a "turn"
         this.status.lastActivity = Date.now()
+
+        // Update memory manager with progress
+        if (this.memoryManager) {
+          void this.memoryManager.updateProgress(
+            this.sessionId,
+            this.status.turns,
+            this.status.cost
+          )
+        }
 
         // Attribute tokens to the activity that triggered this API call
         // (the activity that was happening before the thinking started)
@@ -776,6 +814,9 @@ export class AutonomousDaemon extends EventEmitter {
 
     prompt = prompt.replace("{jurisdiction}", this.config.jurisdiction)
 
+    // Get memory context summary if available
+    const memoryContext = this.memoryManager?.generateContextSummary(this.sessionId) || ""
+
     // Add daemon-specific context
     const daemonContext = `
 
@@ -787,7 +828,12 @@ Current turn: ${this.status.turns + 1}
 Total cost so far: $${this.status.cost.toFixed(4)}
 
 You are autonomous and should continue working until explicitly told to stop.
-After completing a task, assess what else needs attention in your jurisdiction.`
+After completing a task, assess what else needs attention in your jurisdiction.
+${memoryContext ? `
+## Session Memory
+
+${memoryContext}
+` : ""}`
 
     return prompt + daemonContext
   }
@@ -1092,6 +1138,70 @@ What's the next most important thing to work on in your jurisdiction? If you're 
           this.status.filesModified.shift()
         }
       }
+    }
+  }
+
+  /**
+   * Record a discovery from tool result to the memory manager
+   */
+  private recordDiscoveryFromTool(toolName: string, result: any): void {
+    if (!this.memoryManager) return
+
+    try {
+      // Extract discovery based on tool type
+      if (toolName === "Read" && result?.content) {
+        // File read - record what was learned
+        const content = typeof result.content === "string"
+          ? result.content
+          : JSON.stringify(result.content)
+        const preview = content.slice(0, 200)
+
+        void this.memoryManager.recordDiscovery(this.sessionId, {
+          finding: `Read file content: ${preview}...`,
+          category: "architecture",
+          importance: "low",
+          turnNumber: this.status.turns + 1,
+        })
+      } else if (toolName === "Grep" && result?.content) {
+        // Grep result - patterns found
+        const preview = String(result.content).slice(0, 300)
+        void this.memoryManager.recordDiscovery(this.sessionId, {
+          finding: `Search found: ${preview}...`,
+          category: "pattern",
+          importance: "medium",
+          turnNumber: this.status.turns + 1,
+        })
+      } else if (toolName === "Glob" && result?.content) {
+        // Glob result - file structure
+        const files = String(result.content).split("\n").slice(0, 10).join(", ")
+        void this.memoryManager.recordDiscovery(this.sessionId, {
+          finding: `Found files: ${files}`,
+          category: "architecture",
+          importance: "low",
+          turnNumber: this.status.turns + 1,
+        })
+      } else if (["Edit", "Write", "MultiEdit"].includes(toolName)) {
+        // File modification - record as decision
+        void this.memoryManager.recordDecision(this.sessionId, {
+          decision: `Modified code via ${toolName}`,
+          reasoning: `Applied code changes as part of autonomous work`,
+          turnNumber: this.status.turns + 1,
+        })
+      } else if (toolName === "Bash" && result?.content) {
+        // Bash command - check for important outcomes
+        const output = String(result.content)
+        if (output.includes("error") || output.includes("failed") || output.includes("Error")) {
+          void this.memoryManager.recordDiscovery(this.sessionId, {
+            finding: `Command encountered issue: ${output.slice(0, 200)}`,
+            category: "bug",
+            importance: "high",
+            turnNumber: this.status.turns + 1,
+          })
+        }
+      }
+    } catch (error) {
+      // Don't let discovery recording fail the daemon
+      console.error(`\x1b[90m[Daemon] Failed to record discovery: ${error}\x1b[0m`)
     }
   }
 

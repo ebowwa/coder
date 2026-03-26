@@ -1,0 +1,136 @@
+#!/bin/bash
+# safe-rm - Moves files to trash instead of permanently deleting
+# Part of @ebowwa/coder package
+#
+# Usage: safe-rm [options] file [file ...]
+#
+# Set RM_REAL_DELETE=true to bypass and use actual rm
+# Set RM_TRASH_CMD to use a different trash command
+#
+# Installation:
+#   bun install -g @ebowwa/coder
+#   alias rm='safe-rm'
+#
+# Or add to .zshrc/.bashrc:
+#   if command -v safe-rm &>/dev/null; then
+#     alias rm='safe-rm'
+#   fi
+
+set -e
+
+REAL_RM="/bin/rm"
+TRASH_CMD="${RM_TRASH_CMD:-}"
+LOG_FILE="${RM_LOG_FILE:-}"
+
+# Detect trash command if not set
+if [ -z "$TRASH_CMD" ]; then
+    if [ -x "/opt/homebrew/bin/trash" ]; then
+        TRASH_CMD="/opt/homebrew/bin/trash"
+    elif command -v trash &>/dev/null; then
+        TRASH_CMD="trash"
+    elif command -v trash-put &>/dev/null; then
+        TRASH_CMD="trash-put"
+    elif [ -x "/usr/local/bin/trash" ]; then
+        TRASH_CMD="/usr/local/bin/trash"
+    fi
+fi
+
+# If environment variable is set, use real rm
+if [ "$RM_REAL_DELETE" = "true" ]; then
+    exec "$REAL_RM" "$@"
+fi
+
+# Logging function
+log_delete() {
+    local file="$1"
+    local action="$2"
+    if [ -n "$LOG_FILE" ]; then
+        echo "$(date -Iseconds) [$action] $file" >> "$LOG_FILE"
+    fi
+}
+
+# Parse args
+R_FLAG=false
+F_FLAG=false
+RECURSIVE=false
+FILES=()
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -rf|-fr)
+            R_FLAG=true
+            F_FLAG=true
+            RECURSIVE=true
+            shift
+            ;;
+        -r|-R|--recursive)
+            R_FLAG=true
+            RECURSIVE=true
+            shift
+            ;;
+        -f|--force)
+            F_FLAG=true
+            shift
+            ;;
+        -i|--interactive)
+            shift
+            ;;
+        -v|--verbose)
+            shift
+            ;;
+        --)
+            shift
+            FILES+=("$@")
+            break
+            ;;
+        -*)
+            # Unknown flag, skip
+            shift
+            ;;
+        *)
+            FILES+=("$1")
+            shift
+            ;;
+    esac
+done
+
+# If no files, just exit
+if [ ${#FILES[@]} -eq 0 ]; then
+    exit 0
+fi
+
+# Process each file
+for file in "${FILES[@]}"; do
+    # Skip if doesn't exist
+    if [ ! -e "$file" ] && [ ! -L "$file" ]; then
+        if [ "$F_FLAG" = false ]; then
+            echo "safe-rm: cannot remove '$file': No such file or directory" >&2
+        fi
+        continue
+    fi
+
+    # Use trash command if available
+    if [ -n "$TRASH_CMD" ] && [ -x "$TRASH_CMD" ]; then
+        if "$TRASH_CMD" "$file" 2>/dev/null; then
+            log_delete "$file" "trashed"
+        else
+            # Fallback to real rm if trash fails
+            if [ "$RECURSIVE" = true ] && [ -d "$file" ]; then
+                "$REAL_RM" -rf "$file"
+            else
+                "$REAL_RM" -f "$file"
+            fi
+            log_delete "$file" "deleted"
+        fi
+    else
+        # No trash command, use real rm
+        if [ "$RECURSIVE" = true ] && [ -d "$file" ]; then
+            "$REAL_RM" -rf "$file"
+        else
+            "$REAL_RM" -f "$file"
+        fi
+        log_delete "$file" "deleted"
+    fi
+done
+
+exit 0
