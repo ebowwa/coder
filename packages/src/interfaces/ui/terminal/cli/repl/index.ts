@@ -8,6 +8,8 @@
 
 import * as readline from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
+import { homedir } from "os";
+import { join } from "path";
 import type { Message, ToolDefinition, PermissionMode, ClaudeModel } from "../../../../../schemas/index.js";
 import type { HookManager } from "../../../../../ecosystem/hooks/index.js";
 import type { SkillManager } from "../../../../../ecosystem/skills/index.js";
@@ -172,6 +174,14 @@ export async function runCoderREPL(options: REPLOptions): Promise<void> {
         workingDirectory,
         hookManager,
         sessionId,
+        // Enable long-running memory when running under daemon supervisor
+        ...(isDaemonWorker && {
+          longRunning: {
+            sessionId: daemonSessionId,
+            storageDir: join(homedir(), ".claude", "daemon", "memory"),
+          },
+          longRunningGoal: daemonGoal,
+        }),
         onText: (text) => {
           if (!responseLabeled) {
             process.stdout.write(`\x1b[1m\x1b[36m[Response]\x1b[0m\n`);
