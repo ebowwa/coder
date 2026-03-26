@@ -3,6 +3,8 @@
  * Shared query runner for CLI -q mode
  */
 
+import { homedir } from "os";
+import { join } from "path";
 import type { Message, ToolDefinition, ExtendedThinkingConfig, GitStatus } from "../../../../schemas/index.js";
 import { agentLoop, formatCost, formatCostBrief, createResultConditionsConfig, type ResultConditionsConfig, RALPH_CONTINUATION_CONFIG } from "../../../../core/agent-loop.js";
 import { HookManager } from "../../../../ecosystem/hooks/index.js";
@@ -30,6 +32,10 @@ export interface QueryOptions {
   hookManager: HookManager;
   workingDirectory: string;
   gitStatus?: GitStatus | null;
+  /** Daemon session ID - if set, worker is running under daemon supervisor */
+  daemonSessionId?: string;
+  /** Daemon goal - the original goal for the daemon */
+  daemonGoal?: string;
 }
 
 // ============================================
