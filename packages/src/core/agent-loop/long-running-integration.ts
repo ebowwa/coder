@@ -462,6 +462,22 @@ export class LongRunningIntegration {
       }
     }
 
+    // Extract discoveries from tool results
+    for (let i = 0; i < toolUses.length; i++) {
+      const toolUse = toolUses[i];
+      const toolResult = toolResults[i];
+      if (!toolUse || !toolResult) continue;
+
+      const discovery = extractDiscoveryFromToolResult(
+        toolUse.name ?? "unknown",
+        toolResult,
+        turnNumber
+      );
+      if (discovery) {
+        await this.memoryManager.recordDiscovery(sessionId, discovery);
+      }
+    }
+
     // Extract decisions from output
     const decision = extractDecisionFromOutput(modelOutput, turnNumber);
     if (decision) {
