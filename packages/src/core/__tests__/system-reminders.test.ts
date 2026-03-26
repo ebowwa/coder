@@ -448,6 +448,9 @@ describe("buildCombinedReminder", () => {
       toolsUsed: [],
       workingDirectory: "/test",
       turnNumber: 2,
+      config: {
+        tokenWarningThreshold: 0.8, // Enable token warnings
+      },
     });
 
     expect(result).toContain("Token Usage");
