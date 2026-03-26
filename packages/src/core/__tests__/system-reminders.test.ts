@@ -464,6 +464,9 @@ describe("buildCombinedReminder", () => {
       toolsUsed: [],
       workingDirectory: "/test",
       turnNumber: 5,
+      config: {
+        costUpdateInterval: 5, // Enable cost updates every 5 turns
+      },
     });
 
     expect(result).toContain("Cost Update");
@@ -477,6 +480,9 @@ describe("buildCombinedReminder", () => {
       toolsUsed: [createTool("read")],
       workingDirectory: "/test",
       turnNumber: 3,
+      config: {
+        toolSummaryInterval: 3, // Enable tool summaries every 3 turns
+      },
     });
 
     expect(result).toContain("Tool Usage Summary");
@@ -497,6 +503,11 @@ describe("buildCombinedReminder", () => {
       toolsUsed: [createTool("read")],
       workingDirectory: "/test",
       turnNumber: 15,
+      config: {
+        tokenWarningThreshold: 0.8, // Enable token warnings
+        costUpdateInterval: 5, // Enable cost updates
+        toolSummaryInterval: 3, // Enable tool summaries
+      },
     });
 
     expect(result).toContain("Token Usage");
