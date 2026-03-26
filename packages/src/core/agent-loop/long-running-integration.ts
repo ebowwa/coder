@@ -38,6 +38,8 @@ export interface LongRunningIntegrationConfig {
   sessionId: string;
   /** Original goal */
   originalGoal: string;
+  /** Storage directory for memory files */
+  storageDir?: string;
   /** Auto-detect milestones */
   autoDetectMilestones: boolean;
   /** Auto-record verifications */
@@ -233,7 +235,7 @@ export function extractDiscoveryFromToolResult(
   }
 
   // Determine category based on tool name
-  let category: Discovery["category"] = "finding";
+  let category: Discovery["category"] = "other";
   let importance: Discovery["importance"] = "low";
 
   if (toolName === "Read" || toolName === "Glob" || toolName === "Grep") {
