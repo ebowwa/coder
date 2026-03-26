@@ -33,6 +33,10 @@ export interface REPLOptions {
   sessionId: string;
   initialMessages: Message[];
   workingDirectory: string;
+  /** Daemon session ID - if set, worker is running under daemon supervisor */
+  daemonSessionId?: string;
+  /** Daemon goal - the original goal for the daemon */
+  daemonGoal?: string;
 }
 
 // ============================================
