@@ -54,7 +54,15 @@ export async function runSingleQuery(options: QueryOptions): Promise<void> {
     hookManager,
     workingDirectory,
     gitStatus,
+    daemonSessionId,
+    daemonGoal,
   } = options;
+
+  // Check if running under daemon supervisor
+  const isDaemonWorker = !!(daemonSessionId && daemonGoal);
+  if (isDaemonWorker) {
+    console.log(`\x1b[90m[Daemon Worker] Session: ${daemonSessionId}\x1b[0m`);
+  }
 
   // Show initial status line
   const initialStatusOptions: StatusLineOptions = {
@@ -115,16 +123,22 @@ export async function runSingleQuery(options: QueryOptions): Promise<void> {
           })
         : undefined,
       continuation: args.continuation ? RALPH_CONTINUATION_CONFIG : undefined,
-      longRunning: args.longRunning
+      // Enable long-running memory when running under daemon supervisor
+      longRunning: isDaemonWorker
         ? {
-            enabled: true,
-            enableWebSocket: args.enableWebSocket ?? false,
-            websocketPort: args.websocketPort,
-            enableSSE: args.enableSSE ?? false,
-            ssePort: args.ssePort,
+            sessionId: daemonSessionId,
+            storageDir: join(homedir(), ".claude", "daemon", "memory"),
           }
-        : false,
-      longRunningGoal: args.longRunningGoal,
+        : args.longRunning
+          ? {
+              enabled: true,
+              enableWebSocket: args.enableWebSocket ?? false,
+              websocketPort: args.websocketPort,
+              enableSSE: args.enableSSE ?? false,
+              ssePort: args.ssePort,
+            }
+          : false,
+      longRunningGoal: isDaemonWorker ? daemonGoal : args.longRunningGoal,
       onText: (text) => {
         // Label response on first text chunk
         if (!responseLabeled) {
