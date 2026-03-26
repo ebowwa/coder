@@ -202,6 +202,75 @@ export function extractDecisionFromOutput(
 }
 
 // ============================================
+// DISCOVERY EXTRACTOR
+// ============================================
+
+/**
+ * Extract discoveries from tool results
+ */
+export function extractDiscoveryFromToolResult(
+  toolName: string,
+  toolResult: ToolResultBlock,
+  turnNumber: number
+): Omit<Discovery, "id" | "timestamp"> | null {
+  // Extract content from result
+  const rawContent: unknown = toolResult.content;
+  let content: string;
+
+  if (typeof rawContent === "string") {
+    content = rawContent;
+  } else if (Array.isArray(rawContent)) {
+    content = (rawContent as unknown[])
+      .map((b: unknown) => {
+        if (typeof b === "object" && b !== null && "type" in b && (b as Record<string, unknown>).type === "text" && "text" in b) {
+          return String((b as Record<string, unknown>).text);
+        }
+        return "";
+      })
+      .join("");
+  } else {
+    return null;
+  }
+
+  // Determine category based on tool name
+  let category: Discovery["category"] = "finding";
+  let importance: Discovery["importance"] = "low";
+
+  if (toolName === "Read" || toolName === "Glob" || toolName === "Grep") {
+    category = "architecture";
+    importance = "low";
+  } else if (toolName === "Bash") {
+    // Check for errors in bash output
+    if (content.toLowerCase().includes("error") ||
+        content.toLowerCase().includes("failed") ||
+        content.toLowerCase().includes("exception")) {
+      category = "bug";
+      importance = "high";
+    } else if (content.includes("commit") || content.includes("pushed")) {
+      category = "milestone";
+      importance = "medium";
+    }
+  }
+
+  // Only record if there's meaningful content
+  if (!content || content.length < 50) {
+    return null;
+  }
+
+  // Truncate finding for storage
+  const finding = content.length > 200
+    ? `Read file content: ${content.slice(0, 200)}...`
+    : `Read file content: ${content}`;
+
+  return {
+    finding,
+    category,
+    importance,
+    turnNumber,
+  };
+}
+
+// ============================================
 // VERIFICATION TRACKER
 // ============================================
 
