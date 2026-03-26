@@ -56,7 +56,15 @@ export async function runCoderREPL(options: REPLOptions): Promise<void> {
     sessionId,
     initialMessages,
     workingDirectory,
+    daemonSessionId,
+    daemonGoal,
   } = options;
+
+  // Check if running under daemon supervisor
+  const isDaemonWorker = !!(daemonSessionId && daemonGoal);
+  if (isDaemonWorker) {
+    console.log(`\x1b[90m[Daemon Worker] Session: ${daemonSessionId}\x1b[0m`);
+  }
 
   const messages: Message[] = [...initialMessages];
   let totalCost = 0;
