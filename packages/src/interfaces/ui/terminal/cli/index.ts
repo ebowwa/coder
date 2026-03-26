@@ -667,6 +667,9 @@ async function main(): Promise<void> {
         sessionId,
         initialMessages: messages,
         workingDirectory: process.cwd(),
+        // Pass daemon environment variables for long-running memory
+        daemonSessionId: process.env.CODER_DAEMON_SESSION_ID,
+        daemonGoal: process.env.CODER_DAEMON_GOAL,
       });
       return;
     }
