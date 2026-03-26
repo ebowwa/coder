@@ -119,6 +119,10 @@ export interface CoderREPLOptions {
   output?: NodeJS.WritableStream;
   /** Input stream */
   input?: NodeJS.ReadableStream;
+  /** Daemon session ID - if set, worker is running under daemon supervisor */
+  daemonSessionId?: string;
+  /** Daemon goal - the original goal for the daemon */
+  daemonGoal?: string;
 }
 
 // ============================================
