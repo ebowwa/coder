@@ -703,6 +703,9 @@ async function main(): Promise<void> {
       hookManager: setup.hookManager,
       workingDirectory: process.cwd(),
       gitStatus,
+      // Pass daemon environment variables for long-running memory
+      daemonSessionId: process.env.CODER_DAEMON_SESSION_ID,
+      daemonGoal: process.env.CODER_DAEMON_GOAL,
     });
   }
 }
