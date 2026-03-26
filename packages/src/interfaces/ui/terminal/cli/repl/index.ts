@@ -175,8 +175,9 @@ export async function runCoderREPL(options: REPLOptions): Promise<void> {
         // Enable long-running memory when running under daemon supervisor
         ...(isDaemonWorker && {
           longRunning: {
+            enabled: true,
             sessionId: daemonSessionId,
-            storageDir: join(homedir(), ".claude", "daemon", "memory"),
+            originalGoal: daemonGoal,
           },
           longRunningGoal: daemonGoal,
         }),
