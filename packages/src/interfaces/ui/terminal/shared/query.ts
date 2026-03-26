@@ -3,8 +3,6 @@
  * Shared query runner for CLI -q mode
  */
 
-import { homedir } from "os";
-import { join } from "path";
 import type { Message, ToolDefinition, ExtendedThinkingConfig, GitStatus } from "../../../../schemas/index.js";
 import { agentLoop, formatCost, formatCostBrief, createResultConditionsConfig, type ResultConditionsConfig, RALPH_CONTINUATION_CONFIG } from "../../../../core/agent-loop.js";
 import { HookManager } from "../../../../ecosystem/hooks/index.js";
@@ -126,8 +124,9 @@ export async function runSingleQuery(options: QueryOptions): Promise<void> {
       // Enable long-running memory when running under daemon supervisor
       longRunning: isDaemonWorker
         ? {
+            enabled: true,
             sessionId: daemonSessionId,
-            storageDir: join(homedir(), ".claude", "daemon", "memory"),
+            originalGoal: daemonGoal,
           }
         : args.longRunning
           ? {
