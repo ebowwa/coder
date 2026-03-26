@@ -249,7 +249,7 @@ export function extractDiscoveryFromToolResult(
       category = "bug";
       importance = "high";
     } else if (content.includes("commit") || content.includes("pushed")) {
-      category = "milestone";
+      category = "other";  // Use "other" for milestones since "milestone" is not a valid category
       importance = "medium";
     }
   }
