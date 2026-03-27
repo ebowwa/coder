@@ -144,6 +144,9 @@ export async function executeTurn(
 
   const turnNumber = state.turnNumber;
 
+  // Track if we've logged repetition detection this turn (avoid spam)
+  let repetitionLoggedThisTurn = false;
+
   // Get context window for this model (used for compaction and token warnings)
   // IMPORTANT: Use contextWindow (e.g., 200000), NOT maxTokens (e.g., 4096)
   // maxTokens is the OUTPUT limit, contextWindow is the CONTEXT limit
@@ -205,7 +208,11 @@ export async function executeTurn(
     // Enable repetition detection for daemon mode to prevent loops
     enableRepetitionDetection: true,
     onRepetitionDetected: (phrase: string, count: number) => {
-      console.log(`\x1b[33m[RepetitionDetector] Detected loop: "${phrase.slice(0, 50)}..." (x${count})\x1b[0m`);
+      // Only log once per turn to avoid spamming output
+      if (!repetitionLoggedThisTurn) {
+        console.log(`\x1b[33m[RepetitionDetector] Detected loop: "${phrase.slice(0, 50)}..." (x${count})\x1b[0m`);
+        repetitionLoggedThisTurn = true;
+      }
       // Return true to force stop the stream
       return true;
     },

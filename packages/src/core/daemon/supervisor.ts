@@ -31,6 +31,100 @@ import { ChannelAlerter } from "./channel-alerts.js"
 import { AutoCommitter } from "./auto-commit.js"
 import { DaemonTelemetry } from "./telemetry.js"
 
+// ============================================
+// TURN TIMEOUT WATCHER
+// ============================================
+
+/**
+ * Watches for stuck turns and kills the worker if timeout exceeded.
+ *
+ * Two-stage timeout:
+ * 1. Soft timeout (turnTimeout): Log warning, prepare to kill
+ * 2. Hard timeout (stuckLoopKillTimeout): Actually kill the worker
+ */
+class TurnTimeoutWatcher extends EventEmitter {
+  private turnStartTime: number | null = null
+  private softTimeoutTimer: ReturnType<typeof setTimeout> | null = null
+  private hardTimeoutTimer: ReturnType<typeof setTimeout> | null = null
+  private softTimeoutMs: number
+  private hardTimeoutMs: number
+  private isEnabled: boolean
+  private hasKilled: boolean = false
+
+  constructor(config: { turnTimeout: number; stuckLoopKillTimeout: number; enabled: boolean }) {
+    super()
+    this.softTimeoutMs = config.turnTimeout
+    this.hardTimeoutMs = config.turnTimeout + config.stuckLoopKillTimeout
+    this.isEnabled = config.enabled
+  }
+
+  /**
+   * Called when a turn starts (worker produces first output)
+   */
+  startTurn(): void {
+    this.clearTimers()
+    this.turnStartTime = Date.now()
+    this.hasKilled = false
+
+    if (!this.isEnabled) return
+
+    // Soft timeout - log warning
+    this.softTimeoutTimer = setTimeout(() => {
+      const elapsed = Date.now() - (this.turnStartTime ?? 0)
+      console.log(`\x1b[33m[TurnTimeout] Turn running for ${Math.round(elapsed / 1000)}s - preparing to kill\x1b[0m`)
+      this.emit("softTimeout", elapsed)
+    }, this.softTimeoutMs)
+
+    // Hard timeout - actually kill
+    this.hardTimeoutTimer = setTimeout(() => {
+      const elapsed = Date.now() - (this.turnStartTime ?? 0)
+      console.log(`\x1b[31m[TurnTimeout] HARD TIMEOUT after ${Math.round(elapsed / 1000)}s - KILLING WORKER\x1b[0m`)
+      this.hasKilled = true
+      this.emit("hardTimeout", elapsed)
+    }, this.hardTimeoutMs)
+  }
+
+  /**
+   * Called when turn completes (worker produces meaningful output)
+   */
+  endTurn(): void {
+    if (this.turnStartTime) {
+      const duration = Date.now() - this.turnStartTime
+      if (duration > this.softTimeoutMs) {
+        console.log(`\x1b[90m[TurnTimeout] Turn completed after ${Math.round(duration / 1000)}s\x1b[0m`)
+      }
+    }
+    this.clearTimers()
+    this.turnStartTime = null
+  }
+
+  /**
+   * Check if the watcher has killed the worker
+   */
+  hasKilledWorker(): boolean {
+    return this.hasKilled
+  }
+
+  /**
+   * Stop all timers
+   */
+  stop(): void {
+    this.clearTimers()
+    this.turnStartTime = null
+  }
+
+  private clearTimers(): void {
+    if (this.softTimeoutTimer) {
+      clearTimeout(this.softTimeoutTimer)
+      this.softTimeoutTimer = null
+    }
+    if (this.hardTimeoutTimer) {
+      clearTimeout(this.hardTimeoutTimer)
+      this.hardTimeoutTimer = null
+    }
+  }
+}
+
 export class DaemonSupervisor extends EventEmitter {
   private config: DaemonConfig
   private state: DaemonState
@@ -47,6 +141,7 @@ export class DaemonSupervisor extends EventEmitter {
   private permanentFailureCount: number = 0
   private lastClassifiedError: ClassifiedError | null = null
   private observability: ObservabilityStack | null = null
+  private turnTimeoutWatcher: TurnTimeoutWatcher
 
   constructor(config: Partial<DaemonConfig> = {}) {
     super()
@@ -74,6 +169,13 @@ export class DaemonSupervisor extends EventEmitter {
       commitInterval: this.config.autoCommitInterval,
     })
     this.telemetry = new DaemonTelemetry()
+
+    // Initialize turn timeout watcher
+    this.turnTimeoutWatcher = new TurnTimeoutWatcher({
+      turnTimeout: this.config.turnTimeout,
+      stuckLoopKillTimeout: this.config.stuckLoopKillTimeout,
+      enabled: this.config.enableStuckLoopKill,
+    })
 
     // Initialize observability stack
     this.observability = createObservabilityStack(this.state.sessionId, {
@@ -130,6 +232,39 @@ export class DaemonSupervisor extends EventEmitter {
 
     this.healthMonitor.on("firstOutput", () => {
       console.log(`\x1b[32m[Daemon] Worker is producing output\x1b[0m`)
+    })
+
+    // Turn timeout watcher events
+    this.turnTimeoutWatcher.on("softTimeout", (elapsedMs: number) => {
+      console.log(`\x1b[33m[Daemon] Turn soft timeout (${Math.round(elapsedMs / 1000)}s) - will kill in ${Math.round(this.config.stuckLoopKillTimeout / 1000)}s\x1b[0m`)
+      // Emit alert but don't kill yet
+      if (this.alerter) {
+        this.alerter.sendStuckAlert(
+          `Turn timeout warning: ${Math.round(elapsedMs / 1000)}s`,
+          this.state.serialize()
+        ).catch(() => {})
+      }
+    })
+
+    this.turnTimeoutWatcher.on("hardTimeout", async (elapsedMs: number) => {
+      console.log(`\x1b[31m[Daemon] Turn hard timeout - KILLING WORKER after ${Math.round(elapsedMs / 1000)}s\x1b[0m`)
+
+      // Kill the worker process
+      if (this.childProcess) {
+        this.childProcess.kill("SIGKILL")
+        this.childProcess = null
+      }
+
+      // Alert about the kill
+      if (this.alerter) {
+        await this.alerter.sendStuckAlert(
+          `Worker KILLED due to timeout after ${Math.round(elapsedMs / 1000)}s`,
+          this.state.serialize()
+        )
+      }
+
+      // Trigger restart
+      await this.autoRestart.handleFailure(new Error(`Turn timeout: ${Math.round(elapsedMs / 1000)}s`))
     })
 
     // Process signals
@@ -235,9 +370,13 @@ export class DaemonSupervisor extends EventEmitter {
       this.healthMonitor.startMonitoring(this.childProcess.pid)
     }
 
+    // Start turn timeout watcher
+    this.turnTimeoutWatcher.startTurn()
+
     this.childProcess.on("exit", async (code, signal) => {
-      // Stop health monitoring
+      // Stop health monitoring and turn watcher
       this.healthMonitor.stopMonitoring()
+      this.turnTimeoutWatcher.stop()
       await this.handleWorkerExit(code, signal)
     })
 
@@ -252,6 +391,17 @@ export class DaemonSupervisor extends EventEmitter {
       this.emit("output", output)
       this.watchdog.recordProgress()
       this.healthMonitor.recordOutput(output)
+
+      // Detect turn boundaries for timeout management
+      // "[FSM] Starting turn X" indicates a new turn started
+      const turnStartMatch = output.match(/\[FSM\] Starting turn (\d+)/)
+      if (turnStartMatch) {
+        // End previous turn (if any) and start new turn timer
+        this.turnTimeoutWatcher.endTurn()
+        this.turnTimeoutWatcher.startTurn()
+        const turnNum = parseInt(turnStartMatch[1] ?? "0", 10)
+        console.log(`\x1b[90m[Daemon] Turn ${turnNum} started\x1b[0m`)
+      }
 
       // Track file activity from output
       if (this.observability) {
@@ -469,6 +619,7 @@ export class DaemonSupervisor extends EventEmitter {
 
     // Kill existing process
     if (this.childProcess) {
+      this.turnTimeoutWatcher.stop()
       this.childProcess.kill("SIGTERM")
       this.childProcess = null
     }
@@ -494,6 +645,9 @@ export class DaemonSupervisor extends EventEmitter {
 
     // Stop health monitoring
     this.healthMonitor.stopMonitoring()
+
+    // Stop turn timeout watcher
+    this.turnTimeoutWatcher.stop()
 
     // Stop components
     this.watchdog.stopMonitoring()

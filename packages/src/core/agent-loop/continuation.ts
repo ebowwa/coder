@@ -153,24 +153,30 @@ interface CompiledCondition extends ContinuationCondition {
 /**
  * Default continuation prompt - nudges model to keep working
  */
-export const DEFAULT_CONTINUATION_PROMPT = `Continue working on the task. Check your progress:
-- What have you completed?
-- What remains to be done?
-- Are there any tests to run or verify?
-- Do you need to commit your changes?
+export const DEFAULT_CONTINUATION_PROMPT = `YOU MUST USE A TOOL NOW. Do not just write text.
 
-Take the next logical step.`;
+Available actions:
+1. Read a file: Use the Read tool
+2. Edit code: Use the Edit tool
+3. Run a command: Use the Bash tool
+4. Search code: Use the Grep or Glob tool
+
+STOP writing explanations. USE A TOOL to make progress.`;
 
 /**
  * Stuck prompt - when model seems to be looping without progress
  */
-export const DEFAULT_STUCK_PROMPT = `You seem to be stuck. Let's reassess:
+export const DEFAULT_STUCK_PROMPT = `STOP. You are stuck in a loop writing text without using tools.
 
-1. What is the actual goal you're trying to achieve?
-2. What approaches have you tried?
-3. Is there a different way to approach this?
+REQUIRED: You MUST call a tool in your next response.
 
-If you're truly done, use a tool to verify (run tests, check build, etc.) and explain what was accomplished.`;
+Pick ONE action:
+- Read a file to understand the code
+- Run tests to verify changes
+- Edit a file to fix an issue
+- Search for patterns with Grep
+
+Do NOT write more text. CALL A TOOL NOW.`;
 
 /**
  * Work needed patterns - suggest more work is required
@@ -301,7 +307,7 @@ export const RALPH_CONTINUATION_CONFIG: ContinuationConfig = {
       priority: 10,
     },
   ],
-  maxContinuations: 100,
+  maxContinuations: 20, // Reduced from 100 - hard cap for safety
   defaultPrompt: DEFAULT_CONTINUATION_PROMPT,
   stuckPrompt: DEFAULT_STUCK_PROMPT,
   stuckThreshold: 5,
@@ -390,6 +396,18 @@ export function checkContinuation(
 
   // Check if stuck
   const isStuck = context.consecutiveContinuations >= config.stuckThreshold;
+
+  // HARD CAP: Force stop if severely stuck (2x stuck threshold)
+  // This prevents any possibility of infinite loops
+  const severeStuckThreshold = config.stuckThreshold * 2;
+  if (context.consecutiveContinuations >= severeStuckThreshold) {
+    return {
+      shouldContinue: false,
+      action: "stop",
+      reason: `Severely stuck - forcing stop after ${context.consecutiveContinuations} consecutive continuations (threshold: ${severeStuckThreshold})`,
+      isStuck: true,
+    };
+  }
 
   // === NEW: Check cooldown ===
   const cooldownTurns = config.cooldownTurns ?? 0;
@@ -487,16 +505,25 @@ export function checkContinuation(
   }
 
   // No condition matched - check for default behavior
-  // If no tools were used and model said end_turn, default to continue
+  // If no tools were used and model said end_turn, check if stuck first
   if (context.toolsUsedCount === 0) {
-    const prompt = isStuck ? config.stuckPrompt : config.defaultPrompt;
+    // CRITICAL: If stuck, STOP the loop - don't keep injecting prompts
+    if (isStuck) {
+      return {
+        shouldContinue: false,
+        action: "stop",
+        reason: `Model stuck with no tools used (${context.consecutiveContinuations} consecutive continuations)`,
+        isStuck: true,
+      };
+    }
 
+    // Not stuck yet - continue with default prompt
     return {
       shouldContinue: true,
       action: "inject_prompt",
       prompt: config.includeReasoning
-        ? `${prompt}\n\n[Continuation reason: Model ended without using tools]`
-        : prompt,
+        ? `${config.defaultPrompt}\n\n[Continuation reason: Model ended without using tools]`
+        : config.defaultPrompt,
       reason: "Model ended turn without using tools - default continuation",
       isStuck,
     };

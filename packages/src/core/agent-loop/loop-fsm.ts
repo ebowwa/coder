@@ -526,7 +526,14 @@ export function createAgentLoopFSMConfig(
       },
       error: {
         final: true,
-        entry: [log((ctx) => `Session error: ${ctx.state.lastError?.message ?? "Unknown error"}`)],
+        entry: [log((ctx) => {
+          const errorMsg = ctx.state.lastError?.message ?? "Unknown error";
+          // Distinguish abort errors (often intentional) from real errors
+          if (errorMsg.includes("aborted") || errorMsg.includes("AbortError")) {
+            return `Session aborted: ${errorMsg} (this is usually intentional - timeout or user cancel)`;
+          }
+          return `Session error: ${errorMsg}`;
+        })],
       },
     },
   };

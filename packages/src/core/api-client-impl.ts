@@ -593,11 +593,12 @@ export async function createMessageStream(
   const buffer = "";
 
   // Initialize repetition detector
+  // Note: Higher thresholds for code-heavy content (test files have repeated patterns)
   const repetitionDetector = enableRepetitionDetection
     ? createRepetitionDetector({
-        maxConsecutiveRepeats: 3,
-        windowSize: 150,
-        minPhraseLength: 15,
+        maxConsecutiveRepeats: 5, // Increased from 3 - test code has legitimate repeated patterns
+        windowSize: 200, // Increased from 150
+        minPhraseLength: 30, // Increased from 15 - avoid false positives on short patterns
         debug: process.env.DEBUG_REPETITION === "1",
       })
     : null;

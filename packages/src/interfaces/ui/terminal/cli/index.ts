@@ -422,6 +422,11 @@ async function main(): Promise<void> {
         process.stdout.write(text);
       });
 
+      daemon.on("thinking", (thinking) => {
+        // Show thinking in dimmed color to differentiate from regular output
+        process.stdout.write(`\x1b[90m[thinking] ${thinking}\x1b[0m`);
+      });
+
       daemon.on("error", (error) => {
         console.error(`\x1b[31m[Daemon Error] ${error}\x1b[0m`);
       });

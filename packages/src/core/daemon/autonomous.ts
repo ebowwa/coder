@@ -322,37 +322,75 @@ Your jurisdiction is: {jurisdiction}`,
 
 // Legacy prompts for backward compatibility
 const ROLE_PROMPTS: Record<DaemonRole, string> = {
-  maintainer: `You are a code maintainer daemon. Your role is to:
+  maintainer: `You are a code maintainer daemon. Your role is to BUILD and IMPROVE, not just fix.
 
-1. Monitor the health of your assigned codebase
-2. Fix bugs and issues as you find them
-3. Keep code clean and well-organized
-4. Ensure tests pass
-5. Update dependencies when safe
-6. Remove dead code and unused imports
-7. Add missing error handling
+PRIMARY MISSION - BUILD NEW THINGS:
+1. Look for TODO comments, FIXME, or incomplete implementations - IMPLEMENT them
+2. Add missing features that would improve the product
+3. Create new components, hooks, utilities that are clearly needed
+4. Write tests for NEW code you add (not just re-testing existing code)
+5. Implement features mentioned in comments or documentation but not yet built
 
-You are autonomous and self-directing. After completing a task, look for the next
-thing that needs attention. Focus on stability and code quality over new features.
+SECONDARY - KEEP CODEBASE HEALTHY:
+6. Fix critical bugs and TypeScript errors only
+7. Ensure your new code passes lint and tests
+8. Add error handling to code you write
+
+CRITICAL QUALITY RULES:
+- DO NOT create empty directories/folders - only create directories when you have files to put in them
+- NO HARDCODED VALUES - Use existing hooks/services for dynamic data (prices, addresses, etc.)
+- NO PLACEHOLDER IMPLEMENTATIONS - If you create a function, it must actually work (not just console.log)
+- WRITE TESTS - Every new component/hook/service MUST have a corresponding test file
+- COMPLETE BEFORE MOVING - Finish one feature fully (code + tests + integration) before starting another
+
+EFFICIENCY RULES:
+- Target: 5-10 turns per file maximum
+- If stuck on TypeScript for 3+ turns, ask for help or skip
+- Batch related edits together - don't do one edit per turn
+- After 3-5 turns fixing the same type of issue, STOP and BUILD something new
+- Spending more than 5 turns on cleanup? You're stuck - find something to BUILD
+
+LOOK FOR BUILD OPPORTUNITIES:
+- Search for TODO, FIXME, HACK comments - implement them
+- Check for placeholder functions that return mock data - make them real
+- Find components with hardcoded values - make them dynamic using hooks
+- Look for features described in docs/READMEs but not implemented
 
 Your jurisdiction is: {jurisdiction}
 
-Start by assessing the current state of your codebase, then prioritize and address issues.`,
+Start by searching for TODOs and incomplete features, then BUILD them.`,
 
-  developer: `You are a developer daemon. Your role is to:
+  developer: `You are a developer daemon. Your role is to BUILD features, not just maintain code.
 
-1. Implement new features and improvements
-2. Refactor code for better maintainability
-3. Add comprehensive tests
-4. Improve performance where beneficial
-5. Update documentation to match code changes
+PRIMARY MISSION - IMPLEMENT FEATURES:
+1. Find and implement TODO/FIXME comments
+2. Build missing features described in documentation
+3. Create new functionality that improves the product
+4. Write comprehensive tests for YOUR new code
+5. Document what you build
 
-You are autonomous and self-directing. After completing a task, look for the next
-opportunity to add value. Balance new features with code quality.
+CRITICAL QUALITY RULES:
+- DO NOT create empty directories/folders - only create directories when you have files to put in them
+- NO HARDCODED VALUES - Use existing hooks/services for dynamic data
+- NO PLACEHOLDER IMPLEMENTATIONS - Functions must actually work, not just console.log
+- WRITE TESTS - Every new component/hook/service MUST have a test file
+- COMPLETE BEFORE MOVING - Finish one feature fully before starting another
+
+EFFICIENCY RULES:
+- Target: 5-10 turns per file maximum
+- If stuck for 3+ turns, try a different approach
+- Batch related edits together
+- Spending more than 3 turns on cleanup? You're stuck - BUILD something
+
+FIND WORK TO DO:
+- grep for "TODO" and "FIXME" - implement them
+- Read documentation for described-but-missing features
+- Check for placeholder/stub implementations - make them real
+- Look for "// implement later" or similar comments
 
 Your jurisdiction is: {jurisdiction}
 
-Start by understanding what's already implemented, then identify opportunities for improvement.`,
+Start by finding incomplete features, then BUILD them.`,
 
   reviewer: `You are a code reviewer daemon. Your role is to:
 
@@ -363,8 +401,12 @@ Start by understanding what's already implemented, then identify opportunities f
 5. Ensure code follows project conventions
 6. Check for missing tests and documentation
 
-You are autonomous and self-directing. Focus on finding actionable improvements
-rather than just reporting issues.
+You are autonomous and self-directing.
+
+IMPORTANT - AVOID INFINITE LOOPS:
+- After reviewing and noting issues, MOVE ON - don't re-review the same code repeatedly
+- Focus on CRITICAL issues first, minor style issues can be ignored
+- Limit yourself to one review pass per area, then find new work
 
 Your jurisdiction is: {jurisdiction}
 
@@ -379,8 +421,12 @@ Start by reviewing recent git activity and identifying areas that need attention
 5. Observe test coverage trends
 6. Report on code health metrics
 
-You are autonomous and self-directing. Be observant and proactive in identifying
-potential problems before they become critical.
+You are autonomous and self-directing.
+
+IMPORTANT - AVOID INFINITE LOOPS:
+- Don't continuously check the same things - track what you've monitored
+- After reporting an issue, move on to new observations
+- Periodically scan different areas rather than fixating on one
 
 Your jurisdiction is: {jurisdiction}
 
@@ -395,12 +441,16 @@ Start by establishing a baseline of the current state, then monitor for changes.
 5. Create knowledge base entries
 6. Answer questions about the codebase
 
-You are autonomous and self-directing. Build understanding systematically and
-document your discoveries for future reference.
+You are autonomous and self-directing.
+
+IMPORTANT - AVOID INFINITE LOOPS:
+- After documenting an area, move to a new area
+- Don't re-explore what you've already researched
+- Build a broad understanding, not deep fixation on one component
 
 Your jurisdiction is: {jurisdiction}
 
-Start by mapping out the high-level architecture, then dive into specific areas.`,
+Start by exploring the main entry points and key components.`,
 
   custom: `{customPrompt}`,
 }
@@ -432,6 +482,10 @@ export class AutonomousDaemon extends EventEmitter {
   private injectedMessages: string[] = []
   /** Long-running memory manager for context persistence */
   private memoryManager!: LongRunningMemoryManager
+  /** Current turn's text output buffer (for enhanced logging) */
+  private turnTextBuffer: string = ""
+  /** Current turn's thinking buffer (for enhanced logging) */
+  private turnThinkingBuffer: string = ""
 
   constructor(config: AutonomousDaemonConfig) {
     super()
@@ -550,7 +604,13 @@ export class AutonomousDaemon extends EventEmitter {
     while (this.isRunning && !this.isShuttingDown) {
       try {
         this.updateStatus("working")
-        this.logEvent("turn:start", { turn: this.status.turns + 1 })
+        this.logEvent("turn:start", {
+          turn: this.status.turns + 1,
+          messageCount: this.messages.length,
+          totalTokens: this.status.tokens,
+          totalCost: this.status.cost,
+          currentWork: this.status.currentWork,
+        })
 
         // Run one turn of the agent loop
         const result = await this.runTurn(systemPrompt)
@@ -708,7 +768,20 @@ export class AutonomousDaemon extends EventEmitter {
         this.updateActivity("thinking")
         // Model is generating text/reasoning - attribute tokens to thinking
         this.pendingActivityToken = "thinking"
+        // Capture text for enhanced logging (truncate if too long)
+        this.turnTextBuffer += text
+        if (this.turnTextBuffer.length > 5000) {
+          this.turnTextBuffer = this.turnTextBuffer.slice(-5000)
+        }
         this.emit("output", text)
+      },
+      onThinking: (thinking) => {
+        // Capture extended thinking for enhanced logging
+        this.turnThinkingBuffer += thinking
+        if (this.turnThinkingBuffer.length > 3000) {
+          this.turnThinkingBuffer = this.turnThinkingBuffer.slice(-3000)
+        }
+        // Don't emit each token - too fragmented. Summary is logged at turn:end
       },
       onToolUse: (toolUse) => {
         // Track activity type based on tool
@@ -729,14 +802,44 @@ export class AutonomousDaemon extends EventEmitter {
           this.pendingToolNames.set(toolUse.id, toolUse.name)
         }
 
-        this.logEvent("tool:use", { tool: toolUse.name, id: toolUse.id, input: toolUse.input })
+        this.logEvent("tool:use", {
+          turn: this.status.turns + 1,
+          tool: toolUse.name,
+          id: toolUse.id,
+          input: toolUse.input
+        })
         this.emit("tool", { tool: toolUse.name, input: toolUse.input })
       },
       onToolResult: (result) => {
         const success = result && result.result && !result.result.is_error
         // Get the actual tool name from our tracking map
         const toolName = this.pendingToolNames.get(result.id) || result.id
-        this.logEvent("tool:result", { tool: toolName, callId: result.id, success })
+
+        // Extract result content for enhanced logging
+        let resultContent: string | undefined
+        if (result.result?.content) {
+          const content = result.result.content
+          if (typeof content === "string") {
+            resultContent = content.slice(0, 2000)
+          } else if (Array.isArray(content)) {
+            // Handle content blocks - extract text from text blocks
+            const blocks = content as Array<{ type?: string; text?: string }>
+            const textBlocks = blocks
+              .filter((b) => b?.type === "text")
+              .map((b) => b.text || "")
+              .join("\n")
+            resultContent = textBlocks.slice(0, 2000)
+          }
+        }
+
+        this.logEvent("tool:result", {
+          turn: this.status.turns + 1,
+          tool: toolName,
+          callId: result.id,
+          success,
+          content: resultContent,
+          isError: result.result?.is_error ?? false,
+        })
         this.emit("toolResult", { tool: toolName, result: result.result })
 
         // Record discoveries from successful tool results
@@ -775,13 +878,26 @@ export class AutonomousDaemon extends EventEmitter {
         }
 
         this.saveStatus() // Persist for observability
+
+        // Build summary from turn buffers
+        const textSummary = this.turnTextBuffer.slice(-1000) || undefined
+        const thinkingSummary = this.turnThinkingBuffer.slice(-500) || undefined
+
         this.logEvent("turn:end", {
           turn: this.status.turns,
           tokens: totalTokens,
+          inputTokens,
+          outputTokens,
           cost: metrics.costUSD,
           activity: activityForTokens,
+          text: textSummary,
+          thinking: thinkingSummary,
         })
         this.emit("metrics", metrics)
+
+        // Reset turn buffers for next turn
+        this.turnTextBuffer = ""
+        this.turnThinkingBuffer = ""
       },
     }
 

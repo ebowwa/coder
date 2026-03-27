@@ -101,6 +101,17 @@ export interface DaemonConfig {
 
   /** Max permanent failures before giving up */
   maxPermanentFailures: number
+
+  // --- TIMEOUT SAFEGUARDS ---
+
+  /** Hard timeout for a single turn (ms) - kills worker if exceeded */
+  turnTimeout: number
+
+  /** Time after stuck detection before auto-kill (ms) */
+  stuckLoopKillTimeout: number
+
+  /** Enable auto-kill on stuck loops */
+  enableStuckLoopKill: boolean
 }
 
 /**
@@ -138,4 +149,8 @@ export const DEFAULT_DAEMON_CONFIG: DaemonConfig = {
   workerNoOutputTimeout: 120000,
   enableSingletonLock: true,
   maxPermanentFailures: 2,
+  // TIMEOUT SAFEGUARDS
+  turnTimeout: 60000, // 60s hard timeout per turn
+  stuckLoopKillTimeout: 30000, // Kill 30s after stuck detection
+  enableStuckLoopKill: true, // Auto-kill stuck loops
 }
