@@ -1,0 +1,103 @@
+# Agent Evaluation CI
+# Runs evaluation suites on PRs and main branch changes
+# Based on LangChain Agent Evaluation Readiness Checklist
+
+name: Agent Eval
+
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - 'packages/src/eval/**'
+      - 'packages/src/core/**'
+      - '.github/workflows/eval.yml'
+  pull_request:
+    branches: [dev]
+    paths:
+      - 'packages/src/eval/**'
+      - 'packages/src/core/**'
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: 'Eval suite to run'
+        required: false
+        default: 'capability-core'
+        type: choice
+        options:
+          - capability-core
+          - capability-tools
+          - capability-errors
+          - capability-bash
+          - capability-file-writing
+          - capability-code-review
+          - capability-workflows
+          - regression-core
+          - all
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build
+        run: bun run build
+
+      - name: List available suites
+        run: bun run cli --eval
+
+      - name: Run eval suite (dry-run)
+        if: github.event_name == 'pull_request'
+        run: |
+          # Dry-run mode just displays suite structure
+          # Full execution requires API keys and is run manually
+          bun run cli --eval ${{ github.event.inputs.suite || 'capability-core' }}
+        env:
+          CI: true
+
+      - name: Run regression suite
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
+        run: bun run cli --eval regression-core
+        env:
+          CI: true
+
+  metrics:
+    runs-on: ubuntu-latest
+    needs: eval
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Analyze session metrics
+        run: bun run cli --eval analyze
+        env:
+          CI: true
+
+      - name: Upload eval results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-results
+          path: ./eval-results/
+          retention-days: 30

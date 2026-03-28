@@ -22,6 +22,17 @@ bun run cli          # Run CLI directly
 bun test             # Run tests
 ```
 
+### Eval System
+- Located in `packages/src/eval/`
+- CLI: `coder --eval` (list suites), `coder --eval <suite>` (run), `coder --eval analyze` (session analysis)
+- Run tests: `bun test packages/src/eval/`
+- Session logs: `~/.claude/sessions/*.jsonl`
+- Task categories: file_operations, tool_selection, error_handling, multi_step_workflows, context_compaction, import_detection, bash_execution, file_writing, code_review
+- 8 Suites: capability-core, capability-tools, capability-errors, capability-bash, capability-file-writing, capability-code-review, capability-workflows, regression-core
+- 25+ tasks derived from real session data
+- Three evaluation levels: run (single-step), trace (full-turn), thread (multi-turn)
+- See `CLAUDE.md` for eval setup and CLI commands
+
 ### Git Workflow
 - Default branch: `dev`
 - Stable releases: `main`
