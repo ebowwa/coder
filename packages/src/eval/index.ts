@@ -108,6 +108,25 @@ export {
 } from "./runners/offline.js";
 
 // ============================================
+// THREAD-LEVEL RUNNER
+// ============================================
+
+export {
+  // Thread-level evaluation (N-1 testing pattern)
+  extractThreadTask,
+  buildThreadDataset,
+  evaluateThreadTask,
+  runThreadEvaluation,
+  generateThreadReport,
+  // Types
+  type ThreadEvalDimension,
+  type ThreadTask,
+  type ThreadEvalResult,
+  type ThreadDatasetConfig,
+  type ThreadEvalConfig,
+} from "./runners/thread.js";
+
+// ============================================
 // CONVENIENCE FUNCTIONS
 // ============================================
 
@@ -162,3 +181,33 @@ export async function batchEval(
 
   return results;
 }
+
+// ============================================
+// TELEMETRY
+// ============================================
+
+export type {
+  // Telemetry types
+  SessionTelemetry,
+  SuiteTelemetry,
+  TurnTiming,
+  LatencyPercentiles,
+  ToolInvocationMetrics,
+  ToolStatistics,
+  ErrorCategory,
+  ErrorRecord,
+  ErrorStatistics,
+  StateMetrics,
+  TransitionRecord,
+  TransitionPathAnalysis,
+  CostBreakdown,
+  CostEfficiency,
+  QualityMetrics,
+  ExportFormat,
+  ExportOptions,
+} from "./telemetry/index.js";
+
+export {
+  TelemetryCollector,
+  buildSuiteTelemetry,
+} from "./telemetry/index.js";

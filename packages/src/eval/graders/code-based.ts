@@ -22,6 +22,7 @@ import type {
 } from "../types.js";
 import type { AgentLoopResult } from "../../schemas/agent-loop.zod.js";
 import type { TextBlock, ToolUseBlock, ToolResultBlock } from "../../schemas/index.js";
+import { evaluateCriterionWithLLM, type LLMJudgeConfig } from "./llm-judge.js";
 
 // ============================================
 // GRADER REGISTRY
@@ -88,18 +89,59 @@ graderRegistry.set("not_equals", async (criterion, result, trace, workingDir) =>
 graderRegistry.set("contains", async (criterion, result, trace, workingDir) => {
   const start = Date.now();
   const actual = extractValue(criterion.target, result, trace, workingDir);
-  const expected = String(criterion.expected);
-  const actualStr = typeof actual === "string" ? actual : JSON.stringify(actual);
-  const passed = actualStr.includes(expected);
+  const expected = criterion.expected;
+
+  // Handle undefined/null actual values
+  if (actual === undefined || actual === null) {
+    return {
+      criterionId: criterion.id,
+      passed: false,
+      reason: `Value is ${actual === undefined ? 'undefined' : 'null'}, cannot check contains`,
+      actual,
+      expected,
+      durationMs: Date.now() - start,
+    };
+  }
+
+  let passed = false;
+  let actualStr: string;
+  let expectedStr: string;
+
+  // If expected is an object (like { name: "Read" }), check if array contains matching item
+  if (typeof expected === "object" && expected !== null && !Array.isArray(expected)) {
+    const expectedObj = expected as Record<string, unknown>;
+    if (Array.isArray(actual)) {
+      // Check if any item in the array has all the expected properties
+      passed = actual.some(item => {
+        if (typeof item === "object" && item !== null) {
+          return Object.entries(expectedObj).every(([key, value]) =>
+            (item as Record<string, unknown>)[key] === value
+          );
+        }
+        return false;
+      });
+      actualStr = JSON.stringify(actual);
+      expectedStr = JSON.stringify(expected);
+    } else {
+      actualStr = typeof actual === "string" ? actual : JSON.stringify(actual);
+      expectedStr = JSON.stringify(expected);
+      passed = actualStr.includes(expectedStr);
+    }
+  } else {
+    // String or primitive comparison
+    expectedStr = String(expected);
+    actualStr = typeof actual === "string" ? actual : JSON.stringify(actual);
+    passed = actualStr.includes(expectedStr);
+  }
 
   return {
     criterionId: criterion.id,
     passed,
     reason: passed
-      ? `Value contains: "${expected}"`
-      : `Value does not contain "${expected}"`,
+      ? `Value contains: "${expectedStr}"`
+      : `Value does not contain "${expectedStr}"`,
     actual: actualStr,
-    expected,
+    expected: expectedStr,
     durationMs: Date.now() - start,
   };
 });
@@ -111,6 +153,19 @@ graderRegistry.set("not_contains", async (criterion, result, trace, workingDir) 
   const start = Date.now();
   const actual = extractValue(criterion.target, result, trace, workingDir);
   const expected = String(criterion.expected);
+
+  // Handle undefined/null actual values
+  if (actual === undefined || actual === null) {
+    return {
+      criterionId: criterion.id,
+      passed: true, // If value doesn't exist, it doesn't contain anything
+      reason: `Value is ${actual === undefined ? 'undefined' : 'null'}, correctly does not contain "${expected}"`,
+      actual: actual === undefined ? 'undefined' : 'null',
+      expected,
+      durationMs: Date.now() - start,
+    };
+  }
+
   const actualStr = typeof actual === "string" ? actual : JSON.stringify(actual);
   const passed = !actualStr.includes(expected);
 
@@ -324,6 +379,235 @@ graderRegistry.set("file_exists", async (criterion, result, trace, workingDir) =
 });
 
 /**
+ * Contains any check - matches if any of the expected values are found
+ */
+graderRegistry.set("contains_any", async (criterion, result, trace, workingDir) => {
+  const start = Date.now();
+  const actual = extractValue(criterion.target, result, trace, workingDir);
+  const expectedValues = Array.isArray(criterion.expected)
+    ? criterion.expected
+    : [criterion.expected];
+
+  // Handle undefined/null actual values
+  if (actual === undefined || actual === null) {
+    return {
+      criterionId: criterion.id,
+      passed: false,
+      reason: `Value is ${actual === undefined ? 'undefined' : 'null'}, cannot check contains_any`,
+      actual,
+      expected: expectedValues,
+      durationMs: Date.now() - start,
+    };
+  }
+
+  let passed = false;
+  let matchedValue: unknown = null;
+  const actualStr = typeof actual === "string" ? actual : JSON.stringify(actual);
+
+  for (const expected of expectedValues) {
+    // Handle object matching (like { name: "Read" })
+    if (typeof expected === "object" && expected !== null && !Array.isArray(expected)) {
+      const expectedObj = expected as Record<string, unknown>;
+      if (Array.isArray(actual)) {
+        passed = actual.some(item => {
+          if (typeof item === "object" && item !== null) {
+            return Object.entries(expectedObj).every(([key, value]) =>
+              (item as Record<string, unknown>)[key] === value
+            );
+          }
+          return false;
+        });
+        if (passed) {
+          matchedValue = expected;
+          break;
+        }
+      }
+    } else {
+      // String matching
+      const expectedStr = String(expected);
+      if (actualStr.toLowerCase().includes(expectedStr.toLowerCase())) {
+        passed = true;
+        matchedValue = expected;
+        break;
+      }
+    }
+  }
+
+  return {
+    criterionId: criterion.id,
+    passed,
+    reason: passed
+      ? `Value contains one of: ${JSON.stringify(matchedValue)}`
+      : `Value does not contain any of: ${JSON.stringify(expectedValues)}`,
+    actual: actualStr.slice(0, 200),
+    expected: expectedValues,
+    durationMs: Date.now() - start,
+  };
+});
+
+/**
+ * Matches any check - regex match against any of multiple patterns
+ */
+graderRegistry.set("matches_any", async (criterion, result, trace, workingDir) => {
+  const start = Date.now();
+  const actual = extractValue(criterion.target, result, trace, workingDir);
+  const patterns = Array.isArray(criterion.expected)
+    ? criterion.expected
+    : [criterion.expected];
+  const actualStr = typeof actual === "string" ? actual : JSON.stringify(actual);
+
+  let passed = false;
+  let matchedPattern: string | null = null;
+
+  for (const pattern of patterns) {
+    try {
+      const regex = new RegExp(String(pattern), "si"); // case-insensitive
+      if (regex.test(actualStr)) {
+        passed = true;
+        matchedPattern = String(pattern);
+        break;
+      }
+    } catch {
+      // Invalid regex, skip
+    }
+  }
+
+  return {
+    criterionId: criterion.id,
+    passed,
+    reason: passed
+      ? `Value matches pattern: ${matchedPattern}`
+      : `Value does not match any pattern: ${JSON.stringify(patterns)}`,
+    actual: actualStr.slice(0, 200),
+    expected: patterns,
+    durationMs: Date.now() - start,
+  };
+});
+
+/**
+ * Count check - exact count match
+ */
+graderRegistry.set("count", async (criterion, result, trace, workingDir) => {
+  const start = Date.now();
+  const actual = extractValue(criterion.target, result, trace, workingDir);
+  const expected = Number(criterion.expected);
+  const actualCount = Array.isArray(actual) ? actual.length : Number(actual) || 0;
+  const passed = actualCount === expected;
+
+  return {
+    criterionId: criterion.id,
+    passed,
+    reason: passed
+      ? `Count equals expected: ${expected}`
+      : `Expected count ${expected}, got ${actualCount}`,
+    actual: actualCount,
+    expected,
+    durationMs: Date.now() - start,
+  };
+});
+
+/**
+ * Count min check - minimum count
+ */
+graderRegistry.set("count_min", async (criterion, result, trace, workingDir) => {
+  const start = Date.now();
+  const actual = extractValue(criterion.target, result, trace, workingDir);
+  const minCount = Number(criterion.expected);
+  const actualCount = Array.isArray(actual) ? actual.length : Number(actual) || 0;
+  const passed = actualCount >= minCount;
+
+  return {
+    criterionId: criterion.id,
+    passed,
+    reason: passed
+      ? `Count ${actualCount} >= minimum ${minCount}`
+      : `Count ${actualCount} is less than minimum ${minCount}`,
+    actual: actualCount,
+    expected: `>= ${minCount}`,
+    durationMs: Date.now() - start,
+  };
+});
+
+/**
+ * Count max check - maximum count
+ */
+graderRegistry.set("count_max", async (criterion, result, trace, workingDir) => {
+  const start = Date.now();
+  const actual = extractValue(criterion.target, result, trace, workingDir);
+  const maxCount = Number(criterion.expected);
+  const actualCount = Array.isArray(actual) ? actual.length : Number(actual) || 0;
+  const passed = actualCount <= maxCount;
+
+  return {
+    criterionId: criterion.id,
+    passed,
+    reason: passed
+      ? `Count ${actualCount} <= maximum ${maxCount}`
+      : `Count ${actualCount} exceeds maximum ${maxCount}`,
+    actual: actualCount,
+    expected: `<= ${maxCount}`,
+    durationMs: Date.now() - start,
+  };
+});
+
+/**
+ * Sequence check - verify items appear in order
+ */
+graderRegistry.set("sequence", async (criterion, result, trace, workingDir) => {
+  const start = Date.now();
+  const actual = extractValue(criterion.target, result, trace, workingDir);
+  const expectedSequence = Array.isArray(criterion.expected)
+    ? criterion.expected
+    : [criterion.expected];
+
+  if (!Array.isArray(actual)) {
+    return {
+      criterionId: criterion.id,
+      passed: false,
+      reason: "Actual value is not an array, cannot check sequence",
+      actual,
+      expected: expectedSequence,
+      durationMs: Date.now() - start,
+    };
+  }
+
+  // For tool_calls_sequence, actual is already an array of tool names
+  const actualArr = actual;
+  let lastIndex = -1;
+  let passed = true;
+  let failedAt: number | null = null;
+
+  for (let i = 0; i < expectedSequence.length; i++) {
+    const expected = expectedSequence[i];
+    const currentIndex = actualArr.findIndex((item, idx) => {
+      if (idx <= lastIndex) return false;
+      if (typeof expected === "object" && typeof item === "object") {
+        return JSON.stringify(item).includes(JSON.stringify(expected).slice(1, -1));
+      }
+      return String(item).toLowerCase().includes(String(expected).toLowerCase());
+    });
+
+    if (currentIndex === -1) {
+      passed = false;
+      failedAt = i;
+      break;
+    }
+    lastIndex = currentIndex;
+  }
+
+  return {
+    criterionId: criterion.id,
+    passed,
+    reason: passed
+      ? `Sequence found in order: ${JSON.stringify(expectedSequence)}`
+      : `Sequence broken at item ${failedAt}: ${JSON.stringify(expectedSequence[failedAt!])}`,
+    actual: actualArr,
+    expected: expectedSequence,
+    durationMs: Date.now() - start,
+  };
+});
+
+/**
  * File contains check
  */
 graderRegistry.set("file_contains", async (criterion, result, trace, workingDir) => {
@@ -355,6 +639,41 @@ graderRegistry.set("file_contains", async (criterion, result, trace, workingDir)
       : `File does not contain: "${searchContent.slice(0, 50)}..."`,
     actual: actualContent.slice(0, 100),
     expected: searchContent,
+    durationMs: Date.now() - start,
+  };
+});
+
+/**
+ * LLM-as-Judge evaluation - uses LLM to evaluate subjective criteria
+ * Expected format: { dimensions: string[], threshold: number, model?: string }
+ */
+graderRegistry.set("llm_judge", async (criterion, result, trace, workingDir) => {
+  const start = Date.now();
+
+  // Extract judge config from expected
+  const expected = criterion.expected as Record<string, unknown>;
+  const dimensions = (expected?.dimensions as string[]) ?? ["correctness", "quality", "completeness"];
+  const threshold = (expected?.threshold as number) ?? 0.7;
+  const model = (expected?.model as string) ?? "glm-5";
+
+  // Build judge config from env
+  const judgeConfig: LLMJudgeConfig = {
+    model,
+    apiKey: process.env.ANTHROPIC_API_KEY ?? process.env.API_KEY ?? "",
+    baseUrl: process.env.ANTHROPIC_BASE_URL,
+    dimensions,
+    threshold,
+  };
+
+  // Run LLM judge
+  const judgeResult = await evaluateCriterionWithLLM(criterion, result, trace, judgeConfig);
+
+  return {
+    criterionId: criterion.id,
+    passed: judgeResult.passed,
+    reason: judgeResult.reasoning,
+    actual: judgeResult.criteria,
+    expected: { dimensions, threshold },
     durationMs: Date.now() - start,
   };
 });
@@ -391,11 +710,26 @@ function extractValue(
 
     case "tool_call": {
       const toolCalls = trace.toolCalls;
-      const filtered = target.toolName
+      const filtered = (target as { toolName?: string }).toolName
         ? toolCalls.filter((tc) => tc.name === target.toolName)
         : toolCalls;
-      const index = target.index ?? 0;
+      const index = (target as { index?: number }).index ?? 0;
       return filtered[index];
+    }
+
+    case "tool_calls": {
+      // Return all tool calls as array
+      return trace.toolCalls;
+    }
+
+    case "tool_calls_sequence": {
+      // Return tool call names in order
+      return trace.toolCalls.map((tc) => tc.name);
+    }
+
+    case "tool_call_count": {
+      // Return count of tool calls
+      return trace.toolCalls.length;
     }
 
     case "tool_result": {
@@ -424,6 +758,25 @@ function extractValue(
       // Check file changes for state mutations
       const changes = trace.fileChanges;
       return changes.find((fc) => fc.path.includes(target.key));
+    }
+
+    case "state_changes": {
+      // Return all state changes (from stateTransitions)
+      return trace.stateTransitions.map((st) => ({
+        from: st.from,
+        to: st.to,
+        event: st.event,
+      }));
+    }
+
+    case "file_changes": {
+      // Return all file changes
+      return trace.fileChanges;
+    }
+
+    case "error_count": {
+      // Return count of errors
+      return trace.toolCalls.filter((tc) => tc.success === false || tc.isError).length;
     }
 
     case "trajectory": {
@@ -478,13 +831,28 @@ export async function evaluateCriterion(
   trace: EvalTrace,
   workingDir?: string
 ): Promise<CriterionResult> {
-  const grader = graderRegistry.get(criterion.condition);
+  // Extract operator from condition (supports both string and object formats)
+  const operatorRaw = typeof criterion.condition === "string"
+    ? criterion.condition
+    : (criterion.condition as { operator?: ConditionOperator }).operator;
+
+  // Handle missing or invalid operator
+  if (!operatorRaw) {
+    return {
+      criterionId: criterion.id,
+      passed: false,
+      reason: "Missing condition operator",
+      durationMs: 0,
+    };
+  }
+
+  const grader = graderRegistry.get(operatorRaw);
 
   if (!grader) {
     return {
       criterionId: criterion.id,
       passed: false,
-      reason: `Unknown condition operator: ${criterion.condition}`,
+      reason: `Unknown condition operator: ${operatorRaw}`,
       durationMs: 0,
     };
   }

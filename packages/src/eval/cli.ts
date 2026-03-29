@@ -29,6 +29,12 @@ import { coreFunctionalityRegressionSuite } from "./suites/regression-suite.js";
 // Import all tasks
 import * as tasks from "./tasks/index.js";
 
+// Import calibration
+import {
+  calibrateJudge,
+  type CalibrationExample,
+} from "./graders/llm-judge.js";
+
 // ============================================
 // SUITE REGISTRY
 // ============================================
@@ -397,6 +403,98 @@ export async function runEval(suiteName: string): Promise<void> {
   console.log(`\x1b[90mTo execute, use: coder --eval run ${suiteName} --execute\x1b[0m`);
 }
 
+/**
+ * Run LLM-as-judge calibration against human-labeled examples
+ */
+async function runCalibration(args: string[]): Promise<void> {
+  console.log("\n\x1b[36m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\x1b[0m");
+  console.log("\x1b[33mLLM-as-Judge Calibration\x1b[0m");
+  console.log("\x1b[36m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\x1b[0m\n");
+
+  const apiKey = process.env.ANTHROPIC_API_KEY ?? process.env.API_KEY ?? "";
+  if (!apiKey) {
+    console.log("\x1b[31mError: No API key found. Set ANTHROPIC_API_KEY or API_KEY.\x1b[0m");
+    return;
+  }
+
+  // Parse options
+  const calibrationFile = args.find(a => !a.startsWith("--") && a.endsWith(".json"));
+  const model = args.find(a => a.startsWith("--model="))?.split("=")[1] ?? "glm-5";
+  const threshold = parseFloat(args.find(a => a.startsWith("--threshold="))?.split("=")[1] ?? "0.7");
+
+  // Debug output
+  if (args.includes("--verbose") || args.includes("-v")) {
+    console.log(`\x1b[90mDEBUG: args = ${JSON.stringify(args)}\x1b[0m`);
+    console.log(`\x1b[90mDEBUG: threshold arg = ${args.find(a => a.startsWith("--threshold="))}\x1b[0m`);
+    console.log(`\x1b[90mDEBUG: parsed threshold = ${threshold}\x1b[0m`);
+  }
+
+  if (!calibrationFile) {
+    console.log("\x1b[33mUsage: coder --eval calibrate <examples.json> [--model=claude-sonnet-4-20250514] [--threshold=0.7]\x1b[0m");
+    console.log("\n\x1b[90mExamples file format:\x1b[0m");
+    console.log(`  [
+    {
+      "input": "task input",
+      "output": "agent output",
+      "expectedPass": true,
+      "dimensions": ["correctness", "quality"]
+    }
+  ]`);
+    return;
+  }
+
+  try {
+    // Load calibration examples
+    const examples: CalibrationExample[] = JSON.parse(readFileSync(calibrationFile, "utf-8"));
+
+    console.log(`\x1b[90mLoaded ${examples.length} calibration examples\x1b[0m`);
+    console.log(`\x1b[90mModel: ${model}\x1b[0m`);
+    console.log(`\x1b[90mThreshold: ${threshold}\x1b[0m\n`);
+
+    // Run calibration
+    console.log("\x1b[36m▶ Running calibration...\x1b[0m");
+    const result = await calibrateJudge(examples, {
+      model,
+      apiKey,
+      threshold,
+    });
+
+    // Display results
+    console.log("\n\x1b[36m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\x1b[0m");
+    console.log("\x1b[33mCalibration Results\x1b[0m");
+    console.log("\x1b[36m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\x1b[0m\n");
+
+    console.log(`  Accuracy:     ${(result.accuracy * 100).toFixed(1)}%`);
+    console.log(`  Precision:    ${(result.precision * 100).toFixed(1)}%`);
+    console.log(`  Recall:       ${(result.recall * 100).toFixed(1)}%`);
+    console.log(`  F1 Score:     ${result.f1.toFixed(3)}`);
+    console.log(`  Correlation:  ${result.correlation.toFixed(3)}\n`);
+
+    // Show confusion matrix
+    console.log("\x1b[33mConfusion Matrix:\x1b[0m");
+    console.log(`  True Positives:  ${result.truePositives}`);
+    console.log(`  True Negatives:  ${result.trueNegatives}`);
+    console.log(`  False Positives: ${result.falsePositives}`);
+    console.log(`  False Negatives: ${result.falseNegatives}\n`);
+
+    // Recommendations
+    if (result.accuracy < 0.7) {
+      console.log("\x1b[33m⚠ Calibration accuracy below 70%. Consider:\x1b[0m");
+      console.log("  - Adding more calibration examples");
+      console.log("  - Adjusting the threshold");
+      console.log("  - Improving the judge prompt");
+    } else if (result.accuracy >= 0.9) {
+      console.log("\x1b[32m✓ Judge is well-calibrated!\x1b[0m");
+    } else {
+      console.log("\x1b[33m✓ Judge calibration is acceptable. Continue monitoring.\x1b[0m");
+    }
+
+  } catch (error) {
+    console.error(`\x1b[31mCalibration failed: ${error}\x1b[0m`);
+    process.exitCode = 1;
+  }
+}
+
 // ============================================
 // MAIN ENTRY POINT
 // ============================================
@@ -417,6 +515,10 @@ export async function handleEvalCommand(args: string[]): Promise<void> {
 
     case "analyze":
       analyzeSessions(args[1]);
+      break;
+
+    case "calibrate":
+      await runCalibration(args.slice(1));
       break;
 
     case "capability":

@@ -325,7 +325,11 @@ export async function evaluateCriterionWithLLM(
 // CALIBRATION SUPPORT
 // ============================================
 
-export interface CalibrationExample {
+/**
+ * Calibration input for calculateCalibration function
+ * (uses full eval structures)
+ */
+export interface CalibrationInput {
   task: EvalTask;
   result: AgentLoopResult;
   trace: EvalTrace;
@@ -380,6 +384,187 @@ export function calculateCalibration(
     ).length / predictions.length;
 
   return { mae, correlation, accuracy };
+}
+
+// ============================================
+// CALIBRATION SUPPORT
+// ============================================
+
+/**
+ * Calibration example with human label
+ */
+export interface CalibrationExample {
+  /** Input/task description */
+  input: string;
+  /** Agent output to evaluate */
+  output: string;
+  /** Whether human labeled this as pass */
+  expectedPass: boolean;
+  /** Human score (0-1) if available */
+  expectedScore?: number;
+  /** Dimensions to evaluate */
+  dimensions?: string[];
+  /** Additional context */
+  context?: string;
+}
+
+/**
+ * Calibration config
+ */
+export interface CalibrationConfig extends LLMJudgeConfig {
+  /** Threshold for pass/fail */
+  threshold: number;
+}
+
+/**
+ * Calibration result
+ */
+export interface CalibrationResult {
+  /** Overall accuracy */
+  accuracy: number;
+  /** Precision (of positive predictions) */
+  precision: number;
+  /** Recall (of actual positives) */
+  recall: number;
+  /** F1 score */
+  f1: number;
+  /** Pearson correlation with human scores */
+  correlation: number;
+  /** Confusion matrix */
+  truePositives: number;
+  trueNegatives: number;
+  falsePositives: number;
+  falseNegatives: number;
+  /** Per-example predictions */
+  predictions: Array<{
+    example: CalibrationExample;
+    predicted: boolean;
+    predictedScore: number;
+    correct: boolean;
+  }>;
+}
+
+/**
+ * Run calibration of LLM-as-judge against human-labeled examples
+ */
+export async function calibrateJudge(
+  examples: CalibrationExample[],
+  config: CalibrationConfig
+): Promise<CalibrationResult> {
+  const predictions: CalibrationResult["predictions"] = [];
+  let truePositives = 0;
+  let trueNegatives = 0;
+  let falsePositives = 0;
+  let falseNegatives = 0;
+
+  for (const example of examples) {
+    // Build a minimal criterion for evaluation
+    const criterion: SuccessCriterion = {
+      id: "calibration-check",
+      target: { type: "final_response" },
+      condition: "llm_judge",
+      expected: {
+        dimensions: example.dimensions ?? ["correctness", "quality", "completeness"],
+        threshold: config.threshold,
+        model: config.model,
+      },
+    };
+
+    // Build minimal task for evaluation
+    const task: EvalTask = {
+      id: "calibration-task",
+      name: "Calibration Task",
+      description: example.input,
+      category: "calibration",
+      level: "core",
+      type: "code_modification",
+      difficulty: "medium",
+      input: { prompt: example.input },
+      successCriteria: {
+        criteria: [criterion],
+        aggregator: "all",
+      },
+    };
+
+    // Build minimal result and trace with proper message format
+    const result: AgentLoopResult = {
+      messages: [
+        { role: "user", content: [{ type: "text", text: example.input }] },
+        { role: "assistant", content: [{ type: "text", text: example.output }] },
+      ],
+      totalCost: 0,
+      totalDuration: 0,
+      metrics: [],
+      compactionCount: 0,
+      totalCacheMetrics: {
+        totalCacheReadTokens: 0,
+        totalCacheWriteTokens: 0,
+        totalCacheReadCost: 0,
+        totalCacheWriteCost: 0,
+      },
+      totalTokensCompacted: 0,
+    };
+
+    const trace: EvalTrace = {
+      taskId: "calibration",
+      toolCalls: [],
+      stateTransitions: [],
+      fileChanges: [],
+      errors: [],
+    };
+
+    // Run LLM judge with correct argument order: criterion, config, task, result, trace
+    const judgeResult = await evaluateCriterionWithLLM(criterion, config, task, result, trace);
+    const predicted = judgeResult.passed;
+    const predictedScore = judgeResult.score;
+    const actual = example.expectedPass;
+    const correct = predicted === actual;
+
+    // Update confusion matrix
+    if (predicted && actual) truePositives++;
+    else if (!predicted && !actual) trueNegatives++;
+    else if (predicted && !actual) falsePositives++;
+    else falseNegatives++;
+
+    predictions.push({
+      example,
+      predicted,
+      predictedScore,
+      correct,
+    });
+  }
+
+  // Calculate metrics
+  const total = examples.length;
+  const accuracy = (truePositives + trueNegatives) / total;
+  const precision = truePositives / (truePositives + falsePositives) || 0;
+  const recall = truePositives / (truePositives + falseNegatives) || 0;
+  const f1 = (2 * precision * recall) / (precision + recall) || 0;
+
+  // Calculate correlation if human scores provided
+  let correlation = 0;
+  const scoredExamples = examples.filter((e) => e.expectedScore !== undefined);
+  if (scoredExamples.length > 1) {
+    const correlationInput = scoredExamples.map((e, i) => ({
+      predicted: predictions.find((p) => p.example === e)?.predictedScore ?? 0,
+      actual: e.expectedScore!,
+    }));
+    const calResult = calculateCalibration(correlationInput);
+    correlation = calResult.correlation;
+  }
+
+  return {
+    accuracy,
+    precision,
+    recall,
+    f1,
+    correlation,
+    truePositives,
+    trueNegatives,
+    falsePositives,
+    falseNegatives,
+    predictions,
+  };
 }
 
 // ============================================

@@ -27,6 +27,12 @@ export type ConditionOperator =
   | "contains"
   | "not_contains"
   | "matches"
+  | "matches_any"
+  | "contains_any"
+  | "sequence"
+  | "count"
+  | "count_min"
+  | "count_max"
   | "greater_than"
   | "less_than"
   | "exists"
@@ -37,25 +43,34 @@ export type ConditionOperator =
   | "file_contains";
 
 /**
+ * Condition object format (used by task definitions)
+ */
+export interface ConditionObject {
+  operator: ConditionOperator;
+}
+
+/**
  * Single success criterion - atomic, unambiguous check
  */
 export interface SuccessCriterion {
   /** Unique identifier */
   id: string;
   /** Human-readable description */
-  description: string;
+  description?: string;
   /** Category for grouping (e.g., "file_operations", "tool_selection") */
-  category: string;
+  category?: string;
   /** What to check */
   target: SuccessTarget;
-  /** How to check */
-  condition: ConditionOperator;
+  /** How to check - supports both string and object format */
+  condition: ConditionOperator | ConditionObject;
   /** Expected value (for comparison operators) */
   expected?: string | number | boolean | object;
   /** Weight for partial credit (default: 1) */
   weight?: number;
   /** Whether this criterion is required (default: true) */
   required?: boolean;
+  /** Priority for ordering (used by some task formats) */
+  priority?: number;
 }
 
 /**
@@ -63,11 +78,17 @@ export interface SuccessCriterion {
  */
 export type SuccessTarget =
   | { type: "final_response" } // Check the agent's final text response
-  | { type: "tool_call"; toolName?: string; index?: number } // Check tool calls
+  | { type: "tool_call"; toolName?: string; index?: number } // Check specific tool call
+  | { type: "tool_calls" } // Check all tool calls (array)
+  | { type: "tool_calls_sequence" } // Check tool call sequence (names)
+  | { type: "tool_call_count" } // Check tool call count
   | { type: "tool_result"; toolId?: string } // Check tool results
   | { type: "file_path"; path: string } // Check file existence/content
   | { type: "file_content"; path: string } // Check file content
+  | { type: "file_changes" } // Check file changes array
   | { type: "state_change"; key: string } // Check state mutations
+  | { type: "state_changes" } // Check all state changes
+  | { type: "error_count" } // Check error count
   | { type: "trajectory"; pathPattern: string } // Check execution path
   | { type: "metric"; name: string } // Check metrics (cost, turns, etc.)
   | { type: "fsm_state" } // Check final FSM state
@@ -152,7 +173,7 @@ export interface EvalTask {
   /** Metadata */
   metadata?: {
     tags?: string[];
-    source?: "handwritten" | "dogfood" | "benchmark" | "production";
+    source?: "handwritten" | "dogfood" | "benchmark" | "production" | "session-derived";
     createdAt?: string;
     updatedAt?: string;
     author?: string;
@@ -179,6 +200,8 @@ export interface RunLevelInput {
   context?: Record<string, unknown>;
   /** The decision point */
   prompt: string;
+  /** Setup steps to execute before the task */
+  setupSteps?: Array<string | { action: string; path: string; content?: string }>;
 }
 
 /**
@@ -186,14 +209,18 @@ export interface RunLevelInput {
  */
 export interface TraceLevelInput {
   level: "trace";
-  /** Initial messages */
-  messages: Message[];
+  /** Initial messages (optional - will be derived from prompt if not provided) */
+  messages?: Message[];
   /** Available tools */
   tools?: string[];
   /** Working directory context */
   workingDirectory?: string;
   /** Git status context */
   gitStatus?: { branch: string; clean: boolean };
+  /** Prompt (required if messages not provided) */
+  prompt?: string;
+  /** Setup steps to execute before the task */
+  setupSteps?: Array<string | { action: string; path: string; content?: string }>;
 }
 
 /**
@@ -201,12 +228,14 @@ export interface TraceLevelInput {
  */
 export interface ThreadLevelInput {
   level: "thread";
-  /** Conversation prefix (N-1 turns) */
-  conversationPrefix: Message[];
-  /** The final turn prompt */
-  finalPrompt: string;
+  /** Conversation prefix (N-1 turns) - optional, derived from prompt if not provided */
+  conversationPrefix?: Message[];
+  /** The final turn prompt - optional if prompt is provided */
+  finalPrompt?: string;
   /** Expected context retention */
   expectedContext?: string[];
+  /** Prompt (used as finalPrompt if conversationPrefix empty) */
+  prompt?: string;
 }
 
 /**
@@ -253,21 +282,39 @@ export interface EvalResult {
   /** Reason for pass/fail */
   reason: string;
   /** Execution trace */
-  trace: EvalTrace;
+  trace?: EvalTrace;
+  /** Session ID */
+  sessionId?: string;
   /** Metrics collected during execution */
   metrics: EvalMetrics;
   /** Timestamp */
   timestamp: number;
   /** Model used */
   model: string;
-  /** Session ID */
-  sessionId: string;
 }
 
 /**
  * Execution trace for analysis
  */
 export interface EvalTrace {
+  /** Session identifier */
+  sessionId?: string;
+  /** Trace timestamp */
+  timestamp?: Date | number;
+  /** Evaluation level */
+  level?: EvaluationLevel;
+  /** Input that generated this trace */
+  input?: EvalTaskInput;
+  /** Output from execution */
+  output?: {
+    response?: string;
+    toolCalls?: Array<{
+      name: string;
+      input: unknown;
+      output?: unknown;
+      isError?: boolean;
+    }>;
+  };
   /** FSM state transitions */
   stateTransitions: Array<{
     from: AgentLoopState;
@@ -281,7 +328,9 @@ export interface EvalTrace {
     name: string;
     input: unknown;
     result?: ToolResult;
+    output?: unknown;
     success: boolean;
+    isError?: boolean;
     timestamp: number;
   }>;
   /** Files modified */
@@ -299,6 +348,59 @@ export interface EvalTrace {
     stack?: string;
     recoverable: boolean;
   };
+  /** Metrics collected during trace */
+  metrics?: {
+    durationMs?: number;
+    tokenUsage?: {
+      input: number;
+      output: number;
+      total?: number;
+    };
+    costUSD?: number;
+  };
+}
+
+/**
+ * Loaded session from storage (for analysis)
+ */
+export interface LoadedSession {
+  metadata: {
+    sessionId?: string;
+    model?: string;
+    workingDirectory?: string;
+    startTime?: string;
+    costUSD?: number;
+    durationMs?: number;
+    inputTokens?: number;
+    outputTokens?: number;
+    totalTokens?: number;
+    [key: string]: unknown;
+  };
+  messages: Array<{
+    role?: string;
+    content?: string | unknown[];
+    [key: string]: unknown;
+  }>;
+  tools: Array<{
+    name?: string;
+    toolName?: string;
+    input?: unknown;
+    output?: unknown;
+    isError?: boolean;
+    [key: string]: unknown;
+  }>;
+  metrics: Array<{
+    costUSD?: number;
+    durationMs?: number;
+    usage?: {
+      input_tokens?: number;
+      output_tokens?: number;
+    };
+    messageTokens?: number;
+    [key: string]: unknown;
+  }>;
+  context: Record<string, unknown>;
+  checkpoints: Array<unknown>;
 }
 
 /**
@@ -394,6 +496,8 @@ export interface EvalSuiteResult {
   commitHash?: string;
   /** Model version */
   model: string;
+  /** Suite-level telemetry (if collection enabled) */
+  telemetry?: import("./telemetry/types.js").SuiteTelemetry;
 }
 
 // ============================================
@@ -444,6 +548,12 @@ export const ConditionOperatorSchema = z.enum([
   "contains",
   "not_contains",
   "matches",
+  "matches_any",
+  "contains_any",
+  "sequence",
+  "count",
+  "count_min",
+  "count_max",
   "greater_than",
   "less_than",
   "exists",
@@ -457,10 +567,16 @@ export const ConditionOperatorSchema = z.enum([
 export const SuccessTargetSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("final_response") }),
   z.object({ type: z.literal("tool_call"), toolName: z.string().optional(), index: z.number().optional() }),
+  z.object({ type: z.literal("tool_calls") }),
+  z.object({ type: z.literal("tool_calls_sequence") }),
+  z.object({ type: z.literal("tool_call_count") }),
   z.object({ type: z.literal("tool_result"), toolId: z.string().optional() }),
   z.object({ type: z.literal("file_path"), path: z.string() }),
   z.object({ type: z.literal("file_content"), path: z.string() }),
+  z.object({ type: z.literal("file_changes") }),
   z.object({ type: z.literal("state_change"), key: z.string() }),
+  z.object({ type: z.literal("state_changes") }),
+  z.object({ type: z.literal("error_count") }),
   z.object({ type: z.literal("trajectory"), pathPattern: z.string() }),
   z.object({ type: z.literal("metric"), name: z.string() }),
   z.object({ type: z.literal("fsm_state") }),
@@ -469,13 +585,14 @@ export const SuccessTargetSchema = z.discriminatedUnion("type", [
 
 export const SuccessCriterionSchema = z.object({
   id: z.string(),
-  description: z.string(),
-  category: z.string(),
+  description: z.string().optional(),
+  category: z.string().optional(),
   target: SuccessTargetSchema,
-  condition: ConditionOperatorSchema,
+  condition: z.union([ConditionOperatorSchema, z.object({ operator: ConditionOperatorSchema })]),
   expected: z.union([z.string(), z.number(), z.boolean(), z.object({})]).optional(),
   weight: z.number().default(1),
   required: z.boolean().default(true),
+  priority: z.number().optional(),
 });
 
 export const SuccessCriteriaConfigSchema = z.object({
@@ -504,7 +621,7 @@ export const EvalTaskSchema = z.object({
   referenceSolution: z.custom<ReferenceSolution>().optional(),
   metadata: z.object({
     tags: z.array(z.string()).optional(),
-    source: z.enum(["handwritten", "dogfood", "benchmark", "production"]).optional(),
+    source: z.enum(["handwritten", "dogfood", "benchmark", "production", "session-derived"]).optional(),
     createdAt: z.string().optional(),
     updatedAt: z.string().optional(),
     author: z.string().optional(),
