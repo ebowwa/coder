@@ -417,10 +417,17 @@ async function runCalibration(args: string[]): Promise<void> {
     return;
   }
 
+  // Debug: always show args for debugging
+  console.log(`\x1b[90mDEBUG: args = ${JSON.stringify(args)}\x1b[0m`);
+
   // Parse options
   const calibrationFile = args.find(a => !a.startsWith("--") && a.endsWith(".json"));
   const model = args.find(a => a.startsWith("--model="))?.split("=")[1] ?? "glm-5";
   const threshold = parseFloat(args.find(a => a.startsWith("--threshold="))?.split("=")[1] ?? "0.7");
+  const baseUrl = args.find(a => a.startsWith("--base-url="))?.split("=")[1];
+
+  console.log(`\x1b[90mDEBUG: threshold arg = ${args.find(a => a.startsWith("--threshold="))}\x1b[0m`);
+  console.log(`\x1b[90mDEBUG: parsed threshold = ${threshold}\x1b[0m`);
 
   // Debug output
   if (args.includes("--verbose") || args.includes("-v")) {
@@ -452,11 +459,14 @@ async function runCalibration(args: string[]): Promise<void> {
     console.log(`\x1b[90mThreshold: ${threshold}\x1b[0m\n`);
 
     // Run calibration
+    const verbose = args.includes("--verbose") || args.includes("-v");
     console.log("\x1b[36m▶ Running calibration...\x1b[0m");
     const result = await calibrateJudge(examples, {
       model,
       apiKey,
+      baseUrl,
       threshold,
+      verbose,
     });
 
     // Display results
