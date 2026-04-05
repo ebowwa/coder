@@ -20,7 +20,10 @@ import {
   type LoadedConfig,
   type SettingsConfig,
 } from "../../../../core/config-loader.js";
-import { createSecurityHookHandlers } from "../../../../ecosystem/cognitive-security/hooks.js";
+import type { EcosystemPlugin } from "../../../../ecosystem/plugin.js";
+import { createCognitiveSecurityPlugin } from "../../../../ecosystem/cognitive-security/plugin.js";
+import { createPromptsPlugin } from "../../../../ecosystem/prompts/plugin.js";
+import { createDaemonPlugin } from "../../../../ecosystem/daemon/plugin.js";
 import type { CLIArgs } from "./args.js";
 
 // ============================================
@@ -194,27 +197,6 @@ export async function setupSession(options: SetupOptions): Promise<SessionSetup>
     log(`  Hooks registered: ${Object.keys(hookDefinitions).length} events`);
   }
 
-  // Register cognitive security hooks (in-process handlers)
-  // When bypassPermissions is set, disable all security checks
-  const isBypassMode = permissionMode === "bypassPermissions";
-  const securityHandlers = createSecurityHookHandlers({
-    enabled: !isBypassMode, // Disable entirely in bypass mode
-    checkIntentAlignment: !isBypassMode,
-    enforceFlowPolicies: !isBypassMode,
-    preventLeaks: !isBypassMode,
-    trackTaints: !isBypassMode,
-    logEvents: true, // Always log for audit trail
-    blockOnViolation: false, // Never block - log only
-    minAlignmentScore: 0.3,
-    approvalRequiredSensitivities: ["secret", "top_secret"],
-  });
-
-  hookManager.registerHandler("SessionStart", securityHandlers.SessionStart);
-  hookManager.registerHandler("PreToolUse", securityHandlers.PreToolUse);
-  hookManager.registerHandler("PostToolUse", securityHandlers.PostToolUse);
-  hookManager.registerHandler("UserPromptSubmit", securityHandlers.UserPromptSubmit);
-  hookManager.registerHandler("SessionEnd", securityHandlers.SessionEnd);
-
   // Load skills from project
   const skillsDir = workingDirectory + "/.claude/skills";
   skillManager.loadFromDirectory(skillsDir, "project");
@@ -288,6 +270,34 @@ export async function setupSession(options: SetupOptions): Promise<SessionSetup>
     ...builtInTools,
     ...mcpToolsToToolDefinitions(mcpClients),
   ];
+
+  // ============================================
+  // ECOSYSTEM PLUGINS
+  // ============================================
+
+  const isBypassMode = permissionMode === "bypassPermissions";
+
+  const plugins: EcosystemPlugin[] = [
+    createCognitiveSecurityPlugin({
+      enabled: !isBypassMode,
+      checkIntentAlignment: !isBypassMode,
+      enforceFlowPolicies: !isBypassMode,
+      preventLeaks: !isBypassMode,
+      trackTaints: !isBypassMode,
+      logEvents: true,
+      blockOnViolation: false,
+      minAlignmentScore: 0.3,
+      approvalRequiredSensitivities: ["secret", "top_secret"],
+    }),
+    createPromptsPlugin(),
+    createDaemonPlugin(),
+  ];
+
+  const pluginCtx = { hookManager, skillManager, tools, config: {} };
+  for (const plugin of plugins) {
+    await plugin.register(pluginCtx);
+    log(`  Plugin registered: ${plugin.name}`);
+  }
 
   return {
     loadedConfig,

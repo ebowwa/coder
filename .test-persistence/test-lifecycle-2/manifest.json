@@ -1,7 +1,7 @@
 {
   "sessionId": "test-lifecycle-2",
-  "createdAt": 1775414867908,
-  "updatedAt": 1775414867909,
+  "createdAt": 1775415170683,
+  "updatedAt": 1775415170683,
   "interrupted": false,
   "templateName": null,
   "totalTurns": 0,
@@ -9,5 +9,5 @@
   "checkpointCount": 0,
   "workingDirectory": "/Users/ebowwa/Desktop/codespaces/packages/src/coder",
   "model": "unknown",
-  "endedAt": 1775414867909
+  "endedAt": 1775415170683
 }
