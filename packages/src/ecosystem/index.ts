@@ -53,6 +53,44 @@ export {
 // Re-export tool types from schemas
 export type { ToolDefinition, ToolResult, ToolContext } from "../schemas/index.js";
 
+// Cognitive Security
+export * from "./cognitive-security/index.js";
+
+// Prompts (identity, directives, builders)
+export {
+  buildBaseSystemPrompt,
+  buildIdentitySection,
+  buildCorePrinciplesSection,
+  buildBehavioralPatternsSection,
+  buildDirectivesSection,
+  buildGitWorkflowSection,
+  IDENTITY_PROMPT,
+  CORE_PRINCIPLES,
+  BEHAVIORAL_PATTERNS,
+  DOING_TASKS_PROMPT,
+  INTERNAL_PATTERNS,
+  IMPORTANT_DIRECTIVES,
+  GIT_WORKFLOW_DIRECTIVES,
+  getDirectivesByCategory,
+  getAllDirectives,
+  getGitWorkflowDirectives,
+  formatDirectivesForPrompt,
+} from "./prompts/index.js";
+export type { Directive } from "./prompts/index.js";
+
+// Daemon (quality gate, task lifecycle, service management)
+export { verifyQualityGate, buildRetryPrompt } from "./daemon/quality-gate.js";
+export {
+  isTaskFileExhausted,
+  buildAuditPrompt,
+  parseAuditResponseToTasks,
+  runLifecycleCheck,
+  completeLifecycleCycle,
+} from "./daemon/task-lifecycle.js";
+export { installService } from "./daemon/service/install.js";
+export { uninstallService } from "./daemon/service/uninstall.js";
+export { getServiceStatus } from "./daemon/service/status.js";
+
 // Presets (teammate templates)
 export {
   TeammateTemplateManager,
