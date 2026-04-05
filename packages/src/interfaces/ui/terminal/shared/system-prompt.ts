@@ -7,7 +7,7 @@
 
 import { loadClaudeMd, buildClaudeMdPrompt } from "../../../../core/claude-md.js";
 import { getGitStatus } from "../../../../core/git-status.js";
-import { buildBaseSystemPrompt } from "../../../../core/prompts/index.js";
+import { buildBaseSystemPrompt } from "../../../../ecosystem/prompts/index.js";
 
 // ============================================
 // GIT STATUS TYPE
