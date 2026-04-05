@@ -216,6 +216,41 @@ export class RoomManager {
     const room = this.rooms.get(code);
     return room ? Array.from(room.players.values()) : [];
   }
+
+  // Spectator methods
+  joinAsSpectator(code: string, spectatorId: string, spectatorName: string, spectatorColor: number): RoomState | null {
+    const room = this.rooms.get(code);
+    if (!room) return null;
+
+    const spectator: SpectatorInfo = {
+      id: spectatorId,
+      name: spectatorName,
+      color: spectatorColor,
+      isConnected: true,
+    };
+
+    room.spectators.set(spectatorId, spectator);
+    this.spectatorRooms.set(spectatorId, code);
+    return room;
+  }
+
+  leaveAsSpectator(spectatorId: string): RoomState | null {
+    const code = this.spectatorRooms.get(spectatorId);
+    if (!code) return null;
+
+    const room = this.rooms.get(code);
+    if (!room) return null;
+
+    room.spectators.delete(spectatorId);
+    this.spectatorRooms.delete(spectatorId);
+
+    return room;
+  }
+
+  getSpectators(code: string): SpectatorInfo[] {
+    const room = this.rooms.get(code);
+    return room ? Array.from(room.spectators.values()) : [];
+  }
 }
 
 export const roomManager = new RoomManager();

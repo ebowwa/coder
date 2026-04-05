@@ -2,7 +2,7 @@
  * Leaderboard system - persistent score storage
  */
 
-import { existsSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import { mkdirSync } from "fs";
 
 export interface LeaderboardEntry {
@@ -39,8 +39,7 @@ class LeaderboardManager {
       }
 
       if (existsSync(LEADERBOARD_FILE)) {
-        const file = Bun.file(LEADERBOARD_FILE);
-        const content = file.textSync();
+        const content = readFileSync(LEADERBOARD_FILE, 'utf-8');
         return JSON.parse(content);
       }
     } catch (error) {

@@ -282,6 +282,14 @@ export class MultiplayerSync {
     this.send('chat', { message });
   }
 
+  joinAsSpectator(roomCode: string, playerName?: string, playerColor?: number): void {
+    this.send('join-as-spectator', {
+      roomCode,
+      playerName: playerName || this.state.playerName,
+      playerColor: playerColor ?? this.state.playerColor,
+    });
+  }
+
   // Event subscription
   on(type: MessageType, handler: MessageHandler): () => void {
     if (!this.handlers.has(type)) {
