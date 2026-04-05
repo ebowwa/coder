@@ -1,14 +1,16 @@
 /**
  * Room management for multiplayer Hangman
+ * Supports players and spectators
  */
 
-import type { PlayerInfo, RoomState, MultiplayerRound } from './types';
+import type { PlayerInfo, RoomState, MultiplayerRound, SpectatorInfo } from './types';
 import { generateRoomCode } from './types';
 import { getRandomWord } from '../words';
 
 export class RoomManager {
   private rooms: Map<string, RoomState> = new Map();
   private playerRooms: Map<string, string> = new Map(); // playerId -> roomCode
+  private spectatorRooms: Map<string, string> = new Map(); // spectatorId -> roomCode
 
   createRoom(playerId: string, playerName: string, playerColor: number): RoomState | null {
     const code = generateRoomCode();
@@ -19,12 +21,14 @@ export class RoomManager {
       score: 0,
       isConnected: true,
       isHost: true,
+      isSpectator: false,
     };
 
     const room: RoomState = {
       code,
       hostId: playerId,
       players: new Map([[playerId, player]]),
+      spectators: new Map(),
       currentTurnIndex: 0,
       currentRound: null,
       status: 'waiting',

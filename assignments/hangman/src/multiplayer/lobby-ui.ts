@@ -1,5 +1,6 @@
 /**
  * Lobby UI - DOM overlay for creating/joining rooms with 4-digit code
+ * Includes chat system and spectator mode
  */
 
 import type {
@@ -9,6 +10,8 @@ import type {
   RoomUpdatedPayload,
   GameStartedPayload,
   ErrorPayload,
+  ChatPayload,
+  SpectatorJoinedPayload,
 } from './types';
 import { PLAYER_COLORS, generatePlayerColor } from './types';
 import type { MultiplayerSync } from './sync';
@@ -22,6 +25,13 @@ export interface LobbyUIOptions {
   onLeaveRoom?: () => void;
 }
 
+interface ChatMessage {
+  playerName: string;
+  playerId: string;
+  message: string;
+  timestamp: number;
+}
+
 export class LobbyUI {
   private container: HTMLDivElement;
   private overlay: HTMLDivElement;
@@ -31,6 +41,8 @@ export class LobbyUI {
   private playerName: string;
   private playerColor: number;
   private unsubscribers: (() => void)[] = [];
+  private chatMessages: ChatMessage[] = [];
+  private isSpectator: boolean = false;
 
   constructor(sync: MultiplayerSync, options: LobbyUIOptions = {}) {
     this.sync = sync;
@@ -85,6 +97,8 @@ export class LobbyUI {
     const unsub1 = this.sync.on('room-created', (msg) => {
       const payload = msg.payload as RoomCreatedPayload;
       this.currentView = 'lobby';
+      this.isSpectator = false;
+      this.chatMessages = [];
       this.renderLobbyView(payload.players, payload.roomCode, true);
       this.options.onRoomCreated?.(payload);
     });
@@ -92,6 +106,7 @@ export class LobbyUI {
     const unsub2 = this.sync.on('room-joined', (msg) => {
       const payload = msg.payload as RoomJoinedPayload;
       this.currentView = 'lobby';
+      this.chatMessages = [];
       this.renderLobbyView(payload.players, payload.roomCode, false);
       this.options.onRoomJoined?.(payload);
     });
@@ -116,7 +131,72 @@ export class LobbyUI {
       this.options.onError?.(payload);
     });
 
-    this.unsubscribers.push(unsub1, unsub2, unsub3, unsub4, unsub5);
+    // Chat handler
+    const unsub6 = this.sync.on('chat', (msg) => {
+      const payload = msg.payload as ChatPayload;
+      this.addChatMessage(payload);
+    });
+
+    // Spectator joined handler
+    const unsub7 = this.sync.on('spectator-joined', (msg) => {
+      const payload = msg.payload as SpectatorJoinedPayload;
+      this.addSystemMessage(`${payload.spectator.name} joined as spectator`);
+    });
+
+    this.unsubscribers.push(unsub1, unsub2, unsub3, unsub4, unsub5, unsub6, unsub7);
+  }
+
+  private addChatMessage(payload: ChatPayload): void {
+    this.chatMessages.push({
+      playerName: payload.playerName,
+      playerId: payload.playerId,
+      message: payload.message,
+      timestamp: payload.timestamp,
+    });
+    this.updateChatDisplay();
+  }
+
+  private addSystemMessage(message: string): void {
+    this.chatMessages.push({
+      playerName: 'System',
+      playerId: 'system',
+      message,
+      timestamp: Date.now(),
+    });
+    this.updateChatDisplay();
+  }
+
+  private updateChatDisplay(): void {
+    const chatMessages = document.getElementById('chat-messages');
+    if (!chatMessages) return;
+
+    const state = this.sync.getState();
+    const messagesHtml = this.chatMessages.slice(-50).map(msg => {
+      const isMe = msg.playerId === state.playerId;
+      const isSystem = msg.playerId === 'system';
+      const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      
+      if (isSystem) {
+        return `<div style="color: #888; font-size: 0.8em; padding: 4px 8px; text-align: center;">${msg.message}</div>`;
+      }
+      
+      return `
+        <div style="padding: 4px 8px; ${isMe ? 'background: rgba(78, 205, 196, 0.1);' : ''}">
+          <span style="color: #4ecdc4; font-size: 0.8em;">${msg.playerName}</span>
+          <span style="color: #666; font-size: 0.7em; margin-left: 5px;">${time}</span>
+          <div style="color: #fff; font-size: 0.9em; word-wrap: break-word;">${this.escapeHtml(msg.message)}</div>
+        </div>
+      `;
+    }).join('');
+
+    chatMessages.innerHTML = messagesHtml;
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
+  private escapeHtml(text: string): string {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
   }
 
   private renderMainView(): void {
@@ -247,7 +327,20 @@ export class LobbyUI {
           font-weight: bold;
           cursor: pointer;
           transition: transform 0.2s, box-shadow 0.2s;
-        ">Join Room</button>
+        ">Join as Player</button>
+
+        <button id="join-spectator-btn" style="
+          width: 100%;
+          padding: 12px;
+          background: transparent;
+          border: 2px solid #aa96da;
+          border-radius: 10px;
+          color: #aa96da;
+          font-size: 0.95em;
+          cursor: pointer;
+          margin-top: 10px;
+          transition: background 0.3s;
+        ">Join as Spectator</button>
 
         <button id="single-player-btn" style="
           width: 100%;
@@ -258,7 +351,7 @@ export class LobbyUI {
           color: #888;
           font-size: 0.95em;
           cursor: pointer;
-          margin-top: 20px;
+          margin-top: 10px;
           transition: border-color 0.3s, color 0.3s;
         ">Play Single Player</button>
 
@@ -300,6 +393,7 @@ export class LobbyUI {
     const nameInput = document.getElementById('player-name') as HTMLInputElement;
     const createBtn = document.getElementById('create-room-btn');
     const joinBtn = document.getElementById('join-room-btn');
+    const joinSpectatorBtn = document.getElementById('join-spectator-btn');
     const singlePlayerBtn = document.getElementById('single-player-btn');
     const roomCodeInput = document.getElementById('room-code') as HTMLInputElement;
     const colorPicker = document.getElementById('color-picker');
@@ -342,6 +436,7 @@ export class LobbyUI {
         return;
       }
 
+      this.isSpectator = false;
       if (!this.sync.isConnected()) {
         this.sync.connect().then(() => {
           this.sync.setPlayerInfo(this.playerName, this.playerColor);
@@ -353,6 +448,28 @@ export class LobbyUI {
       } else {
         this.sync.setPlayerInfo(this.playerName, this.playerColor);
         this.sync.joinRoom(code, this.playerName, this.playerColor);
+      }
+    });
+
+    joinSpectatorBtn?.addEventListener('click', () => {
+      const code = roomCodeInput?.value.trim();
+      if (!code || code.length !== 4) {
+        this.showError('Please enter a valid 4-digit room code');
+        return;
+      }
+
+      this.isSpectator = true;
+      if (!this.sync.isConnected()) {
+        this.sync.connect().then(() => {
+          this.sync.setPlayerInfo(this.playerName, this.playerColor);
+          this.sync.joinAsSpectator(code, this.playerName, this.playerColor);
+        }).catch((err) => {
+          this.showError('Failed to connect to server');
+          console.error(err);
+        });
+      } else {
+        this.sync.setPlayerInfo(this.playerName, this.playerColor);
+        this.sync.joinAsSpectator(code, this.playerName, this.playerColor);
       }
     });
 
@@ -371,14 +488,14 @@ export class LobbyUI {
 
   private renderLobbyView(players: PlayerInfo[], roomCode: string, isHost: boolean): void {
     const state = this.sync.getState();
-    const canStart = players.length >= 1 && isHost;
+    const canStart = players.length >= 1 && isHost && !this.isSpectator;
 
     this.overlay.innerHTML = `
       <div style="
         background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
         border-radius: 20px;
         padding: 40px;
-        max-width: 500px;
+        max-width: 600px;
         width: 90%;
         box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
         border: 1px solid rgba(255, 255, 255, 0.1);
@@ -393,29 +510,74 @@ export class LobbyUI {
             text-shadow: 0 0 20px rgba(78, 205, 196, 0.5);
           ">${roomCode}</div>
           <p style="color: #666; margin: 10px 0 0 0; font-size: 0.85em;">Share this code with friends to join!</p>
+          ${this.isSpectator ? '<p style="color: #aa96da; margin: 5px 0 0 0; font-size: 0.9em;">You are spectating</p>' : ''}
         </div>
 
-        <div style="margin-bottom: 25px;">
-          <div style="
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-          ">
-            <span style="color: #aaa; font-size: 0.9em;">Players (${players.length}/8)</span>
-            ${isHost ? '<span style="color: #4ecdc4; font-size: 0.85em;">You are the host</span>' : ''}
+        <div style="display: flex; gap: 20px;">
+          <!-- Players List -->
+          <div style="flex: 1; margin-bottom: 20px;">
+            <div style="
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              margin-bottom: 15px;
+            ">
+              <span style="color: #aaa; font-size: 0.9em;">Players (${players.length}/8)</span>
+              ${isHost ? '<span style="color: #4ecdc4; font-size: 0.85em;">You are the host</span>' : ''}
+            </div>
+            <div id="player-list" style="
+              background: rgba(0, 0, 0, 0.3);
+              border-radius: 10px;
+              padding: 15px;
+              min-height: 100px;
+              max-height: 200px;
+              overflow-y: auto;
+            ">
+              ${players.map(p => this.renderPlayerItem(p, p.id === state.playerId)).join('')}
+            </div>
           </div>
-          <div id="player-list" style="
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 10px;
-            padding: 15px;
-            min-height: 100px;
-          ">
-            ${players.map(p => this.renderPlayerItem(p, p.id === state.playerId)).join('')}
+
+          <!-- Chat Panel -->
+          <div style="flex: 1; margin-bottom: 20px;">
+            <span style="color: #aaa; font-size: 0.9em; display: block; margin-bottom: 15px;">Chat</span>
+            <div style="
+              background: rgba(0, 0, 0, 0.3);
+              border-radius: 10px;
+              padding: 10px;
+              height: 200px;
+              display: flex;
+              flex-direction: column;
+            ">
+              <div id="chat-messages" style="
+                flex: 1;
+                overflow-y: auto;
+                margin-bottom: 10px;
+                font-size: 0.9em;
+              "></div>
+              <div style="display: flex; gap: 8px;">
+                <input type="text" id="chat-input" placeholder="Type a message..." style="
+                  flex: 1;
+                  padding: 8px 12px;
+                  border: 1px solid #333;
+                  border-radius: 5px;
+                  background: #0f0f1a;
+                  color: #fff;
+                  font-size: 0.9em;
+                ">
+                <button id="send-chat-btn" style="
+                  padding: 8px 15px;
+                  background: linear-gradient(135deg, #4ecdc4 0%, #44a08d 100%);
+                  border: none;
+                  border-radius: 5px;
+                  color: #fff;
+                  cursor: pointer;
+                ">Send</button>
+              </div>
+            </div>
           </div>
         </div>
 
-        ${isHost ? `
+        ${!this.isSpectator && isHost ? `
           <button id="start-game-btn" style="
             width: 100%;
             padding: 15px;
@@ -430,6 +592,17 @@ export class LobbyUI {
             transition: transform 0.2s, box-shadow 0.2s;
             ${!canStart ? 'opacity: 0.5; cursor: not-allowed;' : ''}
           " ${!canStart ? 'disabled' : ''}>Start Game</button>
+        ` : this.isSpectator ? `
+          <div style="
+            text-align: center;
+            padding: 15px;
+            background: rgba(170, 150, 218, 0.1);
+            border-radius: 10px;
+            color: #aa96da;
+            margin-bottom: 15px;
+          ">
+            You are watching this game as a spectator
+          </div>
         ` : `
           <div style="
             text-align: center;
@@ -458,6 +631,7 @@ export class LobbyUI {
     `;
 
     this.setupLobbyViewEvents(isHost);
+    this.updateChatDisplay();
   }
 
   private renderPlayerItem(player: PlayerInfo, isCurrentPlayer: boolean): string {
@@ -469,51 +643,44 @@ export class LobbyUI {
       <div style="
         display: flex;
         align-items: center;
-        padding: 10px;
-        margin-bottom: 8px;
+        padding: 8px;
+        margin-bottom: 6px;
         background: rgba(255, 255, 255, 0.05);
         border-radius: 8px;
         ${isCurrentPlayer ? 'border: 1px solid rgba(78, 205, 196, 0.3);' : ''}
       ">
         <div style="
-          width: 40px;
-          height: 40px;
+          width: 32px;
+          height: 32px;
           border-radius: 50%;
           background: ${colorHex};
           display: flex;
           justify-content: center;
           align-items: center;
-          margin-right: 12px;
+          margin-right: 10px;
           font-weight: bold;
           color: #fff;
+          font-size: 0.9em;
           text-shadow: 0 1px 2px rgba(0,0,0,0.3);
         ">${player.name.charAt(0).toUpperCase()}</div>
         <div style="flex: 1;">
           <div style="
             color: #fff;
+            font-size: 0.85em;
             font-weight: ${isCurrentPlayer ? 'bold' : 'normal'};
           ">
             ${player.name}${isCurrentPlayer ? ' (You)' : ''}${player.isHost ? ' 👑' : ''}
           </div>
-          <div style="color: #666; font-size: 0.8em;">
+          <div style="color: #666; font-size: 0.75em;">
             Score: ${player.score}
           </div>
         </div>
         <div style="
-          display: flex;
-          align-items: center;
-          color: ${statusColor};
-          font-size: 0.8em;
-        ">
-          <div style="
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: ${statusColor};
-            margin-right: 5px;
-          "></div>
-          ${statusText}
-        </div>
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: ${statusColor};
+        "></div>
       </div>
     `;
   }
@@ -521,6 +688,8 @@ export class LobbyUI {
   private setupLobbyViewEvents(isHost: boolean): void {
     const startBtn = document.getElementById('start-game-btn');
     const leaveBtn = document.getElementById('leave-room-btn');
+    const chatInput = document.getElementById('chat-input') as HTMLInputElement;
+    const sendChatBtn = document.getElementById('send-chat-btn');
 
     startBtn?.addEventListener('click', () => {
       this.sync.startGame();
@@ -530,7 +699,24 @@ export class LobbyUI {
       this.sync.leaveRoom();
       this.options.onLeaveRoom?.();
       this.currentView = 'main';
+      this.isSpectator = false;
+      this.chatMessages = [];
       this.renderMainView();
+    });
+
+    const sendChat = () => {
+      const message = chatInput?.value.trim();
+      if (message) {
+        this.sync.sendChat(message);
+        chatInput.value = '';
+      }
+    };
+
+    sendChatBtn?.addEventListener('click', sendChat);
+    chatInput?.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        sendChat();
+      }
     });
   }
 

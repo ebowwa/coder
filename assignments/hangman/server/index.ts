@@ -6,6 +6,7 @@
 import { serve, type ServerWebSocket } from "bun";
 import { getRandomWord } from "../src/words";
 import { RoomManager } from "../src/multiplayer/room";
+import { leaderboardManager, type LeaderboardEntry } from "./leaderboard";
 import type {
   MultiplayerMessage,
   MessageType,
@@ -19,7 +20,11 @@ import type {
   RoundCompletePayload,
   CreateRoomPayload,
   JoinRoomPayload,
+  JoinAsSpectatorPayload,
   LetterGuessPayload,
+  ChatPayload,
+  SpectatorJoinedPayload,
+  SpectatorInfo,
 } from "../src/multiplayer/types";
 import { generatePlayerId } from "../src/multiplayer/types";
 
@@ -30,6 +35,7 @@ const roomManager = new RoomManager();
 interface WebSocketData {
   playerId: string;
   roomCode: string | null;
+  isSpectator: boolean;
 }
 
 const playerSockets = new Map<string, ServerWebSocket<WebSocketData>>();

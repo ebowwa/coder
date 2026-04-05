@@ -9,12 +9,21 @@ export interface PlayerInfo {
   score: number;
   isConnected: boolean;
   isHost: boolean;
+  isSpectator?: boolean;
+}
+
+export interface SpectatorInfo {
+  id: string;
+  name: string;
+  color: number;
+  isConnected: boolean;
 }
 
 export interface RoomState {
   code: string;
   hostId: string;
   players: Map<string, PlayerInfo>;
+  spectators: Map<string, SpectatorInfo>;
   currentTurnIndex: number;
   currentRound: MultiplayerRound | null;
   status: 'waiting' | 'playing' | 'finished';
@@ -37,10 +46,13 @@ export interface MultiplayerRound {
 export type MessageType = 
   | 'create-room'
   | 'join-room'
+  | 'join-as-spectator'
   | 'leave-room'
   | 'room-created'
   | 'room-joined'
   | 'room-updated'
+  | 'spectator-joined'
+  | 'spectator-left'
   | 'player-joined'
   | 'player-left'
   | 'start-game'
@@ -69,6 +81,12 @@ export interface CreateRoomPayload {
 }
 
 export interface JoinRoomPayload {
+  roomCode: string;
+  playerName: string;
+  playerColor: number;
+}
+
+export interface JoinAsSpectatorPayload {
   roomCode: string;
   playerName: string;
   playerColor: number;
@@ -126,6 +144,24 @@ export interface GameStartedPayload {
 export interface ChatPayload {
   message: string;
   playerName: string;
+  playerId: string;
+  timestamp: number;
+}
+
+export interface SpectatorJoinedPayload {
+  roomCode: string;
+  spectator: SpectatorInfo;
+  spectatorCount: number;
+}
+
+export interface LeaderboardEntry {
+  playerName: string;
+  score: number;
+  roundsWon: number;
+  roundsPlayed: number;
+  winStreak: number;
+  bestStreak: number;
+  timestamp: number;
 }
 
 export interface ErrorPayload {

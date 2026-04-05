@@ -9,6 +9,7 @@ import { LetterTiles } from './letter-tiles';
 import { WordDisplay } from './word-display';
 import { PredictionUI } from './prediction-ui';
 import { getRandomWord } from './words';
+import { soundEffects } from './sound-effects';
 import type { Round, GameState, WordResponse } from './types';
 import {
   API_CONFIG,
@@ -627,12 +628,14 @@ class HangmanGame {
       round.revealedLetters.add(letter);
       this.wordDisplay.updateDisplay(round);
       this.letterTiles.setTileStatus(letter, 'correct');
+      soundEffects.play('correct');
 
       // Check for win
       const allRevealed = round.word.split('').every(l => round.revealedLetters.has(l));
       if (allRevealed) {
         round.isComplete = true;
         round.isWon = true;
+        soundEffects.play('win');
         this.handleRoundComplete();
       }
     } else {
@@ -640,11 +643,13 @@ class HangmanGame {
       round.wrongGuesses++;
       this.letterTiles.setTileStatus(letter, 'wrong');
       this.revealBodyPart(round.wrongGuesses - 1);
+      soundEffects.play('wrong');
 
       // Check for loss
       if (round.wrongGuesses >= GAME_CONFIG.maxWrongGuesses) {
         round.isComplete = true;
         round.isWon = false;
+        soundEffects.play('lose');
         this.handleRoundComplete();
       }
     }
