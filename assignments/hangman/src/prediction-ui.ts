@@ -110,4 +110,57 @@ export class PredictionUI {
     }
     this.modal = null;
   }
+
+  /**
+   * Show a temporary message toast
+   */
+  showMessage(message: string, color: string = '#4ecdc4'): void {
+    // Remove existing toast if any
+    const existingToast = document.getElementById('game-toast');
+    if (existingToast) existingToast.remove();
+
+    const toast = document.createElement('div');
+    toast.id = 'game-toast';
+    toast.style.cssText = `
+      position: fixed;
+      bottom: 100px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.85);
+      color: ${color};
+      padding: 15px 30px;
+      border-radius: 10px;
+      font-size: 1.1em;
+      font-weight: bold;
+      z-index: 500;
+      box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
+      border: 2px solid ${color};
+      animation: fadeInUp 0.3s ease-out;
+    `;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+
+    // Add animation styles if not present
+    if (!document.getElementById('toast-animation-styles')) {
+      const style = document.createElement('style');
+      style.id = 'toast-animation-styles';
+      style.textContent = `
+        @keyframes fadeInUp {
+          from { transform: translateX(-50%) translateY(20px); opacity: 0; }
+          to { transform: translateX(-50%) translateY(0); opacity: 1; }
+        }
+        @keyframes fadeOutDown {
+          from { transform: translateX(-50%) translateY(0); opacity: 1; }
+          to { transform: translateX(-50%) translateY(20px); opacity: 0; }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    // Auto-hide after delay
+    setTimeout(() => {
+      toast.style.animation = 'fadeOutDown 0.3s ease-out forwards';
+      setTimeout(() => toast.remove(), 300);
+    }, 2500);
+  }
 }
