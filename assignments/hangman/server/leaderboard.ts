@@ -1,9 +1,25 @@
 /**
  * Leaderboard system - persistent score storage
+ * Tracks comprehensive player statistics including wins, losses, streaks, and average guesses
  */
 
 import { existsSync, readFileSync } from "fs";
 import { mkdirSync } from "fs";
+
+export interface PlayerStats {
+  playerId: string;
+  playerName: string;
+  totalWins: number;
+  totalLosses: number;
+  totalGamesPlayed: number;
+  currentStreak: number;
+  bestStreak: number;
+  totalGuesses: number;
+  correctGuesses: number;
+  wordsSolved: number;
+  lastPlayed: number;
+  createdAt: number;
+}
 
 export interface LeaderboardEntry {
   playerName: string;
@@ -17,6 +33,7 @@ export interface LeaderboardEntry {
 
 export interface LeaderboardData {
   entries: LeaderboardEntry[];
+  playerStats: Record<string, PlayerStats>; // playerId -> stats
   lastUpdated: number;
 }
 
@@ -48,6 +65,7 @@ class LeaderboardManager {
 
     return {
       entries: [],
+      playerStats: {},
       lastUpdated: Date.now(),
     };
   }
@@ -140,9 +158,115 @@ class LeaderboardManager {
   clear(): void {
     this.data = {
       entries: [],
+      playerStats: {},
       lastUpdated: Date.now(),
     };
     this.save();
+  }
+
+  // Player Stats Methods
+  
+  getPlayerStats(playerId: string): PlayerStats | null {
+    return this.data.playerStats[playerId] || null;
+  }
+
+  getAllPlayerStats(): PlayerStats[] {
+    return Object.values(this.data.playerStats);
+  }
+
+  recordGameResult(
+    playerId: string,
+    playerName: string,
+    won: boolean,
+    guessCount: number,
+    correctGuessCount: number,
+    solvedWord: boolean
+  ): PlayerStats {
+    const now = Date.now();
+    let stats = this.data.playerStats[playerId];
+
+    if (!stats) {
+      stats = {
+        playerId,
+        playerName,
+        totalWins: 0,
+        totalLosses: 0,
+        totalGamesPlayed: 0,
+        currentStreak: 0,
+        bestStreak: 0,
+        totalGuesses: 0,
+        correctGuesses: 0,
+        wordsSolved: 0,
+        lastPlayed: now,
+        createdAt: now,
+      };
+      this.data.playerStats[playerId] = stats;
+    }
+
+    // Update stats
+    stats.playerName = playerName; // Update name in case it changed
+    stats.totalGamesPlayed++;
+    stats.totalGuesses += guessCount;
+    stats.correctGuesses += correctGuessCount;
+    stats.lastPlayed = now;
+
+    if (won) {
+      stats.totalWins++;
+      stats.currentStreak++;
+      if (solvedWord) {
+        stats.wordsSolved++;
+      }
+      if (stats.currentStreak > stats.bestStreak) {
+        stats.bestStreak = stats.currentStreak;
+      }
+    } else {
+      stats.totalLosses++;
+      stats.currentStreak = 0;
+    }
+
+    this.save();
+    return stats;
+  }
+
+  getAverageGuesses(playerId: string): number {
+    const stats = this.data.playerStats[playerId];
+    if (!stats || stats.totalGamesPlayed === 0) return 0;
+    return Math.round((stats.totalGuesses / stats.totalGamesPlayed) * 100) / 100;
+  }
+
+  getWinRate(playerId: string): number {
+    const stats = this.data.playerStats[playerId];
+    if (!stats || stats.totalGamesPlayed === 0) return 0;
+    return Math.round((stats.totalWins / stats.totalGamesPlayed) * 100) / 100;
+  }
+
+  getAccuracy(playerId: string): number {
+    const stats = this.data.playerStats[playerId];
+    if (!stats || stats.totalGuesses === 0) return 0;
+    return Math.round((stats.correctGuesses / stats.totalGuesses) * 100) / 100;
+  }
+
+  getTopPlayersByWins(limit: number = 10): PlayerStats[] {
+    return Object.values(this.data.playerStats)
+      .sort((a, b) => b.totalWins - a.totalWins)
+      .slice(0, limit);
+  }
+
+  getTopPlayersByStreak(limit: number = 10): PlayerStats[] {
+    return Object.values(this.data.playerStats)
+      .sort((a, b) => b.bestStreak - a.bestStreak)
+      .slice(0, limit);
+  }
+
+  getTopPlayersByAccuracy(limit: number = 10): PlayerStats[] {
+    return Object.values(this.data.playerStats)
+      .filter(s => s.totalGuesses >= 10) // Minimum guesses for ranking
+      .sort((a, b) => {
+        const accA = a.correctGuesses / a.totalGuesses;
+        const accB = b.correctGuesses / b.totalGuesses;
+        return accB - accA;
+      })
+      .slice(0, limit);
   }
 }
 

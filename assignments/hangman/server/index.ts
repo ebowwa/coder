@@ -7,6 +7,7 @@ import { serve, type ServerWebSocket } from "bun";
 import { getRandomWord } from "../src/words";
 import { RoomManager } from "../src/multiplayer/room";
 import { leaderboardManager, type LeaderboardEntry } from "./leaderboard";
+import { replayManager } from "./replays";
 import type {
   MultiplayerMessage,
   MessageType,
