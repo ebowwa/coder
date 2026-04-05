@@ -75,7 +75,7 @@ export * from "./ecosystem/presets/index.js";
 export * from "./teammates/index.js";
 
 // Cognitive Security
-export * from "./core/cognitive-security/index.js";
+export * from "./ecosystem/cognitive-security/index.js";
 
 // UI Components (exclude types that are already in types/index.js)
 export {

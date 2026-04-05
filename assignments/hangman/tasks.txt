@@ -1,0 +1,16 @@
+[x] Initialize project: package.json (three, @types/three), tsconfig.json (strict, ESNext), public/index.html shell
+[ ] Create src/types.ts with all shared interfaces: GameState, LetterStatus, Prediction, Round, ScoreEntry
+[ ] Implement src/words.ts — 500+ categorised English words, getDifficulty(tier) filter, random picker
+[ ] Implement src/game-state.ts — pure game logic: newRound, guessLetter, applyPrediction, scoring, win/lose detection
+[ ] Implement src/scene.ts — Three.js scene setup: renderer, camera (perspective + orbit controls), lights, resize handler, render loop
+[ ] Implement src/gallows.ts — 3D gallows from box/cylinder geometry: base, upright, beam, strut, rope. Positioned at scene center.
+[ ] Implement src/hangman-figure.ts — 6 body parts (head, torso, left arm, right arm, left leg, right leg). addPart(index) with scale-in tween. reset() removes all.
+[ ] Implement src/letter-tiles.ts — 26 clickable 3D tiles in curved arc. Raycaster hover glow. Click emits letter event. Green/red state after guess.
+[ ] Implement src/word-display.ts — row of pedestals with extruded TextGeometry for revealed letters. Update on each guess.
+[ ] Implement src/prediction-ui.ts — DOM overlay modal: shows selected letter, IN/NOT IN buttons, confirm. Returns Promise<Prediction>.
+[ ] Implement src/scoreboard.ts — DOM HUD: current score, round, lives, streak counter. Updates on every state change.
+[ ] Implement src/main.ts — entry point: boot scene, fetch word from server, wire all modules together in game loop. Handle round transitions.
+[ ] Implement server/index.ts — Bun HTTP: GET /api/word?difficulty=N, static file serving for /dist and /public
+[ ] Build step: bun build src/main.ts --outdir dist --target browser, verify loads at localhost:3000
+[ ] Polish: camera auto-rotate, shadow tuning, letter tile hover animation, win/lose screen overlay with Next Round / Game Over
+[ ] Test: manual playthrough — verify prediction scoring, hangman progression, round advancement, difficulty scaling

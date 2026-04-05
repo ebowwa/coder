@@ -1,0 +1,13 @@
+{
+  "sessionId": "recent-completed",
+  "createdAt": 1775332362370,
+  "updatedAt": 1775332362371,
+  "interrupted": false,
+  "templateName": null,
+  "totalTurns": 0,
+  "totalCost": 0,
+  "checkpointCount": 0,
+  "workingDirectory": "/Users/ebowwa/Desktop/codespaces/packages/src/coder",
+  "model": "unknown",
+  "endedAt": 1775332362371
+}

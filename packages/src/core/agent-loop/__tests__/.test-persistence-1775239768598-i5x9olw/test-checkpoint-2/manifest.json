@@ -1,0 +1,12 @@
+{
+  "sessionId": "test-checkpoint-2",
+  "createdAt": 1775239768598,
+  "updatedAt": 1775239768599,
+  "interrupted": false,
+  "templateName": null,
+  "totalTurns": 0,
+  "totalCost": 0,
+  "checkpointCount": 1,
+  "workingDirectory": "/Users/ebowwa/Desktop/codespaces/packages/src/coder",
+  "model": "unknown"
+}

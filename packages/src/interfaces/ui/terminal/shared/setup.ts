@@ -20,7 +20,7 @@ import {
   type LoadedConfig,
   type SettingsConfig,
 } from "../../../../core/config-loader.js";
-import { createSecurityHookHandlers } from "../../../../core/cognitive-security/hooks.js";
+import { createSecurityHookHandlers } from "../../../../ecosystem/cognitive-security/hooks.js";
 import type { CLIArgs } from "./args.js";
 
 // ============================================
