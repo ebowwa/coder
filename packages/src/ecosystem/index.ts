@@ -53,8 +53,12 @@ export {
 // Re-export tool types from schemas
 export type { ToolDefinition, ToolResult, ToolContext } from "../schemas/index.js";
 
+// Plugin system
+export type { EcosystemPlugin, PluginContext } from "./plugin.js";
+
 // Cognitive Security
 export * from "./cognitive-security/index.js";
+export { createCognitiveSecurityPlugin } from "./cognitive-security/plugin.js";
 
 // Prompts (identity, directives, builders)
 export {
@@ -77,6 +81,7 @@ export {
   formatDirectivesForPrompt,
 } from "./prompts/index.js";
 export type { Directive } from "./prompts/index.js";
+export { createPromptsPlugin } from "./prompts/plugin.js";
 
 // Daemon (quality gate, task lifecycle, service management)
 export { verifyQualityGate, buildRetryPrompt } from "./daemon/quality-gate.js";
@@ -90,6 +95,7 @@ export {
 export { installService } from "./daemon/service/install.js";
 export { uninstallService } from "./daemon/service/uninstall.js";
 export { getServiceStatus } from "./daemon/service/status.js";
+export { createDaemonPlugin } from "./daemon/plugin.js";
 
 // Presets (teammate templates)
 export {
