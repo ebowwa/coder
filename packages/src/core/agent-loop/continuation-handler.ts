@@ -24,7 +24,21 @@ import {
   type ContinuationConfig,
   type ContinuationContext,
 } from "./continuation.js";
-import type { ILoopState } from "./types.js";
+import type { LoopState } from "./types.js";
+import type { TextBlock } from "../../schemas/index.js";
+
+/**
+ * Extended loop state with runtime properties used by continuation logic.
+ * LoopState from types.ts is the base; this adds mutable control fields.
+ */
+interface ILoopState extends LoopState {
+  consecutiveContinuations: number;
+  recentToolNames?: string[];
+  wasCompacted?: boolean;
+  lastStuckPattern?: string;
+  addUserMessage(content: TextBlock[]): void;
+  totalCost: number;
+}
 
 /** Input for the continuation check */
 export interface ContinuationCheckInput {
@@ -111,7 +125,7 @@ function handlePseudoToolForce(
 
     if (syntheticBlocks.length > 0) {
       // Filter out duplicate tool calls (same command/file seen 3+ times this turn)
-      const dedupedBlocks = syntheticBlocks.filter(block => {
+      const dedupedBlocks = syntheticBlocks.filter((block: ToolUseBlock) => {
         const sig = toolCallSignature(block);
         const count = (extractedSignatures.get(sig) || 0) + 1;
         extractedSignatures.set(sig, count);
@@ -128,7 +142,7 @@ function handlePseudoToolForce(
         extractionCount++;
         state.consecutiveContinuations = (state.consecutiveContinuations ?? 0) + 1;
 
-        const toolNames = dedupedBlocks.map(b => b.name).join(", ");
+        const toolNames = dedupedBlocks.map((b: ToolUseBlock) => b.name).join(", ");
         console.log(
           `\x1b[32m[ToolForcer] Extracted ${dedupedBlocks.length} tool call(s) from text: ${toolNames} [${extractionCount}/${MAX_EXTRACTIONS_PER_TURN}]\x1b[0m`,
         );

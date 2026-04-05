@@ -270,3 +270,33 @@ export function getGitStatusSummary(status: GitStatus): string {
 
   return parts.join(" ");
 }
+
+/**
+ * Get the HEAD commit SHA for a working directory.
+ * Returns empty string if not a git repo or on error.
+ */
+export function getHeadSha(workingDirectory: string): string {
+  try {
+    const proc = Bun.spawnSync(["git", "rev-parse", "HEAD"], {
+      cwd: workingDirectory,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    return new TextDecoder().decode(proc.stdout).trim();
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Detect whether meaningful changes were committed since a given SHA.
+ * Returns true if HEAD has moved forward from preSha.
+ */
+export function detectCompletion(
+  workingDirectory: string,
+  preSha: string,
+): boolean {
+  if (!preSha) return false;
+  const currentSha = getHeadSha(workingDirectory);
+  return currentSha !== "" && currentSha !== preSha;
+}

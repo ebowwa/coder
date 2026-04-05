@@ -70,6 +70,11 @@ export interface CLIArgs {
   /** Original goal for long-running sessions */
   longRunningGoal?: string;
 
+  /** Enable WebSocket status broadcasting (supervisor mode) */
+  enableWebSocket?: boolean;
+  /** Enable SSE status broadcasting (supervisor mode) */
+  enableSSE?: boolean;
+
   // MCP server presets (from templates)
   /** Preset MCP servers from templates */
   presetMcpServers?: Record<string, MCPServerConfig>;

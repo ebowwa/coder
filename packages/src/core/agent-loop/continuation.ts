@@ -118,6 +118,8 @@ export interface ContinuationContext {
   wasCompacted?: boolean;
   /** Persistent goal from original task */
   persistentGoal?: string;
+  /** Pattern detected by stuck-loop analysis */
+  stuckPattern?: string;
 }
 
 /**
