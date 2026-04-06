@@ -110,6 +110,10 @@ export class LetterTiles {
   private setupMouseEvents(): void {
     window.addEventListener('mousemove', this.onMouseMove.bind(this));
     window.addEventListener('click', this.onClick.bind(this));
+    
+    // Mobile touch support
+    window.addEventListener('touchstart', this.onTouchStart.bind(this), { passive: false });
+    window.addEventListener('touchend', this.onTouchEnd.bind(this), { passive: false });
   }
 
   private onMouseMove(event: MouseEvent): void {
@@ -174,6 +178,53 @@ export class LetterTiles {
       const letter = mesh.userData.letter;
       if (letter && this.onTileClick) {
         this.onTileClick(letter);
+      }
+    }
+  }
+  
+  private onTouchStart(event: TouchEvent): void {
+    // Prevent mouse event emulation
+    event.preventDefault();
+    
+    if (event.touches.length === 1) {
+      const touch = event.touches[0];
+      this.mouse.x = (touch.clientX / window.innerWidth) * 2 - 1;
+      this.mouse.y = -(touch.clientY / window.innerHeight) * 2 + 1;
+      
+      // Update hover state for visual feedback
+      this.checkHover();
+    }
+  }
+  
+  private onTouchEnd(event: TouchEvent): void {
+    // Prevent mouse event emulation
+    event.preventDefault();
+    
+    if (event.changedTouches.length === 1) {
+      const touch = event.changedTouches[0];
+      this.mouse.x = (touch.clientX / window.innerWidth) * 2 - 1;
+      this.mouse.y = -(touch.clientY / window.innerHeight) * 2 + 1;
+      
+      this.raycaster.setFromCamera(this.mouse, this.camera);
+      
+      const meshes = Array.from(this.tiles.values())
+        .filter(t => t.status === 'unused')
+        .map(t => t.mesh);
+      
+      const intersects = this.raycaster.intersectObjects(meshes as THREE.Object3D[], true);
+      
+      if (intersects.length > 0) {
+        let mesh = intersects[0].object as THREE.Mesh;
+        
+        // Check if we touched a child mesh (letter face)
+        if (!mesh.userData.letter && mesh.parent) {
+          mesh = mesh.parent as THREE.Mesh;
+        }
+        
+        const letter = mesh.userData.letter;
+        if (letter && this.onTileClick) {
+          this.onTileClick(letter);
+        }
       }
     }
   }
@@ -242,5 +293,7 @@ export class LetterTiles {
   dispose(): void {
     window.removeEventListener('mousemove', this.onMouseMove.bind(this));
     window.removeEventListener('click', this.onClick.bind(this));
+    window.removeEventListener('touchstart', this.onTouchStart.bind(this));
+    window.removeEventListener('touchend', this.onTouchEnd.bind(this));
   }
 }
