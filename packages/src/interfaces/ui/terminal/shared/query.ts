@@ -521,71 +521,151 @@ async function runPostTaskVerification(
     console.log(`\x1b[33m[QualityGate] Skipped: ${err instanceof Error ? err.message : err}\x1b[0m`);
   }
 
-  // 2. Vision verification for web projects (if a dev server port is detectable)
+  // 2. Vision verification for web projects
+  await runVisionVerification(workingDirectory, taskId, statusWriter);
+}
+
+/**
+ * Start the project's dev server, screenshot it, analyze with vision LLM, then tear down.
+ * Only runs for projects with web dependencies and a dev/start script.
+ */
+async function runVisionVerification(
+  workingDirectory: string,
+  taskId: string,
+  statusWriter: StatusWriter,
+): Promise<void> {
   const pkgPath = join(workingDirectory, "package.json");
-  if (existsSync(pkgPath)) {
+  if (!existsSync(pkgPath)) return;
+
+  let pkg: Record<string, unknown>;
+  try {
+    pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
+  } catch { return; }
+
+  const deps = { ...(pkg.dependencies as Record<string, string> ?? {}), ...(pkg.devDependencies as Record<string, string> ?? {}) };
+  const isWebProject = deps.express || deps.three || deps.react || deps.next || deps.vite || deps.svelte;
+  if (!isWebProject) return;
+
+  // Determine start command and expected port
+  const scripts = (pkg.scripts ?? {}) as Record<string, string>;
+  const startCmd = scripts.dev || scripts.start || scripts.serve;
+  if (!startCmd) return;
+
+  const portMatch = startCmd.match(/--port\s+(\d+)|PORT=(\d+)/);
+  const expectedPort = portMatch ? parseInt(portMatch[1] || portMatch[2]!, 10) : 3000;
+
+  const visionStart = Date.now();
+  let serverProc: ReturnType<typeof import("child_process").spawn> | null = null;
+
+  try {
+    // Start dev server in background
+    const { spawn } = await import("child_process");
+    console.log(`\x1b[90m[Vision] Starting dev server: ${startCmd} (port ${expectedPort})\x1b[0m`);
+    serverProc = spawn("bun", ["run", startCmd.split(" ")[0]!], {
+      cwd: workingDirectory,
+      stdio: "ignore",
+      detached: true,
+      env: { ...process.env, PORT: String(expectedPort) },
+    });
+    serverProc.unref();
+
+    // Wait for port to respond (up to 15s)
+    let ready = false;
+    for (let attempt = 0; attempt < 30; attempt++) {
+      await new Promise((r) => setTimeout(r, 500));
+      try {
+        execSync(`curl -s -o /dev/null -w "%{http_code}" http://localhost:${expectedPort}`, { timeout: 2000 });
+        ready = true;
+        break;
+      } catch { /* not yet */ }
+    }
+
+    if (!ready) {
+      console.log(`\x1b[33m[Vision] Server didn't start on port ${expectedPort} within 15s\x1b[0m`);
+      statusWriter.recordMcpCall("vision", "screenshot_verify", Date.now() - visionStart, true);
+      return;
+    }
+
+    // Take screenshot with headless Chrome
+    const coderDir = join(workingDirectory, ".coder");
+    if (!existsSync(coderDir)) {
+      const { mkdirSync } = await import("fs");
+      mkdirSync(coderDir, { recursive: true });
+    }
+    const screenshotPath = join(coderDir, `screenshot-${expectedPort}.png`);
+
+    const chromePath = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+    const chromeArgs = [
+      "--headless=new",
+      "--disable-gpu",
+      "--no-sandbox",
+      `--screenshot=${screenshotPath}`,
+      "--window-size=1280,720",
+      `http://localhost:${expectedPort}`,
+    ];
+
     try {
-      const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
-      const hasWebServer =
-        pkg.dependencies?.express ||
-        pkg.dependencies?.["three"] ||
-        pkg.dependencies?.react ||
-        pkg.dependencies?.next ||
-        pkg.dependencies?.vite ||
-        pkg.devDependencies?.vite;
-      if (hasWebServer) {
-        const visionStart = Date.now();
-        const { getVisionLLM } = await import("../../../../core/meta-llm-client.js");
-        const { readImageFile } = await import("../../../../core/image.js");
-
-        // Try common dev ports
-        for (const port of [3000, 5173, 8080]) {
-          try {
-            // Quick check if port is serving
-            execSync(`curl -s -o /dev/null -w "%{http_code}" http://localhost:${port}`, {
-              timeout: 3000,
-            });
-            // Screenshot via headless capture
-            const screenshotPath = join(workingDirectory, ".coder", `screenshot-${port}.png`);
-            try {
-              execSync(
-                `/Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome --headless --disable-gpu --screenshot="${screenshotPath}" --window-size=1280,720 http://localhost:${port} 2>/dev/null`,
-                { timeout: 10_000 },
-              );
-            } catch {
-              // Try chromium or skip
-              try {
-                execSync(
-                  `chromium --headless --disable-gpu --screenshot="${screenshotPath}" --window-size=1280,720 http://localhost:${port} 2>/dev/null`,
-                  { timeout: 10_000 },
-                );
-              } catch { continue; }
-            }
-
-            if (existsSync(screenshotPath)) {
-              const imgData = await readImageFile(screenshotPath);
-              const analysis = await getVisionLLM().completeWithImage(
-                "You are a UI quality verifier.",
-                "Analyze this web application screenshot. Is the UI rendering correctly? Any broken layouts, missing content, or errors visible? Be concise (2-3 sentences).",
-                { base64: imgData.base64, mediaType: imgData.mediaType },
-                256,
-              );
-              const visionMs = Date.now() - visionStart;
-              console.log(
-                `\x1b[90m[Vision] Port ${port}: ${analysis?.text?.slice(0, 120) || "no response"}\x1b[0m`,
-              );
-              statusWriter.recordMcpCall("vision", "screenshot_verify", visionMs, false);
-              statusWriter.recordEvent("vision_verify", {
-                taskId,
-                port,
-                analysis: analysis?.text?.slice(0, 200),
-              });
-              break; // Only verify first responsive port
-            }
-          } catch { /* port not responding */ }
-        }
+      execSync(`"${chromePath}" ${chromeArgs.map((a) => `"${a}"`).join(" ")} 2>/dev/null`, { timeout: 15_000 });
+    } catch {
+      try {
+        execSync(`chromium ${chromeArgs.join(" ")} 2>/dev/null`, { timeout: 15_000 });
+      } catch {
+        console.log(`\x1b[33m[Vision] Screenshot failed (no headless browser)\x1b[0m`);
+        statusWriter.recordMcpCall("vision", "screenshot_verify", Date.now() - visionStart, true);
+        return;
       }
-    } catch { /* package.json parse error */ }
+    }
+
+    if (!existsSync(screenshotPath)) {
+      console.log(`\x1b[33m[Vision] Screenshot file not created\x1b[0m`);
+      statusWriter.recordMcpCall("vision", "screenshot_verify", Date.now() - visionStart, true);
+      return;
+    }
+
+    // Analyze with vision LLM
+    const { getVisionLLM } = await import("../../../../core/meta-llm-client.js");
+    const { readImageFile } = await import("../../../../core/image.js");
+    const imgData = await readImageFile(screenshotPath);
+    const analysis = await getVisionLLM().completeWithImage(
+      "You are a UI quality verifier for web applications.",
+      "Analyze this screenshot. Does the UI render correctly? Any broken layouts, blank pages, error messages, or missing content? Report issues or confirm it looks good. Be concise (2-3 sentences).",
+      { base64: imgData.base64, mediaType: imgData.mediaType },
+      256,
+    );
+
+    const visionMs = Date.now() - visionStart;
+    const analysisText = analysis?.text?.trim();
+    const isError = !analysisText;
+
+    if (analysisText) {
+      console.log(`\x1b[90m[Vision] Port ${expectedPort}: ${analysisText.slice(0, 150)}\x1b[0m`);
+    } else {
+      console.log(`\x1b[33m[Vision] Vision LLM returned empty response\x1b[0m`);
+    }
+
+    statusWriter.recordMcpCall("vision", "screenshot_verify", visionMs, isError);
+    statusWriter.recordEvent("vision_verify", {
+      taskId,
+      port: expectedPort,
+      analysis: analysisText?.slice(0, 300),
+      screenshotPath,
+    });
+  } catch (err) {
+    console.log(`\x1b[33m[Vision] Error: ${err instanceof Error ? err.message : err}\x1b[0m`);
+    statusWriter.recordMcpCall("vision", "screenshot_verify", Date.now() - visionStart, true);
+  } finally {
+    // Kill the dev server
+    if (serverProc?.pid) {
+      try {
+        process.kill(-serverProc.pid, "SIGTERM");
+      } catch {
+        try { process.kill(serverProc.pid, "SIGKILL"); } catch { /* already dead */ }
+      }
+    }
+    // Also kill anything on the port as fallback
+    try {
+      execSync(`lsof -ti:${expectedPort} | xargs kill -9 2>/dev/null`, { timeout: 3000 });
+    } catch { /* nothing to kill */ }
   }
 }
 

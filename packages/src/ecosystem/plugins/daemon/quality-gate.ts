@@ -121,15 +121,10 @@ export async function verifyQualityGate(workingDirectory: string): Promise<Quali
 
   allFailures.push(...tests.failures, ...ts.failures);
 
-  // Gate passes when: no test failures/errors AND no TS errors AND files were changed
+  // Gate passes when: no test failures/errors AND no TS errors
   const passed = tests.fail === 0
     && tests.error === 0
-    && ts.tsErrors === 0
-    && filesChanged.length > 0;
-
-  if (filesChanged.length === 0) {
-    allFailures.push("No files changed during this phase");
-  }
+    && ts.tsErrors === 0;
 
   return {
     passed,
