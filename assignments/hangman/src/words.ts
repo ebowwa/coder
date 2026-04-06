@@ -199,3 +199,49 @@ export function getRandomWordInRange(minDifficulty: number, maxDifficulty: numbe
 export function getAllWords(): WordEntry[] {
   return [...wordDatabase];
 }
+
+/**
+ * Get all available categories
+ */
+export function getAllCategories(): string[] {
+  const categories = new Set<string>();
+  wordDatabase.forEach(entry => categories.add(entry.category));
+  return Array.from(categories).sort();
+}
+
+/**
+ * Get a random word filtered by category and difficulty
+ */
+export function getRandomWordByCategory(difficulty: number, category: string | null): WordEntry {
+  // If no category specified (null or 'Random'), use any word
+  if (!category || category === 'Random') {
+    return getRandomWord(difficulty);
+  }
+  
+  const filteredWords = wordDatabase.filter(
+    w => w.difficulty === Math.min(5, Math.max(1, Math.floor(difficulty))) && w.category === category
+  );
+  
+  if (filteredWords.length === 0) {
+    // Fallback to any word of the difficulty if category has no words
+    return getRandomWord(difficulty);
+  }
+  
+  return filteredWords[Math.floor(Math.random() * filteredWords.length)];
+}
+
+/**
+ * Get words filtered by category
+ */
+export function getWordsByCategory(category: string): WordEntry[] {
+  return wordDatabase.filter(w => w.category === category);
+}
+
+/**
+ * Get words filtered by category and difficulty range
+ */
+export function getWordsByCategoryAndDifficulty(category: string, minDifficulty: number, maxDifficulty: number): WordEntry[] {
+  return wordDatabase.filter(
+    w => w.category === category && w.difficulty >= minDifficulty && w.difficulty <= maxDifficulty
+  );
+}
