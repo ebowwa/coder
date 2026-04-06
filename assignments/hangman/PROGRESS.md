@@ -33,6 +33,12 @@ A 3D hangman game built with Three.js, Bun, and TypeScript. Features single-play
 - [x] Promise-based async flow
 - [x] Toast notification system for game messages
 - [x] Animated message display
+- [x] 3D prediction UI (replaces DOM overlay)
+  - [x] PredictionUI3D class with Three.js-based interface
+  - [x] Floating 3D buttons for IN/NOT IN selection
+  - [x] Hover effects and animations
+  - [x] Visual feedback on prediction
+  - [x] Integration with game loop
 
 ### Sound Effects (Web Audio API)
 - [x] Correct guess - ascending arpeggio
@@ -255,7 +261,6 @@ bun test
 6. Watch as spectator (optional)
 
 ## Next Steps (Future Enhancements)
-- [ ] 3D prediction UI (instead of DOM overlay)
 - [ ] Particle effects on win/lose
 - [ ] Power-ups (hint, skip, extra life)
 - [x] Word categories selection
