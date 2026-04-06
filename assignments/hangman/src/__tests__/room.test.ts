@@ -218,9 +218,9 @@ describe('RoomManager - Player Rotation', () => {
       const word = currentRoom!.currentRound!.word;
       
       // Find 6 letters that are guaranteed NOT in the word (use uncommon letters)
-      const uncommonLetters = ['Z', 'Q', 'X', 'J', 'K', 'V'];
+      const uncommonLetters = ['Z', 'Q', 'X', 'J', 'K', 'V', 'W', 'F'];
       const wrongLetters = uncommonLetters.filter(l => !word.includes(l));
-      
+
       // Ensure we have enough wrong letters
       expect(wrongLetters.length).toBeGreaterThanOrEqual(6);
       
@@ -298,18 +298,25 @@ describe('RoomManager - Player Rotation', () => {
       expect(currentRoom).not.toBeNull();
       expect(currentRoom!.currentTurnIndex).toBe(0);
       
+      // Get the word and find letters NOT in it
+      expect(currentRoom!.currentRound).not.toBeNull();
+      const word = currentRoom!.currentRound!.word;
+      const uncommonLetters = ['Z', 'Q', 'X', 'J', 'K', 'V'];
+      const wrongLetters = uncommonLetters.filter(l => !word.includes(l));
+      expect(wrongLetters.length).toBeGreaterThanOrEqual(3);
+      
       // p1 wrong -> p2
-      manager.processGuess(code, 'p1', 'Z');
+      manager.processGuess(code, 'p1', wrongLetters[0]);
       currentRoom = manager.getRoom(code);
       expect(currentRoom!.currentTurnIndex).toBe(1);
       
       // p2 wrong -> p3
-      manager.processGuess(code, 'p2', 'Y');
+      manager.processGuess(code, 'p2', wrongLetters[1]);
       currentRoom = manager.getRoom(code);
       expect(currentRoom!.currentTurnIndex).toBe(2);
       
       // p3 wrong -> p1 (wraps to 0)
-      manager.processGuess(code, 'p3', 'X');
+      manager.processGuess(code, 'p3', wrongLetters[2]);
       currentRoom = manager.getRoom(code);
       expect(currentRoom!.currentTurnIndex).toBe(0);
     });

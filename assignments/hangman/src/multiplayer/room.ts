@@ -162,7 +162,7 @@ export class RoomManager {
       }
     }
 
-    // Move to next player if wrong guess or round complete
+    // Move to next player if wrong guess (unless round is complete)
     let nextPlayerId = round.currentGuesserId;
     if (!isCorrect && !round.isComplete) {
       const playerIds = Array.from(room.players.keys());
