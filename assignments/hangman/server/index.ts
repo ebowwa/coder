@@ -8,6 +8,12 @@ import { getRandomWord } from "../src/words";
 import { RoomManager } from "../src/multiplayer/room";
 import { leaderboardManager, type LeaderboardEntry } from "./leaderboard";
 import { replayManager } from "./replays";
+import {
+  tournamentManager,
+  type TournamentSize,
+  type Tournament,
+  type TournamentMatch,
+} from "./tournament";
 import type {
   MultiplayerMessage,
   MessageType,
@@ -110,6 +116,22 @@ function handleMessage(ws: ServerWebSocket<WebSocketData>, message: string): voi
       case 'ping':
         // Keepalive - just respond with pong
         sendMessage(ws, 'pong' as MessageType, {});
+        break;
+
+      case 'tournament-create':
+        handleTournamentCreate(ws, msg.payload as TournamentCreatePayload);
+        break;
+
+      case 'tournament-join':
+        handleTournamentJoin(ws, msg.payload as TournamentJoinPayload);
+        break;
+
+      case 'tournament-start':
+        handleTournamentStart(ws, msg.payload as TournamentStartPayload);
+        break;
+
+      case 'tournament-match-result':
+        handleTournamentMatchResult(ws, msg.payload as TournamentMatchResultPayload);
         break;
 
       default:
@@ -359,6 +381,211 @@ function handleChat(ws: ServerWebSocket<WebSocketData>, payload: { message: stri
   });
 }
 
+// Tournament handlers
+interface TournamentCreatePayload {
+  name: string;
+  size: TournamentSize;
+  difficulty?: 'easy' | 'medium' | 'hard';
+  hostName: string;
+  hostColor: number;
+}
+
+interface TournamentJoinPayload {
+  tournamentId: string;
+  playerName: string;
+  playerColor: number;
+}
+
+interface TournamentStartPayload {
+  tournamentId: string;
+}
+
+interface TournamentMatchResultPayload {
+  tournamentId: string;
+  matchId: string;
+  winnerId: string;
+  score1: number;
+  score2: number;
+}
+
+function handleTournamentCreate(ws: ServerWebSocket<WebSocketData>, payload: TournamentCreatePayload): void {
+  const data = ws.data;
+  if (!data.playerId) {
+    sendMessage(ws, 'error', { message: 'Player not identified', code: 'NO_PLAYER' });
+    return;
+  }
+
+  const tournament = tournamentManager.createTournament({
+    name: payload.name,
+    size: payload.size,
+    hostId: data.playerId,
+    hostName: payload.hostName,
+    hostColor: payload.hostColor,
+  });
+
+  if (!tournament) {
+    sendMessage(ws, 'error', { message: 'Failed to create tournament', code: 'TOURNAMENT_CREATE_FAILED' });
+    return;
+  }
+
+  sendMessage(ws, 'tournament-created', {
+    tournamentId: tournament.id,
+    tournament: serializeTournament(tournament),
+  });
+
+  console.log(`Tournament ${tournament.id} created by ${payload.hostName}`);
+}
+
+function handleTournamentJoin(ws: ServerWebSocket<WebSocketData>, payload: TournamentJoinPayload): void {
+  const data = ws.data;
+  if (!data.playerId) {
+    sendMessage(ws, 'error', { message: 'Player not identified', code: 'NO_PLAYER' });
+    return;
+  }
+
+  const tournament = tournamentManager.joinTournament(
+    payload.tournamentId,
+    data.playerId,
+    payload.playerName,
+    payload.playerColor
+  );
+
+  if (!tournament) {
+    sendMessage(ws, 'error', { message: 'Failed to join tournament', code: 'TOURNAMENT_JOIN_FAILED' });
+    return;
+  }
+
+  sendMessage(ws, 'tournament-joined', {
+    tournamentId: tournament.id,
+    tournament: serializeTournament(tournament),
+  });
+
+  // Broadcast to all players in tournament that a new player joined
+  broadcastTournamentUpdate(tournament, data.playerId);
+
+  console.log(`Player ${payload.playerName} joined tournament ${tournament.id}`);
+}
+
+function handleTournamentStart(ws: ServerWebSocket<WebSocketData>, payload: TournamentStartPayload): void {
+  const data = ws.data;
+  const tournament = tournamentManager.getTournament(payload.tournamentId);
+
+  if (!tournament) {
+    sendMessage(ws, 'error', { message: 'Tournament not found', code: 'TOURNAMENT_NOT_FOUND' });
+    return;
+  }
+
+  // Check if the requester is the host (first player)
+  const hostId = Array.from(tournament.players.values())[0]?.id;
+  if (data.playerId !== hostId) {
+    sendMessage(ws, 'error', { message: 'Only the host can start the tournament', code: 'NOT_HOST' });
+    return;
+  }
+
+  const startedTournament = tournamentManager.startTournament(payload.tournamentId);
+
+  if (!startedTournament) {
+    sendMessage(ws, 'error', { message: 'Failed to start tournament - not enough players', code: 'TOURNAMENT_START_FAILED' });
+    return;
+  }
+
+  // Broadcast tournament started to all participants
+  broadcastTournamentUpdate(startedTournament);
+
+  console.log(`Tournament ${startedTournament.id} started with ${startedTournament.players.size} players`);
+}
+
+function handleTournamentMatchResult(ws: ServerWebSocket<WebSocketData>, payload: TournamentMatchResultPayload): void {
+  const data = ws.data;
+  const tournament = tournamentManager.getTournament(payload.tournamentId);
+
+  if (!tournament) {
+    sendMessage(ws, 'error', { message: 'Tournament not found', code: 'TOURNAMENT_NOT_FOUND' });
+    return;
+  }
+
+  // Validate that the winner is actually in this match
+  const match = findMatch(tournament, payload.matchId);
+  if (!match) {
+    sendMessage(ws, 'error', { message: 'Match not found', code: 'MATCH_NOT_FOUND' });
+    return;
+  }
+
+  if (match.player1?.id !== payload.winnerId && match.player2?.id !== payload.winnerId) {
+    sendMessage(ws, 'error', { message: 'Invalid winner for this match', code: 'INVALID_WINNER' });
+    return;
+  }
+
+  const updatedTournament = tournamentManager.completeMatch(
+    payload.tournamentId,
+    payload.matchId,
+    payload.winnerId,
+    payload.score1,
+    payload.score2
+  );
+
+  if (!updatedTournament) {
+    sendMessage(ws, 'error', { message: 'Failed to complete match', code: 'MATCH_COMPLETE_FAILED' });
+    return;
+  }
+
+  // Broadcast match result and updated bracket to all tournament participants
+  broadcastTournamentUpdate(updatedTournament);
+
+  if (updatedTournament.state === 'completed') {
+    const champion = updatedTournament.players.get(updatedTournament.bracket.champion || '');
+    console.log(`Tournament ${updatedTournament.id} completed! Champion: ${champion?.name || 'Unknown'}`);
+  } else {
+    console.log(`Match ${payload.matchId} completed in tournament ${updatedTournament.id}`);
+  }
+}
+
+function findMatch(tournament: Tournament, matchId: string): TournamentMatch | null {
+  for (const round of tournament.bracket.rounds) {
+    for (const match of round) {
+      if (match.matchId === matchId) {
+        return match;
+      }
+    }
+  }
+  return null;
+}
+
+function serializeTournament(tournament: Tournament): object {
+  return {
+    id: tournament.id,
+    name: tournament.name,
+    size: tournament.size,
+    difficulty: tournament.difficulty,
+    state: tournament.state,
+    players: Object.fromEntries(tournament.players),
+    bracket: tournament.bracket,
+    currentRound: tournament.currentRound,
+    createdAt: tournament.createdAt,
+    startedAt: tournament.startedAt,
+    completedAt: tournament.completedAt,
+  };
+}
+
+function broadcastTournamentUpdate(tournament: Tournament, excludePlayerId?: string): void {
+  const message = {
+    type: 'tournament-updated',
+    payload: {
+      tournamentId: tournament.id,
+      tournament: serializeTournament(tournament),
+    },
+    timestamp: Date.now(),
+  };
+
+  tournament.players.forEach((player, playerId) => {
+    if (playerId === excludePlayerId) return;
+    const ws = playerSockets.get(playerId);
+    if (ws) {
+      ws.send(JSON.stringify(message));
+    }
+  });
+}
+
 // Handle WebSocket close
 function handleClose(ws: ServerWebSocket<WebSocketData>): void {
   const data = ws.data;
@@ -448,7 +675,7 @@ const server = serve({
     // Serve dist/main.js as fallback for game
     if (url.pathname === "/main.js" || url.pathname === "/dist/main.js") {
       const file = Bun.file("dist/main.js");
-      
+
       if (await file.exists()) {
         return new Response(file, {
           headers: {
@@ -456,8 +683,61 @@ const server = serve({
           },
         });
       }
-      
+
       return new Response("main.js not found - run build first", { status: 404 });
+    }
+
+    // API: GET /api/stats/:playerName - Get player stats from leaderboard
+    if (url.pathname.match(/^\/api\/stats\/[^/]+$/)) {
+      const playerName = decodeURIComponent(url.pathname.split("/")[3]);
+      const entry = leaderboardManager.getPlayerEntry(playerName);
+
+      if (!entry) {
+        return new Response(JSON.stringify({ error: "Player not found" }), {
+          status: 404,
+          headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+        });
+      }
+
+      return new Response(JSON.stringify(entry), {
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      });
+    }
+
+    // API: GET /api/leaderboard - Top 20 players sorted by score
+    if (url.pathname === "/api/leaderboard") {
+      const top20 = leaderboardManager.getLeaderboard(20);
+      return new Response(JSON.stringify(top20), {
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      });
+    }
+
+    // API: GET /api/replays/:roomCode - List replays for room
+    if (url.pathname.match(/^\/api\/replays\/[^/]+$/)) {
+      const roomCode = decodeURIComponent(url.pathname.split("/")[3]);
+      const replays = replayManager.getReplays(roomCode);
+      return new Response(JSON.stringify(replays), {
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      });
+    }
+
+    // API: GET /api/replay/:roomCode/:roundId - Single replay with guesses
+    if (url.pathname.match(/^\/api\/replay\/[^/]+\/[^/]+$/)) {
+      const parts = url.pathname.split("/");
+      const roomCode = decodeURIComponent(parts[3]);
+      const roundId = decodeURIComponent(parts[4]);
+      const replay = replayManager.getReplay(roundId);
+
+      if (!replay) {
+        return new Response(JSON.stringify({ error: "Replay not found" }), {
+          status: 404,
+          headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+        });
+      }
+
+      return new Response(JSON.stringify(replay), {
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      });
     }
 
     return new Response("Not Found", { status: 404 });

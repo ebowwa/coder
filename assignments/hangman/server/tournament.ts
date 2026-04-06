@@ -14,6 +14,34 @@ export type MatchState = 'pending' | 'playing' | 'completed';
 // Tournament states
 export type TournamentState = 'waiting' | 'in_progress' | 'completed';
 
+// Game difficulty levels
+export type GameDifficulty = 'easy' | 'medium' | 'hard';
+
+// Difficulty configuration
+export interface DifficultyConfig {
+  wordDifficultyMin: number;
+  wordDifficultyMax: number;
+  maxWrongGuesses: number;
+}
+
+export const DIFFICULTY_SETTINGS: Record<GameDifficulty, DifficultyConfig> = {
+  easy: {
+    wordDifficultyMin: 1,
+    wordDifficultyMax: 2,
+    maxWrongGuesses: 8,
+  },
+  medium: {
+    wordDifficultyMin: 2,
+    wordDifficultyMax: 3,
+    maxWrongGuesses: 6,
+  },
+  hard: {
+    wordDifficultyMin: 4,
+    wordDifficultyMax: 5,
+    maxWrongGuesses: 4,
+  },
+};
+
 export interface TournamentPlayer {
   id: string;
   name: string;
@@ -44,6 +72,7 @@ export interface Tournament {
   id: string;
   name: string;
   size: TournamentSize;
+  difficulty: GameDifficulty;
   state: TournamentState;
   players: Map<string, TournamentPlayer>;
   bracket: TournamentBracket;
@@ -56,6 +85,7 @@ export interface Tournament {
 export interface TournamentCreatePayload {
   name: string;
   size: TournamentSize;
+  difficulty?: GameDifficulty;
   hostId: string;
   hostName: string;
   hostColor: number;
@@ -64,7 +94,7 @@ export interface TournamentCreatePayload {
 const DATA_DIR = "data";
 const TOURNAMENTS_FILE = `${DATA_DIR}/tournaments.json`;
 
-class TournamentManager {
+export class TournamentManager {
   private tournaments: Map<string, Tournament> = new Map();
   private saveTimeout: ReturnType<typeof setTimeout> | null = null;
 
@@ -212,6 +242,7 @@ class TournamentManager {
       id,
       name: payload.name,
       size: payload.size,
+      difficulty: payload.difficulty || 'medium',
       state: 'waiting',
       players: new Map([[host.id, host]]),
       bracket: this.createEmptyBracket(payload.size),
@@ -455,6 +486,12 @@ class TournamentManager {
       active: tournaments.filter(t => t.state === 'in_progress').length,
       completed: tournaments.filter(t => t.state === 'completed').length,
     };
+  }
+
+  getDifficultyConfig(tournamentId: string): DifficultyConfig | null {
+    const tournament = this.tournaments.get(tournamentId);
+    if (!tournament) return null;
+    return DIFFICULTY_SETTINGS[tournament.difficulty];
   }
 
   deleteTournament(tournamentId: string): boolean {
