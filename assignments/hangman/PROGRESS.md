@@ -258,7 +258,11 @@ bun test
 - [ ] 3D prediction UI (instead of DOM overlay)
 - [ ] Particle effects on win/lose
 - [ ] Power-ups (hint, skip, extra life)
-- [ ] Word categories selection
+- [x] Word categories selection
+  - [x] CategoryUI class for DOM overlay category picker
+  - [x] getAllCategories() and getRandomWordByCategory() functions
+  - [x] Visual category grid with icons and hover effects
+  - [x] Random (all words) or specific category selection
 - [ ] Custom word lists
 - [ ] AI opponents
 - [x] Mobile touch support
