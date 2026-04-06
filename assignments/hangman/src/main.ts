@@ -142,6 +142,7 @@ class HangmanGame {
       difficulty: 1,
       hintsRemaining: GAME_CONFIG.hintsPerRound,
       maxHints: GAME_CONFIG.hintsPerRound,
+      selectedCategory: null,
     };
 
     // Create hint button UI

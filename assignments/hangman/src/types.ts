@@ -43,6 +43,7 @@ export interface GameState {
   difficulty: number;
   hintsRemaining: number;
   maxHints: number;
+  selectedCategory: string | null;
 }
 
 export interface WordResponse {
