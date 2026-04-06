@@ -490,6 +490,105 @@ function gatherWorkspaceSignals(workingDirectory: string): string {
   return signals.join("\n\n");
 }
 
+/**
+ * Post-task verification: runs QualityGate and vision checks automatically.
+ * Recorded in stats as MCP calls so they appear in the mcpCalls array.
+ */
+async function runPostTaskVerification(
+  workingDirectory: string,
+  taskId: string,
+  statusWriter: StatusWriter,
+): Promise<void> {
+  // 1. QualityGate (build + test + typecheck)
+  const gateStart = Date.now();
+  try {
+    const gate = await verifyQualityGate(workingDirectory);
+    const gateMs = Date.now() - gateStart;
+    const gateStatus = gate.passed ? "\x1b[32mPASSED\x1b[0m" : "\x1b[31mFAILED\x1b[0m";
+    console.log(
+      `\x1b[90m[QualityGate] ${gateStatus} -- tests: ${gate.tests.pass}/${gate.tests.pass + gate.tests.fail}, ts errors: ${gate.tsErrors}, changed: ${gate.filesChanged.length}\x1b[0m`,
+    );
+    statusWriter.recordMcpCall("daemon", "QualityGate", gateMs, !gate.passed);
+    statusWriter.recordEvent("quality_gate", {
+      taskId,
+      passed: gate.passed,
+      testsPassed: gate.tests.pass,
+      testsFailed: gate.tests.fail,
+      tsErrors: gate.tsErrors,
+      changedFiles: gate.filesChanged.length,
+    });
+  } catch (err) {
+    console.log(`\x1b[33m[QualityGate] Skipped: ${err instanceof Error ? err.message : err}\x1b[0m`);
+  }
+
+  // 2. Vision verification for web projects (if a dev server port is detectable)
+  const pkgPath = join(workingDirectory, "package.json");
+  if (existsSync(pkgPath)) {
+    try {
+      const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
+      const hasWebServer =
+        pkg.dependencies?.express ||
+        pkg.dependencies?.["three"] ||
+        pkg.dependencies?.react ||
+        pkg.dependencies?.next ||
+        pkg.dependencies?.vite ||
+        pkg.devDependencies?.vite;
+      if (hasWebServer) {
+        const visionStart = Date.now();
+        const { getVisionLLM } = await import("../../../../core/meta-llm-client.js");
+        const { readImageFile } = await import("../../../../core/image.js");
+
+        // Try common dev ports
+        for (const port of [3000, 5173, 8080]) {
+          try {
+            // Quick check if port is serving
+            execSync(`curl -s -o /dev/null -w "%{http_code}" http://localhost:${port}`, {
+              timeout: 3000,
+            });
+            // Screenshot via headless capture
+            const screenshotPath = join(workingDirectory, ".coder", `screenshot-${port}.png`);
+            try {
+              execSync(
+                `/Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome --headless --disable-gpu --screenshot="${screenshotPath}" --window-size=1280,720 http://localhost:${port} 2>/dev/null`,
+                { timeout: 10_000 },
+              );
+            } catch {
+              // Try chromium or skip
+              try {
+                execSync(
+                  `chromium --headless --disable-gpu --screenshot="${screenshotPath}" --window-size=1280,720 http://localhost:${port} 2>/dev/null`,
+                  { timeout: 10_000 },
+                );
+              } catch { continue; }
+            }
+
+            if (existsSync(screenshotPath)) {
+              const imgData = await readImageFile(screenshotPath);
+              const analysis = await getVisionLLM().completeWithImage(
+                "You are a UI quality verifier.",
+                "Analyze this web application screenshot. Is the UI rendering correctly? Any broken layouts, missing content, or errors visible? Be concise (2-3 sentences).",
+                { base64: imgData.base64, mediaType: imgData.mediaType },
+                256,
+              );
+              const visionMs = Date.now() - visionStart;
+              console.log(
+                `\x1b[90m[Vision] Port ${port}: ${analysis?.text?.slice(0, 120) || "no response"}\x1b[0m`,
+              );
+              statusWriter.recordMcpCall("vision", "screenshot_verify", visionMs, false);
+              statusWriter.recordEvent("vision_verify", {
+                taskId,
+                port,
+                analysis: analysis?.text?.slice(0, 200),
+              });
+              break; // Only verify first responsive port
+            }
+          } catch { /* port not responding */ }
+        }
+      }
+    } catch { /* package.json parse error */ }
+  }
+}
+
 async function buildSelfAssessmentTask(
   workingDirectory: string,
   completedCount: number,
@@ -723,24 +822,8 @@ export async function runDaemonLoop(options: DaemonOptions): Promise<never> {
       totalDaemonCost += result.cost;
       tasksCompleted++;
 
-      // Automatic QualityGate after every task completion
-      try {
-        const gate = await verifyQualityGate(workingDirectory);
-        const gateStatus = gate.passed ? "\x1b[32mPASSED\x1b[0m" : "\x1b[31mFAILED\x1b[0m";
-        console.log(
-          `\x1b[90m[QualityGate] ${gateStatus} -- tests: ${gate.tests.pass}/${gate.tests.pass + gate.tests.fail}, ts errors: ${gate.tsErrors}, changed files: ${gate.filesChanged.length}\x1b[0m`,
-        );
-        statusWriter.recordEvent("quality_gate", {
-          taskId: task.id,
-          passed: gate.passed,
-          testsPassed: gate.tests.pass,
-          testsFailed: gate.tests.fail,
-          tsErrors: gate.tsErrors,
-          changedFiles: gate.filesChanged.length,
-        });
-      } catch (gateErr) {
-        console.log(`\x1b[33m[QualityGate] Skipped: ${gateErr instanceof Error ? gateErr.message : gateErr}\x1b[0m`);
-      }
+      // Automatic post-task verification (QualityGate + Vision if web project)
+      await runPostTaskVerification(workingDirectory, task.id, statusWriter);
 
       statusWriter.recordEvent("task_completed", {
         taskId: task.id,
