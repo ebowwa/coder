@@ -164,6 +164,7 @@ A 3D hangman game built with Three.js, Bun, and TypeScript. Features single-play
   - LETTER_TILES_CONFIG (sizes, colors, animations)
   - WORD_DISPLAY_CONFIG (spacing, animations)
   - UI_CONFIG (positions)
+- [x] .gitignore for proper git tracking (node_modules, dist, IDE files, etc.)
 
 ### Type Definitions
 - [x] Shared types in types.ts:
