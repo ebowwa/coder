@@ -63,24 +63,33 @@ describe('RoomManager - Player Rotation', () => {
     it('should wrap around to first player after last player', () => {
       const room = manager.createRoom('p1', 'Player 1', 0xff0000);
       const code = room.code;
-      
+
       manager.joinRoom(code, 'p2', 'Player 2', 0x00ff00);
       manager.joinRoom(code, 'p3', 'Player 3', 0x0000ff);
-      
+
       manager.startGame(code, 1);
-      
+
+      // Get the word and find letters NOT in it
+      const currentRoom = manager.getRoom(code);
+      const word = currentRoom!.currentRound!.word;
+      const uncommonLetters = ['Z', 'Q', 'X', 'J', 'K', 'V'];
+      const wrongLetters = uncommonLetters.filter(l => !word.includes(l));
+
+      // Ensure we have enough wrong letters
+      expect(wrongLetters.length).toBeGreaterThanOrEqual(3);
+
       // Player 1 wrong guess -> Player 2
-      let result = manager.processGuess(code, 'p1', 'Z');
+      let result = manager.processGuess(code, 'p1', wrongLetters[0]);
       expect(result!.nextPlayerId).toBe('p2');
       expect(result!.round.currentGuesserId).toBe('p2');
-      
+
       // Player 2 wrong guess -> Player 3
-      result = manager.processGuess(code, 'p2', 'Y');
+      result = manager.processGuess(code, 'p2', wrongLetters[1]);
       expect(result!.nextPlayerId).toBe('p3');
       expect(result!.round.currentGuesserId).toBe('p3');
-      
+
       // Player 3 wrong guess -> Player 1 (wrap around)
-      result = manager.processGuess(code, 'p3', 'X');
+      result = manager.processGuess(code, 'p3', wrongLetters[2]);
       expect(result!.nextPlayerId).toBe('p1');
       expect(result!.round.currentGuesserId).toBe('p1');
     });
@@ -88,77 +97,90 @@ describe('RoomManager - Player Rotation', () => {
     it('should track wrong guess count correctly', () => {
       const room = manager.createRoom('p1', 'Player 1', 0xff0000);
       const code = room.code;
-      
+
       manager.joinRoom(code, 'p2', 'Player 2', 0x00ff00);
-      
+
       manager.startGame(code, 1);
-      
+
+      // Get the word and find letters NOT in it
+      const currentRoom = manager.getRoom(code);
+      const word = currentRoom!.currentRound!.word;
+      const uncommonLetters = ['Z', 'Q', 'X', 'J', 'K', 'V'];
+      const wrongLetters = uncommonLetters.filter(l => !word.includes(l));
+
+      // Ensure we have enough wrong letters
+      expect(wrongLetters.length).toBeGreaterThanOrEqual(3);
+
       // Make multiple wrong guesses
-      manager.processGuess(code, 'p1', 'Z');
-      let result = manager.processGuess(code, 'p2', 'Y');
-      
+      manager.processGuess(code, 'p1', wrongLetters[0]);
+      let result = manager.processGuess(code, 'p2', wrongLetters[1]);
+
       expect(result!.round.wrongGuesses).toBe(2);
-      
-      result = manager.processGuess(code, 'p1', 'X');
+
+      result = manager.processGuess(code, 'p1', wrongLetters[2]);
       expect(result!.round.wrongGuesses).toBe(3);
     });
 
     it('should handle 2-player rotation correctly', () => {
       const room = manager.createRoom('p1', 'Player 1', 0xff0000);
       const code = room.code;
-      
+
       manager.joinRoom(code, 'p2', 'Player 2', 0x00ff00);
-      
+
       manager.startGame(code, 1);
-      
+
+      // Get the word and find letters NOT in it
+      const currentRoom = manager.getRoom(code);
+      const word = currentRoom!.currentRound!.word;
+      const uncommonLetters = ['Z', 'Q', 'X', 'J', 'K', 'V'];
+      const wrongLetters = uncommonLetters.filter(l => !word.includes(l));
+
+      // Ensure we have enough wrong letters
+      expect(wrongLetters.length).toBeGreaterThanOrEqual(3);
+
       // Player 1 wrong -> Player 2
-      let result = manager.processGuess(code, 'p1', 'Z');
+      let result = manager.processGuess(code, 'p1', wrongLetters[0]);
       expect(result!.nextPlayerId).toBe('p2');
-      
+
       // Player 2 wrong -> Player 1
-      result = manager.processGuess(code, 'p2', 'Y');
+      result = manager.processGuess(code, 'p2', wrongLetters[1]);
       expect(result!.nextPlayerId).toBe('p1');
-      
+
       // Player 1 wrong -> Player 2
-      result = manager.processGuess(code, 'p1', 'X');
+      result = manager.processGuess(code, 'p1', wrongLetters[2]);
       expect(result!.nextPlayerId).toBe('p2');
     });
 
     it('should handle 4-player rotation correctly', () => {
       const room = manager.createRoom('p1', 'Player 1', 0xff0000);
       const code = room.code;
-      
+
       manager.joinRoom(code, 'p2', 'Player 2', 0x00ff00);
       manager.joinRoom(code, 'p3', 'Player 3', 0x0000ff);
       manager.joinRoom(code, 'p4', 'Player 4', 0xffff00);
-      
+
       manager.startGame(code, 1);
-      
-      // Debug: check player order
-      const startedRoom = manager.getRoom(code);
-      console.log('Player order:', Array.from(startedRoom!.players.keys()));
-      console.log('Current turn index:', startedRoom!.currentTurnIndex);
-      console.log('Current guesser:', startedRoom!.currentRound!.currentGuesserId);
-      
+
+      // Get the word and find letters NOT in it
+      const currentRoom = manager.getRoom(code);
+      const word = currentRoom!.currentRound!.word;
+      const uncommonLetters = ['Z', 'Q', 'X', 'J', 'K', 'V', 'W'];
+      const wrongLetters = uncommonLetters.filter(l => !word.includes(l));
+
+      // Ensure we have enough wrong letters
+      expect(wrongLetters.length).toBeGreaterThanOrEqual(4);
+
       // Track rotation: p1 -> p2 -> p3 -> p4 -> p1
-      let result = manager.processGuess(code, 'p1', 'Z');
-      console.log('After p1 wrong guess:', {
-        nextPlayerId: result!.nextPlayerId,
-        currentTurnIndex: manager.getRoom(code)!.currentTurnIndex
-      });
+      let result = manager.processGuess(code, 'p1', wrongLetters[0]);
       expect(result!.nextPlayerId).toBe('p2');
-      
-      result = manager.processGuess(code, 'p2', 'Y');
-      console.log('After p2 wrong guess:', {
-        nextPlayerId: result!.nextPlayerId,
-        currentTurnIndex: manager.getRoom(code)!.currentTurnIndex
-      });
+
+      result = manager.processGuess(code, 'p2', wrongLetters[1]);
       expect(result!.nextPlayerId).toBe('p3');
-      
-      result = manager.processGuess(code, 'p3', 'X');
+
+      result = manager.processGuess(code, 'p3', wrongLetters[2]);
       expect(result!.nextPlayerId).toBe('p4');
-      
-      result = manager.processGuess(code, 'p4', 'W');
+
+      result = manager.processGuess(code, 'p4', wrongLetters[3]);
       expect(result!.nextPlayerId).toBe('p1');
     });
 
