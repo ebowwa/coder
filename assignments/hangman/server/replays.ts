@@ -180,6 +180,17 @@ class ReplayManager {
   }
 
   /**
+   * Get replay timeline - returns guesses sorted by timestamp for playback
+   */
+  getReplayTimeline(roundId: string): IndividualGuess[] {
+    const replay = this.getReplay(roundId);
+    if (!replay) {
+      return [];
+    }
+    return [...replay.guesses].sort((a, b) => a.timestamp - b.timestamp);
+  }
+
+  /**
    * Get recent replays across all rooms
    */
   getRecentReplays(limit: number = 50): ReplayRound[] {
