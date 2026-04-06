@@ -41,6 +41,8 @@ export interface GameState {
   maxLives: number;
   isGameOver: boolean;
   difficulty: number;
+  hintsRemaining: number;
+  maxHints: number;
 }
 
 export interface WordResponse {

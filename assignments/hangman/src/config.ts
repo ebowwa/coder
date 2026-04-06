@@ -18,6 +18,8 @@ export const GAME_CONFIG = {
   baseScoreMultiplier: 10,
   wrongGuessPenalty: 5,
   minimumScore: 10,
+  hintsPerRound: 1,
+  hintPenalty: 5,
 };
 
 // Scene configuration

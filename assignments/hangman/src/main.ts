@@ -48,6 +48,7 @@ class HangmanGame {
   private hangmanGroup: THREE.Group;
   private bodyParts: THREE.Mesh[] = [];
   private clock: THREE.Clock;
+  private hintButton: HTMLButtonElement | null = null;
 
   // Multiplayer state
   private gameMode: GameMode = 'none';
@@ -137,7 +138,12 @@ class HangmanGame {
       maxLives: GAME_CONFIG.maxWrongGuesses,
       isGameOver: false,
       difficulty: 1,
+      hintsRemaining: GAME_CONFIG.hintsPerRound,
+      maxHints: GAME_CONFIG.hintsPerRound,
     };
+
+    // Create hint button UI
+    this.createHintButton();
 
     // Setup event handlers
     this.letterTiles.setTileClickHandler(this.handleLetterClick.bind(this));
@@ -433,6 +439,135 @@ class HangmanGame {
     this.scene.add(fillLight);
   }
 
+  private createHintButton(): void {
+    this.hintButton = document.createElement('button');
+    this.hintButton.id = 'hint-button';
+    this.hintButton.innerHTML = `<span id="hint-icon">💡</span> Hint (<span id="hint-count">${this.gameState.hintsRemaining}</span>)`;
+    this.hintButton.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 12px 20px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+      z-index: 200;
+      transition: all 0.3s ease;
+      display: none;
+    `;
+
+    // Add hover effects
+    this.hintButton.addEventListener('mouseenter', () => {
+      if (this.gameState.hintsRemaining > 0) {
+        this.hintButton!.style.transform = 'scale(1.05)';
+        this.hintButton!.style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.6)';
+      }
+    });
+    this.hintButton.addEventListener('mouseleave', () => {
+      this.hintButton!.style.transform = 'scale(1)';
+      this.hintButton!.style.boxShadow = '0 4px 15px rgba(102, 126, 234, 0.4)';
+    });
+
+    // Add click handler
+    this.hintButton.addEventListener('click', () => this.useHint());
+
+    document.body.appendChild(this.hintButton);
+  }
+
+  private updateHintButton(): void {
+    if (!this.hintButton) return;
+
+    const countSpan = this.hintButton.querySelector('#hint-count');
+    if (countSpan) {
+      countSpan.textContent = String(this.gameState.hintsRemaining);
+    }
+
+    // Update button state based on hints remaining
+    if (this.gameState.hintsRemaining <= 0) {
+      this.hintButton.style.opacity = '0.5';
+      this.hintButton.style.cursor = 'not-allowed';
+    } else {
+      this.hintButton.style.opacity = '1';
+      this.hintButton.style.cursor = 'pointer';
+    }
+
+    // Show/hide based on game state
+    const shouldShow = this.gameMode === 'single' && 
+                       this.gameState.currentRound && 
+                       !this.gameState.currentRound.isComplete;
+    this.hintButton.style.display = shouldShow ? 'block' : 'none';
+  }
+
+  private useHint(): void {
+    const round = this.gameState.currentRound;
+    
+    // Validate we can use a hint
+    if (!round || round.isComplete) {
+      this.predictionUI.showMessage('No active round!', '#ff6b6b');
+      return;
+    }
+    
+    if (this.gameState.hintsRemaining <= 0) {
+      this.predictionUI.showMessage('No hints remaining!', '#ff6b6b');
+      return;
+    }
+    
+    if (this.gameMode !== 'single') {
+      this.predictionUI.showMessage('Hints only available in single player!', '#ffe66d');
+      return;
+    }
+
+    // Find unrevealed letters in the word
+    const unrevealedLetters: string[] = [];
+    for (const letter of round.word) {
+      if (!round.revealedLetters.has(letter) && !round.guessedLetters.has(letter)) {
+        // Add unique letters only
+        if (!unrevealedLetters.includes(letter)) {
+          unrevealedLetters.push(letter);
+        }
+      }
+    }
+
+    if (unrevealedLetters.length === 0) {
+      this.predictionUI.showMessage('No letters to reveal!', '#ffe66d');
+      return;
+    }
+
+    // Pick a random unrevealed letter
+    const hintLetter = unrevealedLetters[Math.floor(Math.random() * unrevealedLetters.length)];
+
+    // Use the hint
+    this.gameState.hintsRemaining--;
+    round.guessedLetters.add(hintLetter);
+    round.revealedLetters.add(hintLetter);
+
+    // Update UI
+    this.wordDisplay.updateDisplay(round);
+    this.letterTiles.setTileStatus(hintLetter, 'correct');
+    this.updateHintButton();
+
+    // Apply hint penalty to score
+    this.gameState.score.totalScore = Math.max(0, this.gameState.score.totalScore - GAME_CONFIG.hintPenalty);
+
+    // Show message
+    this.predictionUI.showMessage(`Hint: The letter "${hintLetter}" is in the word! (-${GAME_CONFIG.hintPenalty} points)`, '#667eea');
+    soundEffects.play('correct');
+
+    // Check for win
+    const allRevealed = round.word.split('').every(l => round.revealedLetters.has(l));
+    if (allRevealed) {
+      round.isComplete = true;
+      round.isWon = true;
+      soundEffects.play('win');
+      this.handleRoundComplete();
+    }
+  }
+
   private createHangmanFigure(): void {
     // Gallows
     const gallowsMaterial = new THREE.MeshStandardMaterial({
@@ -643,6 +778,10 @@ class HangmanGame {
       this.wordDisplay.setWord(this.gameState.currentRound.word);
       this.letterTiles.reset();
       this.resetHangman();
+      
+      // Reset hints for new round
+      this.gameState.hintsRemaining = GAME_CONFIG.hintsPerRound;
+      this.updateHintButton();
     }
   }
 
