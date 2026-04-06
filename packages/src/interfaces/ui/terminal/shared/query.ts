@@ -558,10 +558,18 @@ async function runVisionVerification(
   let serverProc: ReturnType<typeof import("child_process").spawn> | null = null;
 
   try {
+    // Build first if a build script exists (needed for bundled SPAs)
+    if (scripts.build) {
+      try {
+        execSync("bun run build", { cwd: workingDirectory, timeout: 30_000, stdio: "ignore" });
+      } catch { /* build optional -- server may work without it */ }
+    }
+
     // Start dev server in background
     const { spawn } = await import("child_process");
+    const cmdParts = startCmd.split(/\s+/);
     console.log(`\x1b[90m[Vision] Starting dev server: ${startCmd} (port ${expectedPort})\x1b[0m`);
-    serverProc = spawn("bun", ["run", startCmd.split(" ")[0]!], {
+    serverProc = spawn("bun", ["run", cmdParts[0]!], {
       cwd: workingDirectory,
       stdio: "ignore",
       detached: true,
@@ -594,21 +602,27 @@ async function runVisionVerification(
     }
     const screenshotPath = join(coderDir, `screenshot-${expectedPort}.png`);
 
+    // Give the app extra time to render (Three.js/WebGL/React hydration)
+    await new Promise((r) => setTimeout(r, 3000));
+
     const chromePath = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
     const chromeArgs = [
       "--headless=new",
-      "--disable-gpu",
       "--no-sandbox",
+      "--use-gl=angle",
+      "--use-angle=swiftshader",
+      "--run-all-compositor-stages-before-draw",
+      "--virtual-time-budget=8000",
       `--screenshot=${screenshotPath}`,
       "--window-size=1280,720",
       `http://localhost:${expectedPort}`,
     ];
 
     try {
-      execSync(`"${chromePath}" ${chromeArgs.map((a) => `"${a}"`).join(" ")} 2>/dev/null`, { timeout: 15_000 });
+      execSync(`"${chromePath}" ${chromeArgs.map((a) => `"${a}"`).join(" ")} 2>/dev/null`, { timeout: 25_000 });
     } catch {
       try {
-        execSync(`chromium ${chromeArgs.join(" ")} 2>/dev/null`, { timeout: 15_000 });
+        execSync(`chromium ${chromeArgs.join(" ")} 2>/dev/null`, { timeout: 25_000 });
       } catch {
         console.log(`\x1b[33m[Vision] Screenshot failed (no headless browser)\x1b[0m`);
         statusWriter.recordMcpCall("vision", "screenshot_verify", Date.now() - visionStart, true);
