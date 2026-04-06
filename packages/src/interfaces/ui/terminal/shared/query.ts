@@ -19,6 +19,7 @@ import type { CLIArgs } from "./args.js";
 import { execSync } from "child_process";
 import { readFileSync, existsSync } from "fs";
 import { join } from "path";
+import { verifyQualityGate } from "../../../../ecosystem/plugins/daemon/quality-gate.js";
 
 const STATS_PORT = parseInt(process.env.CODER_STATS_PORT || "7420", 10);
 const MAX_HANDOFF_SESSIONS = parseInt(process.env.CODER_MAX_HANDOFFS || "10", 10);
@@ -721,6 +722,26 @@ export async function runDaemonLoop(options: DaemonOptions): Promise<never> {
       taskQueue.markCompleted(task.id, result.cost, result.handoffs);
       totalDaemonCost += result.cost;
       tasksCompleted++;
+
+      // Automatic QualityGate after every task completion
+      try {
+        const gate = await verifyQualityGate(workingDirectory);
+        const gateStatus = gate.passed ? "\x1b[32mPASSED\x1b[0m" : "\x1b[31mFAILED\x1b[0m";
+        console.log(
+          `\x1b[90m[QualityGate] ${gateStatus} -- tests: ${gate.tests.pass}/${gate.tests.pass + gate.tests.fail}, ts errors: ${gate.tsErrors}, changed files: ${gate.filesChanged.length}\x1b[0m`,
+        );
+        statusWriter.recordEvent("quality_gate", {
+          taskId: task.id,
+          passed: gate.passed,
+          testsPassed: gate.tests.pass,
+          testsFailed: gate.tests.fail,
+          tsErrors: gate.tsErrors,
+          changedFiles: gate.filesChanged.length,
+        });
+      } catch (gateErr) {
+        console.log(`\x1b[33m[QualityGate] Skipped: ${gateErr instanceof Error ? gateErr.message : gateErr}\x1b[0m`);
+      }
+
       statusWriter.recordEvent("task_completed", {
         taskId: task.id,
         cost: result.cost,
