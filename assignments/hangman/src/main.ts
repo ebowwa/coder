@@ -10,6 +10,7 @@ import { WordDisplay } from './word-display';
 import { PredictionUI } from './prediction-ui';
 import { getRandomWord } from './words';
 import { soundEffects } from './sound-effects';
+import { ParticleEffects } from './particle-effects';
 import type { Round, GameState, WordResponse } from './types';
 import {
   API_CONFIG,
@@ -49,6 +50,7 @@ class HangmanGame {
   private bodyParts: THREE.Mesh[] = [];
   private clock: THREE.Clock;
   private hintButton: HTMLButtonElement | null = null;
+  private particleEffects: ParticleEffects;
 
   // Multiplayer state
   private gameMode: GameMode = 'none';
@@ -144,6 +146,9 @@ class HangmanGame {
 
     // Create hint button UI
     this.createHintButton();
+
+    // Initialize particle effects
+    this.particleEffects = new ParticleEffects(this.scene);
 
     // Setup event handlers
     this.letterTiles.setTileClickHandler(this.handleLetterClick.bind(this));
@@ -813,6 +818,8 @@ class HangmanGame {
         round.isComplete = true;
         round.isWon = true;
         soundEffects.play('win');
+        // Emit win particles
+        this.particleEffects.emitConfettiBurst(2);
         this.handleRoundComplete();
       }
     } else {
@@ -827,6 +834,8 @@ class HangmanGame {
         round.isComplete = true;
         round.isWon = false;
         soundEffects.play('lose');
+        // Emit lose particles
+        this.particleEffects.emitLose(new THREE.Vector3(0, 0, 0));
         this.handleRoundComplete();
       }
     }
@@ -937,6 +946,9 @@ class HangmanGame {
     if (this.tournamentUI) {
       this.tournamentUI.update(deltaTime);
     }
+
+    // Update particle effects
+    this.particleEffects.update(deltaTime);
 
     this.renderer.render(this.scene, this.camera);
   }
