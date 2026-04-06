@@ -19,7 +19,7 @@ import { runSingleQuery } from "../../interfaces/ui/terminal/shared/query.js";
 import type { TaskPhase, PhaseResult, SupervisorResult, QualityGateResult } from "../../schemas/index.js";
 import { parseTaskFile, writeTaskFile } from "../parsers/task-file.js";
 import { getHeadSha, detectCompletion } from "../git-status.js";
-import { verifyQualityGate, buildRetryPrompt } from "../../ecosystem/daemon/quality-gate.js";
+import { verifyQualityGate, buildRetryPrompt } from "../../ecosystem/plugins/daemon/quality-gate.js";
 
 // ============================================
 // TYPES

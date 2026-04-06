@@ -20,10 +20,13 @@ import {
   type LoadedConfig,
   type SettingsConfig,
 } from "../../../../core/config-loader.js";
-import type { EcosystemPlugin } from "../../../../ecosystem/plugin.js";
-import { createCognitiveSecurityPlugin } from "../../../../ecosystem/cognitive-security/plugin.js";
-import { createPromptsPlugin } from "../../../../ecosystem/prompts/plugin.js";
-import { createDaemonPlugin } from "../../../../ecosystem/daemon/plugin.js";
+import {
+  PluginRegistry,
+  getPluginErrorMessage,
+  createCognitiveSecurityPlugin,
+  createPromptsPlugin,
+  createDaemonPlugin,
+} from "../../../../ecosystem/plugins/index.js";
 import type { CLIArgs } from "./args.js";
 
 // ============================================
@@ -36,6 +39,7 @@ export interface SessionSetup {
   hookManager: HookManager;
   skillManager: SkillManager;
   teammateManager: TeammateManager;
+  pluginRegistry: PluginRegistry;
   mcpClients: Map<string, MCPClientImpl>;
   tools: ToolDefinition[];
   permissionMode: PermissionMode;
@@ -277,7 +281,10 @@ export async function setupSession(options: SetupOptions): Promise<SessionSetup>
 
   const isBypassMode = permissionMode === "bypassPermissions";
 
-  const plugins: EcosystemPlugin[] = [
+  const pluginRegistry = new PluginRegistry(
+    workingDirectory + "/.coder/plugin-settings.json",
+  );
+  pluginRegistry.add(
     createCognitiveSecurityPlugin({
       enabled: !isBypassMode,
       checkIntentAlignment: !isBypassMode,
@@ -289,14 +296,20 @@ export async function setupSession(options: SetupOptions): Promise<SessionSetup>
       minAlignmentScore: 0.3,
       approvalRequiredSensitivities: ["secret", "top_secret"],
     }),
-    createPromptsPlugin(),
-    createDaemonPlugin(),
-  ];
+  );
+  pluginRegistry.add(createPromptsPlugin());
+  pluginRegistry.add(createDaemonPlugin());
 
   const pluginCtx = { hookManager, skillManager, tools, config: {} };
-  for (const plugin of plugins) {
-    await plugin.register(pluginCtx);
-    log(`  Plugin registered: ${plugin.name}`);
+  const pluginResult = await pluginRegistry.loadAll(pluginCtx);
+  for (const p of pluginResult.enabled) {
+    log(`  Plugin loaded: ${p.name} (${p.version})`);
+  }
+  for (const p of pluginResult.disabled) {
+    log(`  Plugin disabled: ${p.name}`);
+  }
+  for (const e of pluginResult.errors) {
+    log(`  Plugin error: ${getPluginErrorMessage(e)}`);
   }
 
   return {
@@ -305,6 +318,7 @@ export async function setupSession(options: SetupOptions): Promise<SessionSetup>
     hookManager,
     skillManager,
     teammateManager,
+    pluginRegistry,
     mcpClients,
     tools,
     permissionMode,

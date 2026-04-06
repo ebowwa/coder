@@ -55,6 +55,14 @@ export type {
   LoadedSession,
 } from "./core/session-store.js";
 
+// Meta-LLM primitives (text: glm-5-turbo, vision: glm-5v-turbo)
+export {
+  MetaLLMClient,
+  getMetaLLM,
+  getVisionLLM,
+  type MetaLLMResponse,
+} from "./core/meta-llm-client.js";
+
 // Tools
 export * from "./ecosystem/tools/index.js";
 
@@ -75,7 +83,7 @@ export * from "./ecosystem/presets/index.js";
 export * from "./teammates/index.js";
 
 // Cognitive Security
-export * from "./ecosystem/cognitive-security/index.js";
+export * from "./ecosystem/plugins/cognitive-security/index.js";
 
 // UI Components (exclude types that are already in types/index.js)
 export {

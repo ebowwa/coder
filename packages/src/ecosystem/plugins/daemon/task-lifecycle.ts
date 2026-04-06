@@ -10,8 +10,8 @@
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
-import type { TaskLifecycleState } from "../../schemas/index.js";
-import { parseTaskFile, writeTaskFile } from "../../core/parsers/task-file.js";
+import type { TaskLifecycleState } from "../../../schemas/index.js";
+import { parseTaskFile, writeTaskFile } from "../../../core/parsers/task-file.js";
 import { verifyQualityGate } from "./quality-gate.js";
 
 interface LifecycleConfig {

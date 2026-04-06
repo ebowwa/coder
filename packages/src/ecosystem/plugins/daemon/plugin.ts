@@ -11,8 +11,8 @@
  *   plugins.push(createDaemonPlugin());
  */
 
-import type { EcosystemPlugin, PluginContext } from "../plugin.js";
-import type { ToolDefinition, ToolResult, ToolContext } from "../../schemas/index.js";
+import type { EcosystemPlugin, PluginContext } from "../types.js";
+import type { ToolDefinition, ToolResult, ToolContext } from "../../../schemas/index.js";
 import { verifyQualityGate, buildRetryPrompt } from "./quality-gate.js";
 import { installService } from "./service/install.js";
 import { uninstallService } from "./service/uninstall.js";
@@ -130,6 +130,11 @@ const DaemonStatusTool: ToolDefinition = {
 export function createDaemonPlugin(): EcosystemPlugin {
   return {
     name: "daemon",
+    description:
+      "Quality gate verification, persistent OS service management (launchd/systemd), and task lifecycle tools",
+    version: "1.0.0",
+    defaultEnabled: true,
+    isAvailable: () => process.platform === "darwin" || process.platform === "linux",
     register({ tools }) {
       tools.push(QualityGateTool, DaemonInstallTool, DaemonUninstallTool, DaemonStatusTool);
     },

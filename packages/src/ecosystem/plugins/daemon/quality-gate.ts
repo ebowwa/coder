@@ -5,7 +5,7 @@
  * Runs bun test, bunx tsc --noEmit, and git diff --stat in the working directory.
  */
 
-import type { QualityGateResult } from "../../schemas/index.js";
+import type { QualityGateResult } from "../../../schemas/index.js";
 
 interface ShellResult {
   stdout: string;

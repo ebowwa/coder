@@ -4,7 +4,7 @@
  * Tests for the native supervision mode that executes sequential tasks.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { writeFileSync, readFileSync, unlinkSync, existsSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -57,6 +57,7 @@ const mockSetup: SessionSetup = {
     registerBeforeResponse: () => {},
     registerAfterResponse: () => {},
   },
+  pluginRegistry: { size: 0, listPlugins: () => ({ enabled: [], disabled: [], errors: [] }) },
 };
 
 const mockSystemPrompt = "Test system prompt";

@@ -5,7 +5,7 @@
  * No manual calls needed - hooks intercept all operations.
  */
 
-import type { HookInput, HookOutput } from "../../schemas/index.js";
+import type { HookInput, HookOutput } from "../../../schemas/index.js";
 import {
   classifyData,
   classifyOperation,
@@ -64,6 +64,12 @@ export interface SecurityHookConfig {
 
   /** Require approval for operations above this sensitivity level */
   approvalSensitivityLevel: string;
+
+  /** Enable bounds enforcement (code quality rules: types-first, layer-rules, etc.) */
+  enableBounds: boolean;
+
+  /** Include strict boundary variants */
+  strictBounds: boolean;
 }
 
 export const DEFAULT_SECURITY_CONFIG: SecurityHookConfig = {
@@ -84,6 +90,10 @@ export const DEFAULT_SECURITY_CONFIG: SecurityHookConfig = {
   enableImmutableDirectives: true,
   // Sensitivity level requiring explicit user approval
   approvalSensitivityLevel: "confidential",
+  // Enable bounds enforcement (code quality rules)
+  enableBounds: true,
+  // Include strict boundary variants
+  strictBounds: false,
 };
 
 /**

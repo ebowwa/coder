@@ -203,7 +203,7 @@ export const MODELS: Record<string, ModelDefinition> = {
     pricing: { input: 0.5, output: 0.5, cacheWrite: 0, cacheRead: 0 },
     supportsThinking: true,
     provider: "zhipu",
-    supportsVision: true,
+    supportsVision: false,
     tier: "sonnet",
     baseUrl: "https://api.z.ai/api/coding/paas/v4",
   },
@@ -217,7 +217,7 @@ export const MODELS: Record<string, ModelDefinition> = {
     pricing: { input: 0.5, output: 0.5, cacheWrite: 0, cacheRead: 0 },
     supportsThinking: true,
     provider: "zhipu",
-    supportsVision: true,
+    supportsVision: false,
     tier: "sonnet",
     baseUrl: "https://api.z.ai/api/coding/paas/v4",
   },
@@ -233,6 +233,64 @@ export const MODELS: Record<string, ModelDefinition> = {
     provider: "zhipu",
     supportsVision: false,
     tier: "haiku",
+    baseUrl: "https://api.z.ai/api/coding/paas/v4",
+  },
+  "glm-4.6v-flashx": {
+    id: "glm-4.6v-flashx",
+    name: "GLM-4.6V-FlashX",
+    displayName: "GLM-4.6V-FlashX",
+    fullName: "GLM-4.6V-FlashX",
+    contextWindow: 128_000,
+    maxOutput: 8_192,
+    pricing: { input: 0.1, output: 0.1, cacheWrite: 0, cacheRead: 0 },
+    supportsThinking: false,
+    provider: "zhipu",
+    supportsVision: true,
+    tier: "haiku",
+    baseUrl: "https://api.z.ai/api/coding/paas/v4",
+  },
+
+  // GLM Vision Models (z.ai coding plan)
+  "glm-4.5v": {
+    id: "glm-4.5v",
+    name: "GLM-4.5V",
+    displayName: "GLM-4.5V",
+    fullName: "GLM-4.5V",
+    contextWindow: 128_000,
+    maxOutput: 4_096,
+    pricing: { input: 0.1, output: 0.1, cacheWrite: 0, cacheRead: 0 },
+    supportsThinking: false,
+    provider: "zhipu",
+    supportsVision: true,
+    tier: "haiku",
+    baseUrl: "https://api.z.ai/api/coding/paas/v4",
+  },
+  "glm-4.6v": {
+    id: "glm-4.6v",
+    name: "GLM-4.6V",
+    displayName: "GLM-4.6V",
+    fullName: "GLM-4.6V",
+    contextWindow: 128_000,
+    maxOutput: 4_096,
+    pricing: { input: 0.1, output: 0.1, cacheWrite: 0, cacheRead: 0 },
+    supportsThinking: false,
+    provider: "zhipu",
+    supportsVision: true,
+    tier: "sonnet",
+    baseUrl: "https://api.z.ai/api/coding/paas/v4",
+  },
+  "glm-5v-turbo": {
+    id: "glm-5v-turbo",
+    name: "GLM-5V Turbo",
+    displayName: "GLM-5V Turbo",
+    fullName: "GLM-5V Turbo",
+    contextWindow: 128_000,
+    maxOutput: 8_192,
+    pricing: { input: 0.5, output: 0.5, cacheWrite: 0, cacheRead: 0 },
+    supportsThinking: false,
+    provider: "zhipu",
+    supportsVision: true,
+    tier: "sonnet",
     baseUrl: "https://api.z.ai/api/coding/paas/v4",
   },
 
@@ -381,8 +439,14 @@ export const MODEL_ALIASES = {
 /** Default model for interactive use (configurable via CODER_DEFAULT_MODEL env var) */
 export const DEFAULT_MODEL = process.env.CODER_DEFAULT_MODEL || "claude-sonnet-4-6";
 
-/** Default model for summarization (fast/cheap) */
-export const SUMMARIZATION_MODEL = process.env.ANTHROPIC_DEFAULT_HAIKU_MODEL || "glm-4.5-air";
+/** Default model for meta-tasks: compaction, handoff summarization, self-assessment */
+export const META_LLM_MODEL = process.env.CODER_META_MODEL || "glm-5-turbo";
+
+/** @deprecated Use META_LLM_MODEL */
+export const SUMMARIZATION_MODEL = META_LLM_MODEL;
+
+/** Fixed vision-capable model for image analysis (screenshots, rendered output) */
+export const VISION_MODEL = process.env.CODER_VISION_MODEL || "glm-5v-turbo";
 
 /** Backup model to use if primary model fails all retries (read from Doppler) */
 export const BACKUP_MODEL = process.env.CODER_BACKUP_MODEL;

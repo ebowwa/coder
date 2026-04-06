@@ -269,7 +269,8 @@ export function buildEnvInfo(options: EnvInfoOptions): string {
 
 export interface CombinedReminderOptions {
   usage: UsageMetrics;
-  maxTokens: number;
+  /** Context window size (e.g. 200000), NOT per-request output limit (e.g. 4096) */
+  contextWindow: number;
   totalCost: number;
   previousCost?: number;
   toolsUsed: ToolUseBlock[];
@@ -286,7 +287,7 @@ export interface CombinedReminderOptions {
 export function buildCombinedReminder(options: CombinedReminderOptions): string {
   const {
     usage,
-    maxTokens,
+    contextWindow,
     totalCost,
     previousCost,
     toolsUsed,
@@ -299,11 +300,11 @@ export function buildCombinedReminder(options: CombinedReminderOptions): string 
   const config = { ...DEFAULT_REMINDER_CONFIG, ...userConfig };
   const reminders: string[] = [];
 
-  // Token warning (always check)
+  // Token warning against context window (not per-request output limit)
   const currentTokens = usage.input_tokens + usage.output_tokens;
   const tokenWarning = buildTokenWarning({
     current: currentTokens,
-    max: maxTokens,
+    max: contextWindow,
     threshold: config.tokenWarningThreshold,
   });
   if (tokenWarning) {

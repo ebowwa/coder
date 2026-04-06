@@ -150,7 +150,7 @@ export interface DriftFactor {
 
 // ===== Native Bindings =====
 
-import { native } from "../../native/index.js";
+import { native } from "../../../native/index.js";
 
 let nativeModule: any = null;
 
@@ -1582,7 +1582,7 @@ export interface DriftIndicator {
 // ===== Native Module Bindings =====
 // These will be populated when the native module is built
 
-import type { SystemSignature } from "../../core/claude-md.js";
+import type { SystemSignature } from "../../../core/claude-md.js";
 
 let directiveStoreHandle: any = null;
 let actionSignerHandle: any = null;

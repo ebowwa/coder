@@ -28,6 +28,7 @@ import {
   setupSession,
   buildCompleteSystemPrompt,
   runSingleQuery,
+  runDaemonLoop,
 } from "../shared/index.js";
 
 // ============================================
@@ -118,6 +119,24 @@ async function main(): Promise<void> {
   const firstArg = process.argv[2];
   if (!query && process.argv.length > 2 && firstArg && !firstArg.startsWith("-")) {
     query = process.argv.slice(2).join(" ");
+  }
+
+  // Daemon mode -- 24/7 task loop
+  if (args.daemon) {
+    const resolvedArgs = { ...args, permissionMode: setup.permissionMode };
+    await runDaemonLoop({
+      apiKey,
+      args: resolvedArgs,
+      systemPrompt,
+      tools: setup.tools,
+      sessionStore,
+      sessionId,
+      hookManager: setup.hookManager,
+      workingDirectory: process.cwd(),
+      gitStatus,
+      initialTask: args.daemonTask || query || undefined,
+    });
+    return;
   }
 
   if (!query) {

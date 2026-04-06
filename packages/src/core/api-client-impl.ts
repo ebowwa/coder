@@ -436,11 +436,13 @@ export async function createMessageStream(
       retryOptions
     );
   } catch (mainError) {
-    // Main model failed - try backup model if available
+    // Main model failed after all retries.
+    // Only attempt backup if it's configured AND verified reachable (not a blind 404 sink).
     const backupModel = getBackupModel();
-    const canUseBackup = backupModel && backupModelAttempts < BACKUP_MODEL_MAX_ATTEMPTS;
+    const backupModelDef = backupModel ? getModel(backupModel) : undefined;
+    const canUseBackup = backupModel && backupModelDef && backupModelAttempts < BACKUP_MODEL_MAX_ATTEMPTS;
 
-    if (backupModel && canUseBackup) {
+    if (backupModel && backupModelDef && canUseBackup) {
       console.log(`\x1b[33mMain model failed, attempting backup model: ${backupModel}\x1b[0m`);
       console.log(`\x1b[33mBackup model attempt ${backupModelAttempts + 1}/${BACKUP_MODEL_MAX_ATTEMPTS}\x1b[0m`);
 
@@ -481,11 +483,11 @@ export async function createMessageStream(
           : { ...request, model: backupModel };
 
       const backupRetryOptions: RetryOptions = {
-        maxRetries: 10, // Same retry count as primary
-        baseDelayMs: 15000,
-        maxDelayMs: 15000, // Fixed delay - same as base
-        jitterFactor: 0, // No jitter - fixed delay
-        retryableStatusCodes: [429, 500, 502, 503, 504, 529],
+        maxRetries: 3,
+        baseDelayMs: 5000,
+        maxDelayMs: 15000,
+        jitterFactor: 0.2,
+        retryableStatusCodes: [404, 429, 500, 502, 503, 504, 529],
         onRetry: (attempt, error, delayMs) => {
           console.log(
             `\x1b[33mBackup model retry ${attempt}/10 after 15s: ${error.message}\x1b[0m`

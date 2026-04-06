@@ -36,7 +36,7 @@ describe("Checkpoints", () => {
       expect(checkpoint.label).toBe("Test checkpoint");
     });
 
-    it("should include messages in checkpoint", async () => {
+    it("should include message index in checkpoint", async () => {
       const sessionId = uniqueSessionId();
       const messages: Message[] = [
         { role: "user", content: "Question" },
@@ -45,7 +45,9 @@ describe("Checkpoints", () => {
 
       const checkpoint = await createCheckpoint(sessionId, messages);
 
-      expect(checkpoint.messages).toHaveLength(2);
+      // Reference-based checkpoints store messageIndex, not full messages
+      expect(checkpoint.messageIndex).toBe(2);
+      expect(checkpoint.metadata.messageCount).toBe(2);
     });
 
     it("should generate unique checkpoint IDs", async () => {
@@ -89,7 +91,7 @@ describe("Checkpoints", () => {
       expect(summary.length).toBeGreaterThan(0);
     });
 
-    it("should include message count", async () => {
+    it("should include message index in summary", async () => {
       const sessionId = uniqueSessionId();
       const messages: Message[] = [
         { role: "user", content: "Q1" },
@@ -100,7 +102,8 @@ describe("Checkpoints", () => {
       const checkpoint = await createCheckpoint(sessionId, messages);
       const summary = getCheckpointSummary(checkpoint);
 
-      expect(summary).toContain("3 msgs");
+      // Reference-based summary shows message index, not count
+      expect(summary).toContain("msg #3");
     });
   });
 });

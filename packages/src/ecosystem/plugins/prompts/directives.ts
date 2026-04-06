@@ -170,6 +170,18 @@ export const GIT_WORKFLOW_DIRECTIVES: Directive[] = [
       "e1d6626 feat: add Kalshi documentation source (148 files)",
     ],
   },
+  {
+    category: "build_verify_commit",
+    rules: [
+      "CRITICAL DEVELOPMENT WORKFLOW: Write code -> Build/typecheck -> Fix errors -> Commit. Never skip the build step.",
+      "After writing or editing files, ALWAYS run the project's build command (bun build, tsc --noEmit, cargo check, etc.) to verify correctness",
+      "If the build fails, fix all errors before committing. Do NOT commit broken code.",
+      "Run tests (bun test, cargo test, etc.) after significant changes. Tests passing is a commit gate.",
+      "Commit after each logical unit of work passes build + tests. Use conventional commit messages.",
+      "If you don't know the build command, check package.json scripts, Makefile, Cargo.toml, or similar.",
+      "A change is NOT complete until it builds clean and tests pass. Words are not proof -- tool output is.",
+    ],
+  },
 ];
 
 // ============================================

@@ -54,11 +54,13 @@ export {
 export type { ToolDefinition, ToolResult, ToolContext } from "../schemas/index.js";
 
 // Plugin system
-export type { EcosystemPlugin, PluginContext } from "./plugin.js";
+export type { EcosystemPlugin, PluginContext, LoadedPlugin, PluginLoadResult } from "./plugins/index.js";
+export type { PluginError } from "./plugins/index.js";
+export { PluginRegistry, BUILTIN_SOURCE, getPluginErrorMessage } from "./plugins/index.js";
 
 // Cognitive Security
-export * from "./cognitive-security/index.js";
-export { createCognitiveSecurityPlugin } from "./cognitive-security/plugin.js";
+export * from "./plugins/cognitive-security/index.js";
+export { createCognitiveSecurityPlugin } from "./plugins/index.js";
 
 // Prompts (identity, directives, builders)
 export {
@@ -79,23 +81,45 @@ export {
   getAllDirectives,
   getGitWorkflowDirectives,
   formatDirectivesForPrompt,
-} from "./prompts/index.js";
-export type { Directive } from "./prompts/index.js";
-export { createPromptsPlugin } from "./prompts/plugin.js";
+} from "./plugins/prompts/index.js";
+export type { Directive } from "./plugins/prompts/index.js";
+export { createPromptsPlugin } from "./plugins/index.js";
 
 // Daemon (quality gate, task lifecycle, service management)
-export { verifyQualityGate, buildRetryPrompt } from "./daemon/quality-gate.js";
+export { verifyQualityGate, buildRetryPrompt } from "./plugins/daemon/quality-gate.js";
 export {
   isTaskFileExhausted,
   buildAuditPrompt,
   parseAuditResponseToTasks,
   runLifecycleCheck,
   completeLifecycleCycle,
-} from "./daemon/task-lifecycle.js";
-export { installService } from "./daemon/service/install.js";
-export { uninstallService } from "./daemon/service/uninstall.js";
-export { getServiceStatus } from "./daemon/service/status.js";
-export { createDaemonPlugin } from "./daemon/plugin.js";
+} from "./plugins/daemon/task-lifecycle.js";
+export { installService } from "./plugins/daemon/service/install.js";
+export { uninstallService } from "./plugins/daemon/service/uninstall.js";
+export { getServiceStatus } from "./plugins/daemon/service/status.js";
+export { createDaemonPlugin } from "./plugins/index.js";
+
+// Bounds (code quality rules, absorbed into cognitive-security)
+export {
+  BoundaryRegistry,
+  getRegistry,
+  getAllBoundaries,
+  builtInBoundaries,
+  strictBuiltInBoundaries,
+  SignalAnalyzer,
+  SignalAggregator,
+  BoundaryPatcher,
+} from "./plugins/cognitive-security/bounds/index.js";
+export type {
+  Boundary,
+  BoundaryViolation,
+  BoundaryCheckResult,
+  BoundaryContext,
+  BoundarySeverity,
+  FailureSignal,
+  BoundaryPatch,
+  BoundaryStats,
+} from "./plugins/cognitive-security/bounds/index.js";
 
 // Presets (teammate templates)
 export {

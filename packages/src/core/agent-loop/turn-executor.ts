@@ -32,6 +32,7 @@ import {
   checkContinuation,
   buildContinuationMessage,
   extractTextFromBlocks,
+  COMPLETION_PATTERNS,
   type ContinuationConfig,
   type ContinuationContext,
   type ContinuationCheckResult,
@@ -137,10 +138,13 @@ export async function executeTurn(
 
   const turnNumber = state.turnNumber;
 
+  // Get context window for this model (used for compaction AND token warnings)
+  const contextWindow = getContextWindow(model);
+
   // Build system reminder for this turn
   const reminder = buildCombinedReminder({
     usage: state.currentUsage,
-    maxTokens,
+    contextWindow,
     totalCost: state.totalCost,
     previousCost: state.previousCost,
     toolsUsed: state.allToolsUsed,
@@ -153,9 +157,6 @@ export async function executeTurn(
   if (reminder) {
     onReminder?.(reminder);
   }
-
-  // Get context window for this model (used for compaction, not output limit)
-  const contextWindow = getContextWindow(model);
 
   // Proactive compaction check - compact BEFORE hitting the limit
   // IMPORTANT: Use contextWindow (e.g., 200000), NOT maxTokens (e.g., 4096)
@@ -443,6 +444,23 @@ export async function executeTurn(
       turnOutput,
       costUSD ?? 0
     );
+  }
+
+  // Check if the model's TEXT output signals task completion (even though tools ran).
+  // Models often call Bash(git status) alongside "Task complete!" text -- we must
+  // still respect the completion signal instead of blindly continuing.
+  if (options.continuation?.enabled) {
+    const textOutput = extractTextFromBlocks(message.content);
+    if (textOutput && COMPLETION_PATTERNS.some((p) => p.test(textOutput))) {
+      console.log(
+        `[Continuation] Completion detected in text output alongside tool calls. Stopping.`
+      );
+      return {
+        shouldContinue: false,
+        stopReason: "end_turn",
+        metrics: queryMetrics,
+      };
+    }
   }
 
   // Continue loop to process tool results
