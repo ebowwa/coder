@@ -1,3 +1,4 @@
+// Hangman - Spelling Prediction Game
 /**
  * Main entry point for Hangman 3D game
  * Supports both single-player and multiplayer modes
