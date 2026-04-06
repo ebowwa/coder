@@ -1,3 +1,5 @@
+// Hangman Multiplayer Server - April 2026
+
 /**
  * Bun HTTP + WebSocket server for Hangman multiplayer game
  * Serves static files, provides word list API, and handles multiplayer sync
