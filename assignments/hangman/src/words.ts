@@ -181,6 +181,19 @@ export function getRandomWord(difficulty: number): WordEntry {
 }
 
 /**
+ * Get a random word within a difficulty range (inclusive)
+ */
+export function getRandomWordInRange(minDifficulty: number, maxDifficulty: number): WordEntry {
+  const words = wordDatabase.filter(
+    w => w.difficulty >= minDifficulty && w.difficulty <= maxDifficulty
+  );
+  if (words.length === 0) {
+    return wordDatabase[0];
+  }
+  return words[Math.floor(Math.random() * words.length)];
+}
+
+/**
  * Get all words (for server API)
  */
 export function getAllWords(): WordEntry[] {

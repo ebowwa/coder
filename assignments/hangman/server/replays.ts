@@ -47,7 +47,7 @@ const DATA_DIR = "data";
 const REPLAYS_FILE = `${DATA_DIR}/replays.json`;
 const MAX_REPLAYS = 500;
 
-class ReplayManager {
+export class ReplayManager {
   private data: ReplayData;
   private currentRoundGuesses: Map<string, IndividualGuess[]> = new Map(); // roomCode -> guesses
   private roundStartTimes: Map<string, number> = new Map(); // roomCode -> start time
