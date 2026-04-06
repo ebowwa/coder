@@ -16,7 +16,8 @@ describe('RoomManager - Player Rotation', () => {
     it('should rotate to next player on wrong guess', () => {
       // Create room with 3 players
       const room = manager.createRoom('p1', 'Player 1', 0xff0000);
-      const code = room.code;
+      expect(room).not.toBeNull();
+      const code = room!.code;
       
       manager.joinRoom(code, 'p2', 'Player 2', 0x00ff00);
       manager.joinRoom(code, 'p3', 'Player 3', 0x0000ff);
@@ -26,6 +27,8 @@ describe('RoomManager - Player Rotation', () => {
       
       // Get initial current guesser
       const initialRoom = manager.getRoom(code);
+      expect(initialRoom).not.toBeNull();
+      expect(initialRoom!.currentRound).not.toBeNull();
       const initialGuesserId = initialRoom!.currentRound!.currentGuesserId;
       expect(initialGuesserId).toBe('p1'); // First player starts
       
@@ -40,7 +43,8 @@ describe('RoomManager - Player Rotation', () => {
 
     it('should NOT rotate to next player on correct guess', () => {
       const room = manager.createRoom('p1', 'Player 1', 0xff0000);
-      const code = room.code;
+      expect(room).not.toBeNull();
+      const code = room!.code;
       
       manager.joinRoom(code, 'p2', 'Player 2', 0x00ff00);
       manager.joinRoom(code, 'p3', 'Player 3', 0x0000ff);
@@ -48,6 +52,8 @@ describe('RoomManager - Player Rotation', () => {
       manager.startGame(code, 1);
       
       const initialRoom = manager.getRoom(code);
+      expect(initialRoom).not.toBeNull();
+      expect(initialRoom!.currentRound).not.toBeNull();
       const word = initialRoom!.currentRound!.word;
       const correctLetter = word[0]; // Get a letter that's in the word
       
@@ -62,7 +68,8 @@ describe('RoomManager - Player Rotation', () => {
 
     it('should wrap around to first player after last player', () => {
       const room = manager.createRoom('p1', 'Player 1', 0xff0000);
-      const code = room.code;
+      expect(room).not.toBeNull();
+      const code = room!.code;
 
       manager.joinRoom(code, 'p2', 'Player 2', 0x00ff00);
       manager.joinRoom(code, 'p3', 'Player 3', 0x0000ff);
@@ -71,6 +78,8 @@ describe('RoomManager - Player Rotation', () => {
 
       // Get the word and find letters NOT in it
       const currentRoom = manager.getRoom(code);
+      expect(currentRoom).not.toBeNull();
+      expect(currentRoom!.currentRound).not.toBeNull();
       const word = currentRoom!.currentRound!.word;
       const uncommonLetters = ['Z', 'Q', 'X', 'J', 'K', 'V'];
       const wrongLetters = uncommonLetters.filter(l => !word.includes(l));
@@ -96,7 +105,8 @@ describe('RoomManager - Player Rotation', () => {
 
     it('should track wrong guess count correctly', () => {
       const room = manager.createRoom('p1', 'Player 1', 0xff0000);
-      const code = room.code;
+      expect(room).not.toBeNull();
+      const code = room!.code;
 
       manager.joinRoom(code, 'p2', 'Player 2', 0x00ff00);
 
@@ -104,6 +114,8 @@ describe('RoomManager - Player Rotation', () => {
 
       // Get the word and find letters NOT in it
       const currentRoom = manager.getRoom(code);
+      expect(currentRoom).not.toBeNull();
+      expect(currentRoom!.currentRound).not.toBeNull();
       const word = currentRoom!.currentRound!.word;
       const uncommonLetters = ['Z', 'Q', 'X', 'J', 'K', 'V'];
       const wrongLetters = uncommonLetters.filter(l => !word.includes(l));
@@ -123,7 +135,8 @@ describe('RoomManager - Player Rotation', () => {
 
     it('should handle 2-player rotation correctly', () => {
       const room = manager.createRoom('p1', 'Player 1', 0xff0000);
-      const code = room.code;
+      expect(room).not.toBeNull();
+      const code = room!.code;
 
       manager.joinRoom(code, 'p2', 'Player 2', 0x00ff00);
 
@@ -131,6 +144,8 @@ describe('RoomManager - Player Rotation', () => {
 
       // Get the word and find letters NOT in it
       const currentRoom = manager.getRoom(code);
+      expect(currentRoom).not.toBeNull();
+      expect(currentRoom!.currentRound).not.toBeNull();
       const word = currentRoom!.currentRound!.word;
       const uncommonLetters = ['Z', 'Q', 'X', 'J', 'K', 'V'];
       const wrongLetters = uncommonLetters.filter(l => !word.includes(l));
@@ -153,7 +168,8 @@ describe('RoomManager - Player Rotation', () => {
 
     it('should handle 4-player rotation correctly', () => {
       const room = manager.createRoom('p1', 'Player 1', 0xff0000);
-      const code = room.code;
+      expect(room).not.toBeNull();
+      const code = room!.code;
 
       manager.joinRoom(code, 'p2', 'Player 2', 0x00ff00);
       manager.joinRoom(code, 'p3', 'Player 3', 0x0000ff);
@@ -163,6 +179,8 @@ describe('RoomManager - Player Rotation', () => {
 
       // Get the word and find letters NOT in it
       const currentRoom = manager.getRoom(code);
+      expect(currentRoom).not.toBeNull();
+      expect(currentRoom!.currentRound).not.toBeNull();
       const word = currentRoom!.currentRound!.word;
       const uncommonLetters = ['Z', 'Q', 'X', 'J', 'K', 'V', 'W'];
       const wrongLetters = uncommonLetters.filter(l => !word.includes(l));
@@ -186,7 +204,8 @@ describe('RoomManager - Player Rotation', () => {
 
     it('should NOT rotate if round is complete (loss)', () => {
       const room = manager.createRoom('p1', 'Player 1', 0xff0000);
-      const code = room.code;
+      expect(room).not.toBeNull();
+      const code = room!.code;
       
       manager.joinRoom(code, 'p2', 'Player 2', 0x00ff00);
       
@@ -194,6 +213,8 @@ describe('RoomManager - Player Rotation', () => {
       
       // Get the word and find letters NOT in it
       const currentRoom = manager.getRoom(code);
+      expect(currentRoom).not.toBeNull();
+      expect(currentRoom!.currentRound).not.toBeNull();
       const word = currentRoom!.currentRound!.word;
       
       // Find 6 letters that are guaranteed NOT in the word (use uncommon letters)
@@ -230,7 +251,8 @@ describe('RoomManager - Player Rotation', () => {
 
     it('should reject guess from wrong player', () => {
       const room = manager.createRoom('p1', 'Player 1', 0xff0000);
-      const code = room.code;
+      expect(room).not.toBeNull();
+      const code = room!.code;
       
       manager.joinRoom(code, 'p2', 'Player 2', 0x00ff00);
       
@@ -244,7 +266,8 @@ describe('RoomManager - Player Rotation', () => {
 
     it('should reject duplicate letter guess', () => {
       const room = manager.createRoom('p1', 'Player 1', 0xff0000);
-      const code = room.code;
+      expect(room).not.toBeNull();
+      const code = room!.code;
       
       manager.joinRoom(code, 'p2', 'Player 2', 0x00ff00);
       
@@ -263,7 +286,8 @@ describe('RoomManager - Player Rotation', () => {
   describe('currentTurnIndex tracking', () => {
     it('should correctly track turn index through rotations', () => {
       const room = manager.createRoom('p1', 'Player 1', 0xff0000);
-      const code = room.code;
+      expect(room).not.toBeNull();
+      const code = room!.code;
       
       manager.joinRoom(code, 'p2', 'Player 2', 0x00ff00);
       manager.joinRoom(code, 'p3', 'Player 3', 0x0000ff);
@@ -271,6 +295,7 @@ describe('RoomManager - Player Rotation', () => {
       manager.startGame(code, 1);
       
       let currentRoom = manager.getRoom(code);
+      expect(currentRoom).not.toBeNull();
       expect(currentRoom!.currentTurnIndex).toBe(0);
       
       // p1 wrong -> p2

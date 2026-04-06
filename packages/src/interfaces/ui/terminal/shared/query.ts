@@ -27,7 +27,6 @@ const DAEMON_POLL_INTERVAL_MS = parseInt(process.env.CODER_DAEMON_POLL_MS || "10
 const DAEMON_ASSESS_COOLDOWN_BASE_MS = parseInt(process.env.CODER_ASSESS_COOLDOWN_MS || "60000", 10);
 const DAEMON_ASSESS_COOLDOWN_MAX_MS = 30 * 60_000; // 30 min max between assessments
 const DAEMON_CONSECUTIVE_CLEAN_BACKOFF = 2; // multiply cooldown by this after each "nothing actionable"
-const DAEMON_MAX_SELF_TASKS = parseInt(process.env.CODER_DAEMON_MAX_SELF_TASKS || "10", 10); // max auto-generated tasks
 
 async function buildHandoffPrompt(
   originalQuery: string,
@@ -588,47 +587,93 @@ export async function runDaemonLoop(options: DaemonOptions): Promise<never> {
     taskQueue.submit(options.initialTask);
   }
 
+  // Collect MCP/tool names for awareness in self-assessment prompts
+  const availableTools: string[] = [];
+  if (options.tools) {
+    for (const t of options.tools) {
+      if (t.name && !["Read", "Edit", "Write", "Bash", "Glob", "Grep"].includes(t.name)) {
+        availableTools.push(t.name);
+      }
+    }
+  }
+
   let totalDaemonCost = 0;
   let tasksCompleted = 0;
   let tasksFailed = 0;
   let selfGeneratedTasks = 0;
   let lastAssessmentAt = 0;
+  let assessCooldownMs = DAEMON_ASSESS_COOLDOWN_BASE_MS;
+  let consecutiveCleanAssessments = 0;
 
   console.log(`\x1b[1m\x1b[35m[Daemon] Running. Submit tasks via:\x1b[0m`);
   console.log(`\x1b[35m  curl -X POST http://localhost:${STATS_PORT}/submit -d '{"query":"your task"}'\x1b[0m`);
   console.log(`\x1b[35m  Or append to ${workingDirectory}/.coder/tasks.jsonl\x1b[0m`);
   console.log(`\x1b[90m  View queue: http://localhost:${STATS_PORT}/tasks\x1b[0m`);
-  console.log(`\x1b[90m  View stats: http://localhost:${STATS_PORT}/stats\x1b[0m\n`);
+  console.log(`\x1b[90m  View stats: http://localhost:${STATS_PORT}/stats\x1b[0m`);
+  if (availableTools.length > 0) {
+    console.log(`\x1b[90m  MCP tools: ${availableTools.join(", ")}\x1b[0m`);
+  }
+  console.log();
 
   while (true) {
     let task = taskQueue.next();
+
+    // User-submitted task resets cooldown backoff
+    if (task && consecutiveCleanAssessments > 0) {
+      consecutiveCleanAssessments = 0;
+      assessCooldownMs = DAEMON_ASSESS_COOLDOWN_BASE_MS;
+    }
 
     if (!task) {
       const now = Date.now();
       const canAssess =
         !options.noAutoAssess &&
-        selfGeneratedTasks < DAEMON_MAX_SELF_TASKS &&
-        now - lastAssessmentAt > DAEMON_ASSESS_COOLDOWN_BASE_MS;
+        now - lastAssessmentAt > assessCooldownMs;
 
       if (canAssess) {
         lastAssessmentAt = now;
-        console.log(`\n\x1b[35m[Daemon] Queue empty. Running self-assessment...\x1b[0m`);
-        statusWriter.recordEvent("self_assessment_start", { selfGenCount: selfGeneratedTasks });
+        console.log(`\n\x1b[35m[Daemon] Queue empty. Running self-assessment (cooldown: ${Math.round(assessCooldownMs / 1000)}s)...\x1b[0m`);
+        statusWriter.recordEvent("self_assessment_start", { selfGenCount: selfGeneratedTasks, cooldownMs: assessCooldownMs });
 
-        const recentTaskSummaries: string[] = []; // TODO: get from taskQueue history
-        const availableTools: string[] = []; // TODO: get from registered tools
-        const autoTask = await buildSelfAssessmentTask(workingDirectory, selfGeneratedTasks, recentTaskSummaries, availableTools);
+        // Dedup: feed last 10 completed task summaries to the planner
+        const recentTasks = taskQueue.recentCompleted(10);
+        const recentSummaries = recentTasks.map((t) =>
+          t.query
+            .replace(/\[AUTONOMOUS ASSESSMENT[^\]]*\]\n?/g, "")
+            .replace(/SCOPE CONSTRAINT:[^\n]*\n?/g, "")
+            .replace(/You are a daemon[^\n]*\n?/g, "")
+            .replace(/The meta-LLM[^\n]*\n?/g, "")
+            .trim()
+            .slice(0, 120),
+        );
+
+        const autoTask = await buildSelfAssessmentTask(
+          workingDirectory,
+          selfGeneratedTasks,
+          recentSummaries,
+          availableTools,
+        );
         if (autoTask) {
           const submitted = taskQueue.submit(autoTask);
           selfGeneratedTasks++;
+          consecutiveCleanAssessments = 0;
+          assessCooldownMs = DAEMON_ASSESS_COOLDOWN_BASE_MS;
           console.log(
-            `\x1b[35m[Daemon] Self-generated task ${submitted.id} (auto #${selfGeneratedTasks}/${DAEMON_MAX_SELF_TASKS})\x1b[0m`,
+            `\x1b[35m[Daemon] Self-generated task ${submitted.id} (auto #${selfGeneratedTasks})\x1b[0m`,
           );
           statusWriter.recordEvent("self_assessment_task", { taskId: submitted.id });
           task = taskQueue.next();
         } else {
-          console.log(`\x1b[90m[Daemon] Assessment found nothing actionable. Idling.\x1b[0m`);
-          statusWriter.recordEvent("self_assessment_clean", {});
+          // Nothing actionable -- escalate cooldown (1min -> 2min -> 4min -> ... -> 30min max)
+          consecutiveCleanAssessments++;
+          assessCooldownMs = Math.min(
+            assessCooldownMs * DAEMON_CONSECUTIVE_CLEAN_BACKOFF,
+            DAEMON_ASSESS_COOLDOWN_MAX_MS,
+          );
+          console.log(
+            `\x1b[90m[Daemon] Nothing actionable (${consecutiveCleanAssessments}x). Next assessment in ${Math.round(assessCooldownMs / 1000)}s.\x1b[0m`,
+          );
+          statusWriter.recordEvent("self_assessment_clean", { consecutiveClean: consecutiveCleanAssessments });
         }
       }
 

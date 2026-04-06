@@ -7,7 +7,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { LetterTiles } from './letter-tiles';
 import { WordDisplay } from './word-display';
-import { PredictionUI } from './prediction-ui';
+import { PredictionUI3D } from './prediction-ui-3d';
 import { getRandomWord } from './words';
 import { soundEffects } from './sound-effects';
 import { ParticleEffects } from './particle-effects';
@@ -44,7 +44,7 @@ class HangmanGame {
   private controls: OrbitControls;
   private letterTiles: LetterTiles;
   private wordDisplay: WordDisplay;
-  private predictionUI: PredictionUI;
+  private predictionUI: PredictionUI3D;
   private gameState: GameState;
   private hangmanGroup: THREE.Group;
   private bodyParts: THREE.Mesh[] = [];
@@ -119,11 +119,9 @@ class HangmanGame {
 
     this.createHangmanFigure();
 
-    // Initialize prediction UI
-    const gameContainer = document.createElement('div');
-    gameContainer.id = 'game-container';
-    document.body.appendChild(gameContainer);
-    this.predictionUI = new PredictionUI(gameContainer);
+    // Initialize 3D prediction UI
+    this.predictionUI = new PredictionUI3D(this.scene, this.camera);
+    this.predictionUI.setPosition(0, 1, 5);
 
     // Initialize game state
     this.gameState = {

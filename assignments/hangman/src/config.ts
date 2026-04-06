@@ -207,3 +207,58 @@ export const UI_CONFIG = {
   letterTilesPosition: { x: 0, y: 0, z: 0 },
   hangmanPosition: { x: -4, y: 0, z: 0 },
 };
+
+// 3D Prediction UI configuration
+export const PREDICTION_UI_CONFIG = {
+  panel: {
+    width: 8,
+    height: 5,
+    backgroundColor: 0x2c3e50,
+    positionZ: 0,
+  },
+  button: {
+    width: 2,
+    height: 0.8,
+    depth: 0.2,
+    inColor: 0x4caf50,
+    notInColor: 0xf44336,
+    hoverEmissive: 0x444444,
+    hoverScale: 1.15,
+  },
+  text: {
+    questionFontSize: 40,
+    letterFontSize: 100,
+    buttonFontSize: 50,
+    toastFontSize: 60,
+    color: 0xffffff,
+    letterColor: 0xffeb3b,
+    buttonTextColor: 0xffffff,
+    textWidth: 6,
+    textHeight: 1,
+  },
+  canvas: {
+    width: 512,
+    height: 128,
+    backgroundColor: '#2c3e50',
+  },
+  layout: {
+    questionY: 1.5,
+    letterY: 0.5,
+    suffixY: -0.3,
+    buttonY: -1.5,
+    toastY: -3,
+    inButtonX: -1.5,
+    notInButtonX: 1.5,
+    buttonZ: 0.2,
+    textZ: 0.1,
+    toastZ: 0.5,
+  },
+  animation: {
+    showDuration: 300,
+    hideDuration: 200,
+    showScale: 1,
+  },
+  toast: {
+    duration: 2500,
+  },
+};
