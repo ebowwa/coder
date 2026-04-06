@@ -220,6 +220,9 @@ function handleStartGame(ws: ServerWebSocket<WebSocketData>): void {
   const players = roomManager.getPlayers(data.roomCode);
   const payload: GameStartedPayload = { round, players };
 
+  // Start tracking guesses for replay
+  replayManager.startRound(data.roomCode);
+
   // Broadcast to all players
   broadcastToRoom(data.roomCode, 'game-started', payload);
   console.log(`Game started in room ${data.roomCode}`);
@@ -251,6 +254,16 @@ function handleLetterGuess(ws: ServerWebSocket<WebSocketData>, payload: LetterGu
   const player = room.players.get(data.playerId);
   const playerName = player?.name || 'Unknown';
 
+  // Record the guess for replay
+  replayManager.recordGuess(
+    data.roomCode,
+    data.playerId,
+    playerName,
+    letter,
+    result.isCorrect,
+    result.round.wrongGuesses
+  );
+
   // Broadcast the guess result
   const guessedPayload: LetterGuessedPayload = {
     letter,
@@ -264,6 +277,29 @@ function handleLetterGuess(ws: ServerWebSocket<WebSocketData>, payload: LetterGu
 
   // Check if round complete
   if (result.round.isComplete) {
+    // Record player stats for all players
+    const guessCount = result.round.guessedLetters.length;
+    const correctGuessCount = result.round.revealedLetters.filter(l => l !== '_').length;
+    
+    room.players.forEach((player) => {
+      const isWinner = result.round.isWon && result.round.currentGuesserId === player.id;
+      leaderboardManager.recordGameResult(
+        player.id,
+        player.name,
+        isWinner,
+        guessCount,
+        correctGuessCount,
+        result.round.isWon
+      );
+    });
+    
+    // Store replay
+    replayManager.storeReplay(
+      data.roomCode,
+      result.round,
+      Array.from(room.players.values())
+    );
+    
     const completePayload: RoundCompletePayload = {
       word: result.round.word,
       isWon: result.round.isWon,
@@ -302,6 +338,10 @@ function handleNextRound(ws: ServerWebSocket<WebSocketData>): void {
 
   const players = roomManager.getPlayers(data.roomCode);
   const payload: GameStartedPayload = { round, players };
+
+  // Start tracking guesses for replay
+  replayManager.startRound(data.roomCode);
+
   broadcastToRoom(data.roomCode, 'game-started', payload);
 }
 
