@@ -506,7 +506,16 @@ async function buildSelfAssessmentTask(
     : "";
 
   const toolBlock = availableTools.length > 0
-    ? `\nAVAILABLE TOOLS beyond code editing: ${availableTools.join(", ")}. Use them when relevant (e.g. browser for UI verification).`
+    ? [
+        `\nAVAILABLE TOOLS (you SHOULD use these, not just Read/Edit/Bash):`,
+        ...availableTools.map((t) => `  - ${t}`),
+        ``,
+        `WORKFLOW: After code changes, you MUST verify with available tools:`,
+        `  1. Build the project (Bash)`,
+        `  2. Run scoped tests (Bash)`,
+        `  3. If this is a web project, use browser/vision tools to verify the UI renders correctly`,
+        `  4. Use QualityGate or similar tools if available before committing`,
+      ].join("\n")
     : "";
 
   // Use meta-LLM to pick the most impactful task from raw signals
@@ -587,12 +596,14 @@ export async function runDaemonLoop(options: DaemonOptions): Promise<never> {
     taskQueue.submit(options.initialTask);
   }
 
-  // Collect MCP/tool names for awareness in self-assessment prompts
+  // Collect MCP/tool names + descriptions for self-assessment prompts
+  const builtinTools = new Set(["Read", "Edit", "Write", "Bash", "Glob", "Grep", "MultiEdit"]);
   const availableTools: string[] = [];
   if (options.tools) {
     for (const t of options.tools) {
-      if (t.name && !["Read", "Edit", "Write", "Bash", "Glob", "Grep"].includes(t.name)) {
-        availableTools.push(t.name);
+      if (t.name && !builtinTools.has(t.name)) {
+        const desc = (t as { description?: string }).description;
+        availableTools.push(desc ? `${t.name} -- ${desc.slice(0, 80)}` : t.name);
       }
     }
   }

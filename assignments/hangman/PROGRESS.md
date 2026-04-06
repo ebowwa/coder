@@ -263,7 +263,15 @@ bun test
 6. Watch as spectator (optional)
 
 ## Next Steps (Future Enhancements)
-- [ ] Particle effects on win/lose
+- [x] Particle effects on win/lose
+  - [x] ParticleEffects class with Three.js-based particle system
+  - [x] Win particles: multi-colored confetti burst (upward, celebratory)
+  - [x] Lose particles: gray falling particles (subdued)
+  - [x] Various particle shapes (boxes, spheres, tetrahedrons)
+  - [x] Lifetime tracking with fade-out and scale-down effects
+  - [x] Gravity simulation for realistic falling
+  - [x] Automatic cleanup of expired particles
+  - [x] Integration with game state transitions (win/lose)
 - [ ] Power-ups (hint, skip, extra life)
 - [x] Word categories selection
   - [x] CategoryUI class for DOM overlay category picker
