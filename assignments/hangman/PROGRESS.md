@@ -103,6 +103,8 @@ A 3D hangman game built with Three.js, Bun, and TypeScript. Features single-play
 - [x] Turn indicator UI
 - [x] Current player highlighting
 - [x] Letter guess broadcasting
+- [x] Wrong guess = next player's turn logic
+- [x] Correct guess = same player continues
 - [x] Round completion handling
 - [x] Next round flow
 
