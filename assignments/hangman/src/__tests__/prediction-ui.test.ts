@@ -3,6 +3,153 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
+// Setup DOM environment for bun test (vitest jsdom env not auto-loaded)
+// @ts-ignore
+if (typeof globalThis.document === 'undefined') {
+  // Element registry for tracking created elements by ID
+  const elementsById = new Map<string, any>();
+
+  // Helper to create a mock DOM element
+  const createMockElement = (tagName: string): any => {
+    const children: any[] = [];
+    const eventListeners: Record<string, Function[]> = {};
+    const styleObj: Record<string, string> = {};
+    
+    const element: any = {
+      tagName: tagName.toUpperCase(),
+      id: '',
+      className: '',
+      textContent: '',
+      innerHTML: '',
+      parentNode: null as any,
+      get children() { return children; },
+      appendChild(child: any) {
+        child.parentNode = element;
+        children.push(child);
+        return child;
+      },
+      removeChild(child: any) {
+        const idx = children.indexOf(child);
+        if (idx > -1) {
+          children.splice(idx, 1);
+          child.parentNode = null;
+        }
+        return child;
+      },
+      remove() {
+        if (element.parentNode && element.parentNode.children) {
+          const idx = element.parentNode.children.indexOf(element);
+          if (idx > -1) {
+            element.parentNode.children.splice(idx, 1);
+          }
+        }
+        element.parentNode = null;
+        if (element.id) {
+          elementsById.delete(element.id);
+        }
+      },
+      querySelector(selector: string): any {
+        if (selector.startsWith('.')) {
+          const className = selector.slice(1);
+          const search = (el: any): any => {
+            if (el.className && el.className.includes(className)) {
+              return el;
+            }
+            for (const child of (el.children || [])) {
+              const found = search(child);
+              if (found) return found;
+            }
+            return null;
+          };
+          return search(element);
+        }
+        return null;
+      },
+      querySelectorAll(selector: string): any[] {
+        const results: any[] = [];
+        if (selector.startsWith('.')) {
+          const className = selector.slice(1);
+          const search = (el: any) => {
+            if (el.className && el.className.includes(className)) {
+              results.push(el);
+            }
+            for (const child of (el.children || [])) {
+              search(child);
+            }
+          };
+          search(element);
+        }
+        return results;
+      },
+      addEventListener(event: string, handler: Function) {
+        if (!eventListeners[event]) {
+          eventListeners[event] = [];
+        }
+        eventListeners[event].push(handler);
+      },
+      removeEventListener(event: string, handler: Function) {
+        const listeners = eventListeners[event];
+        if (listeners) {
+          const idx = listeners.indexOf(handler);
+          if (idx > -1) listeners.splice(idx, 1);
+        }
+      },
+      click() {
+        const handlers = eventListeners['click'] || [];
+        handlers.forEach((h: Function) => h());
+      },
+      setAttribute(name: string, value: string) {
+        (element as any)[name] = value;
+      },
+      getAttribute(name: string) {
+        return (element as any)[name];
+      },
+    };
+    
+    // Style as a plain object that can be string-indexed
+    element.style = styleObj;
+
+    return element;
+  };
+
+  // @ts-ignore
+  globalThis.document = {
+    createElement(tagName: string) {
+      const element = createMockElement(tagName);
+      // Use a proxy to track id assignments
+      return new Proxy(element, {
+        set(target: any, prop: string, value: any) {
+          target[prop] = value;
+          if (prop === 'id' && value) {
+            elementsById.set(value, target);
+          }
+          return true;
+        },
+        get(target: any, prop: string) {
+          // Bind methods to target so they work correctly
+          const value = target[prop];
+          if (typeof value === 'function') {
+            return value.bind(target);
+          }
+          return value;
+        }
+      });
+    },
+    getElementById(id: string): any {
+      return elementsById.get(id) || null;
+    },
+    body: createMockElement('body'),
+    head: createMockElement('head'),
+  };
+  
+  // @ts-ignore
+  globalThis.window = {
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  };
+}
+
 import { PredictionUI } from '../prediction-ui';
 import type { Prediction } from '../prediction-ui';
 

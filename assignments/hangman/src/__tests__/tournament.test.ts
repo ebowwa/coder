@@ -35,6 +35,7 @@ describe('TournamentManager', () => {
 
   beforeEach(() => {
     manager = new TournamentManager();
+    manager.clear(); // Clear persisted data for test isolation
   });
 
   describe('createTournament', () => {

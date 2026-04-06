@@ -4,6 +4,34 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+// Mock document for canvas operations
+const mockCanvas = {
+  width: 128,
+  height: 128,
+  getContext: vi.fn(() => ({
+    fillRect: vi.fn(),
+    fillText: vi.fn(),
+    measureText: vi.fn(() => ({ width: 50 })),
+  })),
+};
+
+globalThis.document = {
+  createElement: vi.fn((tagName: string) => {
+    if (tagName === 'canvas') {
+      return mockCanvas;
+    }
+    return {};
+  }),
+} as any;
+
+// @ts-ignore
+globalThis.requestAnimationFrame = vi.fn((cb: FrameRequestCallback) => 0);
+
+// @ts-ignore
+globalThis.performance = {
+  now: vi.fn(() => 0),
+};
+
 // Mock Three.js
 vi.mock('three', () => ({
   Group: vi.fn(function() {

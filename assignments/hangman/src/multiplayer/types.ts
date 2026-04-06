@@ -65,7 +65,13 @@ export type MessageType =
   | 'error'
   | 'chat'
   | 'ping'
-  | 'pong';
+  | 'pong'
+  | 'tournament-create'
+  | 'tournament-join'
+  | 'tournament-start'
+  | 'tournament-match-result'
+  | 'tournament-created'
+  | 'tournament-joined';
 
 export interface MultiplayerMessage {
   type: MessageType;

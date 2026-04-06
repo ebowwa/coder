@@ -55,7 +55,16 @@ export class PredictionUI {
 
     // Create question
     const question = document.createElement('h2');
-    question.innerHTML = `Do you think the <strong class="letter-tile-text">${letter}</strong> is in the word?`;
+    const letterSpan = document.createElement('strong');
+    letterSpan.className = 'letter-tile-text';
+    letterSpan.textContent = letter;
+    // Build question text without createTextNode for test compatibility
+    question.innerHTML = 'Do you think the ';
+    question.appendChild(letterSpan);
+    // Use a span for the trailing text instead of createTextNode
+    const trailingText = document.createElement('span');
+    trailingText.textContent = ' is in the word?';
+    question.appendChild(trailingText);
 
     // Create buttons container
     const buttonsContainer = document.createElement('div');
@@ -105,10 +114,12 @@ export class PredictionUI {
   }
 
   hide(): void {
-    if (this.modal && this.modal.parentNode) {
-      this.modal.remove();
+    if (this.modal) {
+      if (this.modal.parentNode) {
+        this.modal.parentNode.removeChild(this.modal);
+      }
+      this.modal = null;
     }
-    this.modal = null;
   }
 
   /**

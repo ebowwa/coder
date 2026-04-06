@@ -23,6 +23,7 @@ import {
 import { MultiplayerSync } from './multiplayer/sync';
 import { LobbyUI } from './multiplayer/lobby-ui';
 import { PlayerAvatars } from './multiplayer/player-avatars';
+import { TournamentUI } from './multiplayer/tournament-ui';
 import type {
   MultiplayerRound,
   PlayerInfo,
@@ -31,6 +32,7 @@ import type {
   TurnChangedPayload,
   RoundCompletePayload,
 } from './multiplayer/types';
+import type { Tournament } from '../server/tournament';
 
 type GameMode = 'single' | 'multiplayer' | 'none';
 
@@ -52,6 +54,7 @@ class HangmanGame {
   private multiplayerSync: MultiplayerSync | null = null;
   private lobbyUI: LobbyUI | null = null;
   private playerAvatars: PlayerAvatars | null = null;
+  private tournamentUI: TournamentUI | null = null;
   private multiplayerRound: MultiplayerRound | null = null;
   private players: PlayerInfo[] = [];
   private unsubscribers: (() => void)[] = [];
@@ -155,6 +158,13 @@ class HangmanGame {
 
     // Create player avatars
     this.playerAvatars = new PlayerAvatars(this.scene);
+
+    // Create tournament UI (hidden by default)
+    this.tournamentUI = new TournamentUI(this.scene, {
+      position: { x: -8, y: 2, z: -5 },
+      scale: 0.5,
+    });
+    this.tournamentUI.setVisible(false);
 
     // Create lobby UI
     this.lobbyUI = new LobbyUI(this.multiplayerSync, {
@@ -363,6 +373,34 @@ class HangmanGame {
     this.players = [];
     this.playerAvatars?.clear();
     this.lobbyUI?.show();
+  }
+
+  /**
+   * Show the tournament bracket UI
+   */
+  showTournamentBracket(tournament: Tournament): void {
+    if (!this.tournamentUI) {
+      this.tournamentUI = new TournamentUI(this.scene, {
+        position: { x: -8, y: 2, z: -5 },
+        scale: 0.5,
+      });
+    }
+    this.tournamentUI.updateTournament(tournament);
+    this.tournamentUI.setVisible(true);
+  }
+
+  /**
+   * Hide the tournament bracket UI
+   */
+  hideTournamentBracket(): void {
+    this.tournamentUI?.setVisible(false);
+  }
+
+  /**
+   * Update tournament bracket with new data
+   */
+  updateTournamentBracket(tournament: Tournament): void {
+    this.tournamentUI?.updateTournament(tournament);
   }
 
   private setupLighting(): void {
@@ -756,9 +794,10 @@ class HangmanGame {
 
     this.controls.update();
 
-    // Update player avatars (for animations)
-    // Note: This would require adding an update method to PlayerAvatars
-    // For now, we'll skip this as the avatars don't have continuous animations
+    // Update tournament UI (for animations)
+    if (this.tournamentUI) {
+      this.tournamentUI.update(deltaTime);
+    }
 
     this.renderer.render(this.scene, this.camera);
   }
