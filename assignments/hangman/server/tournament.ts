@@ -215,15 +215,19 @@ export class TournamentManager {
     // Generate seeding pattern that ensures:
     // - Top seeds face bottom seeds
     // - Top half seeds can't meet until later rounds
-    
+    // Pattern indicates the position each seed (1-indexed) should be placed at
+
     if (size === 4) {
-      return [0, 3, 1, 2];
+      // Matches: 1v4, 2v3
+      return [0, 2, 3, 1];
     } else if (size === 8) {
-      return [0, 7, 3, 4, 1, 6, 2, 5];
+      // Matches: 1v8, 4v5, 2v7, 3v6
+      return [0, 4, 6, 2, 3, 7, 5, 1];
     } else if (size === 16) {
-      return [0, 15, 7, 8, 3, 12, 4, 11, 1, 14, 6, 9, 2, 13, 5, 10];
+      // Matches: 1v16, 8v9, 4v13, 5v12, 2v15, 7v10, 3v14, 6v11
+      return [0, 8, 12, 4, 6, 14, 10, 2, 3, 11, 15, 7, 5, 13, 9, 1];
     }
-    
+
     // Fallback: sequential
     return Array.from({ length: size }, (_, i) => i);
   }
@@ -461,8 +465,8 @@ export class TournamentManager {
           // For now, we wait for the other match
         } else if (!nextMatch.player1 && nextMatch.player2) {
           // Same - wait for other match
-        } else if (nextMatch.player1 && nextMatch.player2) {
-          // Both players ready, match can be scheduled
+        } else if (nextMatch.player1 && nextMatch.player2 && nextMatch.state !== 'completed') {
+          // Both players ready, match can be scheduled (only if not already completed)
           nextMatch.state = 'pending';
         }
       }
@@ -500,6 +504,24 @@ export class TournamentManager {
       this.save();
     }
     return deleted;
+  }
+
+  clear(): void {
+    this.tournaments.clear();
+    // Save immediately (not debounced) for test isolation
+    if (this.saveTimeout) {
+      clearTimeout(this.saveTimeout);
+      this.saveTimeout = null;
+    }
+    try {
+      const data = {
+        tournaments: [],
+        lastUpdated: Date.now(),
+      };
+      Bun.write(TOURNAMENTS_FILE, JSON.stringify(data, null, 2));
+    } catch (error) {
+      console.error('Failed to clear tournaments:', error);
+    }
   }
 
   // For serialization
