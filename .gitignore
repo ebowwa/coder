@@ -43,3 +43,12 @@ lmdb/
 
 # Rust build artifacts
 packages/rust/target/
+
+# Test artifacts
+.test-persistence/
+
+# Runtime data
+data/
+
+# Coder daemon artifacts
+.coder/

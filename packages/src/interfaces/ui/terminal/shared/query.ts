@@ -27,6 +27,7 @@ const DAEMON_POLL_INTERVAL_MS = parseInt(process.env.CODER_DAEMON_POLL_MS || "10
 const DAEMON_ASSESS_COOLDOWN_BASE_MS = parseInt(process.env.CODER_ASSESS_COOLDOWN_MS || "60000", 10);
 const DAEMON_ASSESS_COOLDOWN_MAX_MS = 30 * 60_000; // 30 min max between assessments
 const DAEMON_CONSECUTIVE_CLEAN_BACKOFF = 2; // multiply cooldown by this after each "nothing actionable"
+const DAEMON_MAX_SELF_TASKS = parseInt(process.env.CODER_DAEMON_MAX_SELF_TASKS || "10", 10); // max auto-generated tasks
 
 async function buildHandoffPrompt(
   originalQuery: string,
@@ -607,14 +608,16 @@ export async function runDaemonLoop(options: DaemonOptions): Promise<never> {
       const canAssess =
         !options.noAutoAssess &&
         selfGeneratedTasks < DAEMON_MAX_SELF_TASKS &&
-        now - lastAssessmentAt > DAEMON_ASSESS_COOLDOWN_MS;
+        now - lastAssessmentAt > DAEMON_ASSESS_COOLDOWN_BASE_MS;
 
       if (canAssess) {
         lastAssessmentAt = now;
         console.log(`\n\x1b[35m[Daemon] Queue empty. Running self-assessment...\x1b[0m`);
         statusWriter.recordEvent("self_assessment_start", { selfGenCount: selfGeneratedTasks });
 
-        const autoTask = await buildSelfAssessmentTask(workingDirectory, selfGeneratedTasks);
+        const recentTaskSummaries: string[] = []; // TODO: get from taskQueue history
+        const availableTools: string[] = []; // TODO: get from registered tools
+        const autoTask = await buildSelfAssessmentTask(workingDirectory, selfGeneratedTasks, recentTaskSummaries, availableTools);
         if (autoTask) {
           const submitted = taskQueue.submit(autoTask);
           selfGeneratedTasks++;
