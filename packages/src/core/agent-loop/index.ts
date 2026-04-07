@@ -33,7 +33,7 @@ import {
 } from "./loop-persistence.js";
 
 // Degeneration detection: tracks patterns of unproductive model output
-const DEGENERATION_NO_TOOL_THRESHOLD = 4;
+const DEGENERATION_NO_TOOL_THRESHOLD = 2;
 const DEGENERATION_SIMILARITY_THRESHOLD = 0.7;
 const DEGENERATION_WINDOW = 5;
 
@@ -41,6 +41,7 @@ interface DegenerationTracker {
   consecutiveNoToolTurns: number;
   consecutiveErrorOnlyTurns: number;
   recentOutputs: string[];
+  lastThinkingContent: string;
 }
 
 function extractLastAssistantText(state: LoopState): string {
@@ -48,13 +49,38 @@ function extractLastAssistantText(state: LoopState): string {
   if (!last || last.role !== "assistant") return "";
   if (typeof last.content === "string") return last.content;
   if (Array.isArray(last.content)) {
-    return last.content
-      .filter((b): b is { type: "text"; text: string } => b.type === "text")
-      .map((b) => b.text)
-      .join(" ")
-      .slice(0, 500);
+    const parts: string[] = [];
+    for (const b of last.content) {
+      if (b.type === "text" && typeof (b as { text?: string }).text === "string") {
+        parts.push((b as { text: string }).text);
+      }
+      if (b.type === "thinking" && typeof (b as { thinking?: string }).thinking === "string") {
+        parts.push((b as { thinking: string }).thinking);
+      }
+    }
+    return parts.join(" ").slice(0, 1000);
   }
   return "";
+}
+
+/**
+ * Detect intra-turn thinking loops: the same phrase repeated many times
+ * within a single model response. This catches glm-5's common failure mode
+ * where reasoning tokens loop on "Let me read X" endlessly.
+ */
+function hasIntraTurnRepetition(text: string): boolean {
+  if (!text || text.length < 200) return false;
+  const sentences = text.split(/[.!?\n]/).map((s) => s.trim().toLowerCase()).filter((s) => s.length > 15);
+  if (sentences.length < 6) return false;
+  const counts = new Map<string, number>();
+  for (const s of sentences) {
+    const key = s.slice(0, 60);
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  for (const [, count] of counts) {
+    if (count >= 4) return true;
+  }
+  return false;
 }
 
 function textSimilarity(a: string, b: string): number {
@@ -95,6 +121,12 @@ function isGibberish(text: string): boolean {
 }
 
 function checkDegeneration(tracker: DegenerationTracker): "ok" | "compact" | "stuck" {
+  // Intra-turn thinking loop: model repeats the same phrase within one response.
+  // This is the most common glm-5 failure mode -- catches it immediately.
+  if (tracker.lastThinkingContent && hasIntraTurnRepetition(tracker.lastThinkingContent)) {
+    return "stuck";
+  }
+
   if (tracker.consecutiveNoToolTurns >= DEGENERATION_NO_TOOL_THRESHOLD) {
     return "stuck";
   }
@@ -104,7 +136,6 @@ function checkDegeneration(tracker: DegenerationTracker): "ok" | "compact" | "st
   }
 
   // Extended repetition (5+ similar outputs) is "stuck" even if tools are used.
-  // The model may be calling git status alongside identical "Task complete!" text.
   if (tracker.recentOutputs.length >= 5) {
     const last5 = tracker.recentOutputs.slice(-5);
     const allSimilar = last5.slice(1).every(
@@ -476,6 +507,7 @@ export async function agentLoop(
     consecutiveNoToolTurns: 0,
     consecutiveErrorOnlyTurns: 0,
     recentOutputs: [],
+    lastThinkingContent: "",
   };
   let degenerationCompactions = 0;
   const MAX_DEGENERATION_COMPACTIONS = 2;
@@ -518,8 +550,18 @@ export async function agentLoop(
       };
 
       try {
+        // Capture per-turn thinking for intra-turn repetition detection
+        let turnThinking = "";
+        const wrappedOptions = {
+          ...turnOptions,
+          onThinking: (chunk: string) => {
+            turnThinking += chunk;
+            if (onThinking) onThinking(chunk);
+          },
+        };
+
         const toolCountBefore = state.allToolsUsed.length;
-        const turnResult = await executeTurn(state, turnOptions);
+        const turnResult = await executeTurn(state, wrappedOptions);
         consecutiveApiFailures = 0;
 
         shouldContinue = turnResult.shouldContinue;
@@ -554,13 +596,17 @@ export async function agentLoop(
         if (degenTracker.recentOutputs.length > DEGENERATION_WINDOW) {
           degenTracker.recentOutputs.shift();
         }
+        degenTracker.lastThinkingContent = turnThinking;
 
         const degenStatus = checkDegeneration(degenTracker);
         if (degenStatus === "stuck" || degenStatus === "compact") {
           degenerationCompactions++;
-          const reason = degenStatus === "stuck"
-            ? `${degenTracker.consecutiveNoToolTurns} turns without tool calls`
-            : "repetitive output";
+          const isThinkingLoop = turnThinking.length > 200 && hasIntraTurnRepetition(turnThinking);
+          const reason = isThinkingLoop
+            ? "thinking token loop (repeated phrase in reasoning)"
+            : degenStatus === "stuck"
+              ? `${degenTracker.consecutiveNoToolTurns} turns without tool calls`
+              : "repetitive output";
 
           if (degenerationCompactions > MAX_DEGENERATION_COMPACTIONS) {
             console.log(
