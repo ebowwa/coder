@@ -99,12 +99,19 @@ if (typeof globalThis.document === 'undefined') {
         const handlers = eventListeners['click'] || [];
         handlers.forEach((h: Function) => h());
       },
+      focus() {
+        // Mock focus - does nothing in test environment
+      },
+      blur() {
+        // Mock blur - does nothing in test environment
+      },
       setAttribute(name: string, value: string) {
         (element as any)[name] = value;
       },
       getAttribute(name: string) {
         return (element as any)[name];
       },
+      dataset: {} as Record<string, string>,
     };
     
     // Style as a plain object that can be string-indexed
@@ -112,6 +119,9 @@ if (typeof globalThis.document === 'undefined') {
 
     return element;
   };
+
+  // Document-level event listeners storage
+  const documentEventListeners: Record<string, Function[]> = {};
 
   // @ts-ignore
   globalThis.document = {
@@ -141,6 +151,19 @@ if (typeof globalThis.document === 'undefined') {
     },
     body: createMockElement('body'),
     head: createMockElement('head'),
+    addEventListener(event: string, handler: Function) {
+      if (!documentEventListeners[event]) {
+        documentEventListeners[event] = [];
+      }
+      documentEventListeners[event].push(handler);
+    },
+    removeEventListener(event: string, handler: Function) {
+      const listeners = documentEventListeners[event];
+      if (listeners) {
+        const idx = listeners.indexOf(handler);
+        if (idx > -1) listeners.splice(idx, 1);
+      }
+    },
   };
   
   // @ts-ignore
