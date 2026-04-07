@@ -14,6 +14,7 @@ import { getRandomWord, getRandomWordByCategory } from './words';
 import { soundEffects } from './sound-effects';
 import { ParticleEffects } from './particle-effects';
 import { CategoryUI } from './category-ui';
+import { AccessibilityManager, enhanceHintButton } from './accessibility';
 import type { Round, GameState, WordResponse } from './types';
 import {
   API_CONFIG,
@@ -55,6 +56,7 @@ class HangmanGame {
   private hintButton: HTMLButtonElement | null = null;
   private particleEffects: ParticleEffects;
   private categoryUI: CategoryUI | null = null;
+  private accessibilityManager: AccessibilityManager | null = null;
 
   // Multiplayer state
   private gameMode: GameMode = 'none';
@@ -169,6 +171,9 @@ class HangmanGame {
     // Handle window resize
     window.addEventListener('resize', this.onWindowResize.bind(this));
 
+    // Initialize accessibility manager
+    this.initializeAccessibility();
+
     // Initialize multiplayer
     this.initializeMultiplayer();
 
@@ -212,6 +217,17 @@ class HangmanGame {
     // Listen for single player start
     document.addEventListener('start-single-player', () => {
       this.startSinglePlayerGame();
+    });
+  }
+
+  private initializeAccessibility(): void {
+    this.accessibilityManager = new AccessibilityManager({
+      onLetterSelect: (letter: string) => {
+        // Delegate to the existing letter click handler
+        this.handleLetterClick(letter);
+      },
+      getRoundState: () => this.gameState.currentRound,
+      getGameState: () => this.gameState,
     });
   }
 
@@ -896,6 +912,15 @@ class HangmanGame {
       this.letterTiles.reset();
       this.resetHangman();
 
+      // Reset and show accessibility keyboard
+      this.accessibilityManager?.reset();
+      this.accessibilityManager?.show();
+      this.accessibilityManager?.updateHangmanDescription(0, GAME_CONFIG.maxWrongGuesses);
+
+      // Reset hints for new round
+      this.gameState.hintsRemaining = GAME_CONFIG.hintsPerRound;
+      this.updateHintButton();
+
     } catch (error) {
       console.error('Failed to fetch word:', error);
       // Fallback to local word database
@@ -943,6 +968,10 @@ class HangmanGame {
       this.letterTiles.setTileStatus(letter, 'correct');
       soundEffects.play('correct');
 
+      // Update accessibility manager
+      this.accessibilityManager?.setLetterStatus(letter, 'correct');
+      this.accessibilityManager?.updateWordDisplay(round);
+
       // Check for win
       const allRevealed = round.word.split('').every(l => round.revealedLetters.has(l));
       if (allRevealed) {
@@ -959,6 +988,10 @@ class HangmanGame {
       this.letterTiles.setTileStatus(letter, 'wrong');
       this.revealBodyPart(round.wrongGuesses - 1);
       soundEffects.play('wrong');
+
+      // Update accessibility manager
+      this.accessibilityManager?.setLetterStatus(letter, 'wrong');
+      this.accessibilityManager?.updateHangmanDescription(round.wrongGuesses, GAME_CONFIG.maxWrongGuesses);
 
       // Check for loss
       if (round.wrongGuesses >= GAME_CONFIG.maxWrongGuesses) {
@@ -1012,6 +1045,9 @@ class HangmanGame {
   private handleRoundComplete(): void {
     const round = this.gameState.currentRound;
     if (!round) return;
+
+    // Announce game over for accessibility
+    this.accessibilityManager?.announceGameOver(round.isWon ?? false, round.word);
 
     this.gameState.score.roundsPlayed++;
 
