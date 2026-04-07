@@ -3,7 +3,8 @@
  * Appears before game start in single-player mode
  */
 
-import { getAllCategories } from './words';
+import { getAllCategories, getCategoryMetadata, getCategoriesData } from './words';
+import { transitionIn, transitionOut, injectTransitionStyles } from './screen-transitions';
 
 export interface CategoryUIOptions {
   onCategorySelected: (category: string | null) => void;
@@ -54,31 +55,6 @@ export class CategoryUI {
 
   private render(): void {
     const categories = getAllCategories();
-    
-    // Category icons/colors for visual appeal
-    const categoryStyles: Record<string, { color: string; icon: string }> = {
-      'Animals': { color: '#4caf50', icon: '🐾' },
-      'Actions': { color: '#ff9800', icon: '⚡' },
-      'Objects': { color: '#9c27b0', icon: '📦' },
-      'Nature': { color: '#8bc34a', icon: '🌿' },
-      'Food': { color: '#f44336', icon: '🍎' },
-      'Colors': { color: '#e91e63', icon: '🎨' },
-      'Places': { color: '#3f51b5', icon: '🏠' },
-      'Body': { color: '#ff5722', icon: '💪' },
-      'Emotions': { color: '#9c27b0', icon: '💭' },
-      'Space': { color: '#673ab7', icon: '🌙' },
-      'Weather': { color: '#03a9f4', icon: '🌧️' },
-      'Sports': { color: '#00bcd4', icon: '⚽' },
-      'People': { color: '#795548', icon: '👤' },
-      'Vehicles': { color: '#607d8b', icon: '🚗' },
-      'Arts': { color: '#e91e63', icon: '🎭' },
-      'Time': { color: '#ffc107', icon: '⏰' },
-      'Structures': { color: '#795548', icon: '🏰' },
-      'Events': { color: '#ff4081', icon: '🎉' },
-      'Concepts': { color: '#00bcd4', icon: '💡' },
-      'Science': { color: '#009688', icon: '🔬' },
-    };
-
     const defaultStyle = { color: '#4ecdc4', icon: '📝' };
 
     this.overlay.innerHTML = `
@@ -141,23 +117,24 @@ export class CategoryUI {
         <!-- Category grid -->
         <div id="category-grid" style="
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-          gap: 12px;
-        ">
+          grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+          gap: 15px;
+        >
           ${categories.map(category => {
-            const style = categoryStyles[category] || defaultStyle;
+            const metadata = getCategoryMetadata(category);
+            const style = metadata || defaultStyle;
             return `
               <div class="category-item" data-category="${category}" style="
                 background: rgba(255, 255, 255, 0.05);
                 border: 2px solid ${style.color};
                 border-radius: 10px;
-                padding: 15px 10px;
+                padding: 20px 15px;
                 cursor: pointer;
                 text-align: center;
                 transition: transform 0.2s, background 0.2s;
               ">
-                <div style="font-size: 1.8em; margin-bottom: 8px;">${style.icon}</div>
-                <div style="color: #fff; font-size: 0.9em; font-weight: 500;">${category}</div>
+                <div style="font-size: 2em; margin-bottom: 10px;">${style.icon}</div>
+                <div style="color: #fff; font-size: 1em; font-weight: 500;">${category}</div>
               </div>
             `;
           }).join('')}

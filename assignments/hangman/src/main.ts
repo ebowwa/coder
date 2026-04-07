@@ -10,9 +10,10 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { LetterTiles } from './letter-tiles';
 import { WordDisplay } from './word-display';
 import { PredictionUI3D } from './prediction-ui-3d';
-import { getRandomWord } from './words';
+import { getRandomWord, getRandomWordByCategory } from './words';
 import { soundEffects } from './sound-effects';
 import { ParticleEffects } from './particle-effects';
+import { CategoryUI } from './category-ui';
 import type { Round, GameState, WordResponse } from './types';
 import {
   API_CONFIG,
@@ -53,6 +54,7 @@ class HangmanGame {
   private clock: THREE.Clock;
   private hintButton: HTMLButtonElement | null = null;
   private particleEffects: ParticleEffects;
+  private categoryUI: CategoryUI | null = null;
 
   // Multiplayer state
   private gameMode: GameMode = 'none';
@@ -69,7 +71,9 @@ class HangmanGame {
 
     // Initialize Three.js scene
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(SCENE_CONFIG.backgroundColor);
+    
+    // Create gradient background
+    this.createGradientBackground();
 
     // Setup camera
     this.camera = new THREE.PerspectiveCamera(
@@ -151,6 +155,14 @@ class HangmanGame {
     // Initialize particle effects
     this.particleEffects = new ParticleEffects(this.scene);
 
+    // Start ambient glow behind hangman figure
+    const hangmanPos = new THREE.Vector3(
+      UI_CONFIG.hangmanPosition.x,
+      UI_CONFIG.hangmanPosition.y,
+      UI_CONFIG.hangmanPosition.z
+    );
+    this.particleEffects.startAmbientGlow(hangmanPos);
+
     // Setup event handlers
     this.letterTiles.setTileClickHandler(this.handleLetterClick.bind(this));
 
@@ -230,9 +242,22 @@ class HangmanGame {
   }
 
   private startSinglePlayerGame(): void {
-    this.gameMode = 'single';
     this.lobbyUI?.hide();
-    this.startNewRound();
+    
+    // Show category picker first
+    if (!this.categoryUI) {
+      this.categoryUI = new CategoryUI({
+        onCategorySelected: (category) => {
+          this.gameMode = 'single';
+          this.gameState.selectedCategory = category;
+          this.startNewRound();
+        },
+        onCancel: () => {
+          this.lobbyUI?.show();
+        },
+      });
+    }
+    this.categoryUI.show();
   }
 
   private startMultiplayerGame(payload: GameStartedPayload): void {
@@ -413,6 +438,32 @@ class HangmanGame {
    */
   updateTournamentBracket(tournament: Tournament): void {
     this.tournamentUI?.updateTournament(tournament);
+  }
+
+  private createGradientBackground(): void {
+    // Create a gradient texture for the background
+    const canvas = document.createElement('canvas');
+    canvas.width = 2;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+    
+    if (ctx) {
+      // Create gradient from deep purple to dark blue
+      const gradient = ctx.createLinearGradient(0, 0, 0, 512);
+      gradient.addColorStop(0, '#1a1a3e');    // Deep purple at top
+      gradient.addColorStop(0.3, '#1e2a4a');  // Dark blue-purple
+      gradient.addColorStop(0.6, '#16213e');  // Navy blue
+      gradient.addColorStop(1, '#0f0f23');    // Very dark blue at bottom
+      
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, 2, 512);
+    }
+    
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.magFilter = THREE.LinearFilter;
+    texture.minFilter = THREE.LinearFilter;
+    
+    this.scene.background = texture;
   }
 
   private setupLighting(): void {
@@ -645,26 +696,105 @@ class HangmanGame {
     );
     this.hangmanGroup.add(rope);
 
-    // Create body parts (hidden initially)
+    // Create body parts (hidden initially) - improved with smoother geometry
     const bodyMaterial = new THREE.MeshStandardMaterial({
       color: 0xffdbac,
-      roughness: 0.6,
+      roughness: 0.5,
+      metalness: 0.1,
     });
 
-    // Head
+    // Head with smoother sphere and face
+    const headGroup = new THREE.Group();
+    
+    // Main head sphere - smoother with 32 segments
     const head = new THREE.Mesh(
-      new THREE.SphereGeometry(0.3, 16, 16),
+      new THREE.SphereGeometry(0.3, 32, 32),
       bodyMaterial
     );
-    head.position.set(0.8, 1.8, 0);
-    head.visible = false;
-    head.castShadow = true;
-    this.bodyParts.push(head);
-    this.hangmanGroup.add(head);
+    headGroup.add(head);
+    
+    // Add face features
+    // Eyes - white spheres with black pupils
+    const eyeMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 });
+    const pupilMaterial = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.2 });
+    
+    // Left eye
+    const leftEye = new THREE.Mesh(
+      new THREE.SphereGeometry(0.06, 16, 16),
+      eyeMaterial
+    );
+    leftEye.position.set(-0.1, 0.05, 0.27);
+    headGroup.add(leftEye);
+    
+    const leftPupil = new THREE.Mesh(
+      new THREE.SphereGeometry(0.03, 12, 12),
+      pupilMaterial
+    );
+    leftPupil.position.set(-0.1, 0.05, 0.32);
+    headGroup.add(leftPupil);
+    
+    // Right eye
+    const rightEye = new THREE.Mesh(
+      new THREE.SphereGeometry(0.06, 16, 16),
+      eyeMaterial
+    );
+    rightEye.position.set(0.1, 0.05, 0.27);
+    headGroup.add(rightEye);
+    
+    const rightPupil = new THREE.Mesh(
+      new THREE.SphereGeometry(0.03, 12, 12),
+      pupilMaterial
+    );
+    rightPupil.position.set(0.1, 0.05, 0.32);
+    headGroup.add(rightPupil);
+    
+    // Nose
+    const nose = new THREE.Mesh(
+      new THREE.SphereGeometry(0.03, 12, 12),
+      bodyMaterial
+    );
+    nose.position.set(0, -0.02, 0.29);
+    nose.scale.set(1, 0.8, 0.8);
+    headGroup.add(nose);
+    
+    // Mouth - curved line using torus
+    const mouthMaterial = new THREE.MeshStandardMaterial({ color: 0xcc6666, roughness: 0.4 });
+    const mouth = new THREE.Mesh(
+      new THREE.TorusGeometry(0.08, 0.015, 8, 16, Math.PI),
+      mouthMaterial
+    );
+    mouth.position.set(0, -0.12, 0.26);
+    mouth.rotation.x = Math.PI;
+    headGroup.add(mouth);
+    
+    // Eyebrows
+    const eyebrowMaterial = new THREE.MeshStandardMaterial({ color: 0x8b6914, roughness: 0.6 });
+    
+    const leftEyebrow = new THREE.Mesh(
+      new THREE.BoxGeometry(0.1, 0.02, 0.02),
+      eyebrowMaterial
+    );
+    leftEyebrow.position.set(-0.1, 0.13, 0.27);
+    leftEyebrow.rotation.z = 0.1;
+    headGroup.add(leftEyebrow);
+    
+    const rightEyebrow = new THREE.Mesh(
+      new THREE.BoxGeometry(0.1, 0.02, 0.02),
+      eyebrowMaterial
+    );
+    rightEyebrow.position.set(0.1, 0.13, 0.27);
+    rightEyebrow.rotation.z = -0.1;
+    headGroup.add(rightEyebrow);
+    
+    headGroup.position.set(0.8, 1.8, 0);
+    headGroup.visible = false;
+    (headGroup as any).castShadow = true;
+    this.bodyParts.push(headGroup as unknown as THREE.Mesh);
+    this.hangmanGroup.add(headGroup);
 
-    // Body
+    // Body - smoother cylinder
     const body = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.15, 0.2, 1, 8),
+      new THREE.CylinderGeometry(0.15, 0.2, 1, 24),
       bodyMaterial
     );
     body.position.set(0.8, 1.1, 0);
@@ -673,9 +803,9 @@ class HangmanGame {
     this.bodyParts.push(body);
     this.hangmanGroup.add(body);
 
-    // Left arm
+    // Left arm - smoother cylinder
     const leftArm = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.08, 0.08, 0.6, 8),
+      new THREE.CylinderGeometry(0.08, 0.08, 0.6, 16),
       bodyMaterial
     );
     leftArm.position.set(0.5, 1.3, 0);
@@ -685,9 +815,9 @@ class HangmanGame {
     this.bodyParts.push(leftArm);
     this.hangmanGroup.add(leftArm);
 
-    // Right arm
+    // Right arm - smoother cylinder
     const rightArm = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.08, 0.08, 0.6, 8),
+      new THREE.CylinderGeometry(0.08, 0.08, 0.6, 16),
       bodyMaterial
     );
     rightArm.position.set(1.1, 1.3, 0);

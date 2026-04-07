@@ -3,7 +3,12 @@
  * Words are categorized and difficulty is calculated based on word length
  */
 
-import { wordLists, type WordCategory } from './wordLists';
+import { 
+  wordLists, 
+  categoryDisplayNames, 
+  getAllCategories as getCategoriesFromLists,
+  type WordCategory 
+} from './wordLists';
 
 export interface WordEntry {
   word: string;
@@ -25,29 +30,13 @@ function calculateDifficulty(word: string): number {
 }
 
 /**
- * Map wordLists categories to display-friendly category names
- */
-const categoryDisplayNames: Record<WordCategory, string> = {
-  animals: 'Animals',
-  countries: 'Countries',
-  foods: 'Food',
-  sports: 'Sports',
-  technology: 'Technology',
-  nature: 'Nature',
-  music: 'Music',
-  movies: 'Movies',
-  science: 'Science',
-  default: 'Misc',
-};
-
-/**
  * Generate word database from wordLists
  */
 function generateWordDatabase(): WordEntry[] {
   const database: WordEntry[] = [];
   
   for (const [category, words] of Object.entries(wordLists)) {
-    const displayName = categoryDisplayNames[category as WordCategory] || category;
+    const displayName = categoryDisplayNames[category] || category;
     for (const word of words) {
       database.push({
         word,
@@ -105,9 +94,7 @@ export function getAllWords(): WordEntry[] {
  * Get all available categories
  */
 export function getAllCategories(): string[] {
-  const categories = new Set<string>();
-  wordDatabase.forEach(entry => categories.add(entry.category));
-  return Array.from(categories).sort();
+  return getCategoriesFromLists();
 }
 
 /**
@@ -148,5 +135,13 @@ export function getWordsByCategoryAndDifficulty(category: string, minDifficulty:
 }
 
 // Re-export wordLists utilities for direct access
-export { wordLists, getCategories, getWordsForCategory, getRandomWordFromCategory, isValidCategory, getDefaultWordList } from './wordLists';
-export type { WordCategory } from './wordLists';
+export { 
+  wordLists, 
+  getWordsForCategory, 
+  getRandomWordFromCategory, 
+  isValidCategory, 
+  getDefaultWordList,
+  getCategoryMetadata,
+  getCategoriesData
+} from './wordLists';
+export type { WordCategory, CategoryInfo, CategoriesJson } from './wordLists';

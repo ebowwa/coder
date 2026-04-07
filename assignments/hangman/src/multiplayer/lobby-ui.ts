@@ -15,6 +15,7 @@ import type {
 } from './types';
 import { PLAYER_COLORS, generatePlayerColor } from './types';
 import type { MultiplayerSync } from './sync';
+import { transitionIn, transitionOut, injectTransitionStyles } from '../screen-transitions';
 
 export interface LobbyUIOptions {
   onRoomCreated?: (payload: RoomCreatedPayload) => void;
