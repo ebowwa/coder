@@ -313,9 +313,9 @@ describe('ParticleEffects System', () => {
         gravity: -1,
       };
 
-      particleEffects.emit(position, config);
-
+      // Must enable fake timers BEFORE emit so birthTime uses fake Date.now()
       vi.useFakeTimers();
+      particleEffects.emit(position, config);
 
       // Multiple updates before expiration
       for (let i = 0; i < 3; i++) {
