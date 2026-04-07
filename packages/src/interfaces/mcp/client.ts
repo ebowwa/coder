@@ -50,12 +50,16 @@ export class MCPClientImpl {
   }
 
   async connect(): Promise<void> {
-    if (this.config.type === "stdio") {
+    // Default to stdio when command is present and no explicit type is set
+    const effectiveType = this.config.type ?? (this.config.command ? "stdio" : undefined);
+    if (effectiveType === "stdio") {
       await this.connectStdio();
-    } else if (this.config.type === "http" || this.config.type === "sse") {
+    } else if (effectiveType === "http" || effectiveType === "sse") {
       await this.connectHttp();
-    } else if (this.config.type === "ws") {
+    } else if (effectiveType === "ws") {
       await this.connectWebSocket();
+    } else {
+      throw new Error(`Unknown MCP transport type for server "${this.config.command ?? "unknown"}". Provide "type": "stdio"|"http"|"ws".`);
     }
   }
 

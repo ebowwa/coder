@@ -307,7 +307,9 @@ describe('ParticleEffects System', () => {
         count: 3,
         color: 0xffffff,
         size: 0.1,
-        lifetime: 50,
+        // Use longer lifetime to account for randomization: actual lifetime = config * (0.5 + random * 0.5)
+        // With lifetime: 200, actual range is 100-200ms. After 30ms all should still be alive.
+        lifetime: 200,
         velocity: { x: 0, y: 1, z: 0 },
         spread: 0,
         gravity: -1,
@@ -317,15 +319,15 @@ describe('ParticleEffects System', () => {
       vi.useFakeTimers();
       particleEffects.emit(position, config);
 
-      // Multiple updates before expiration
+      // Multiple updates before expiration (30ms total, well under minimum lifetime of 100ms)
       for (let i = 0; i < 3; i++) {
         vi.advanceTimersByTime(10);
         particleEffects.update(0.016);
         expect(particleEffects.getActiveCount()).toBe(3);
       }
 
-      // Update past expiration
-      vi.advanceTimersByTime(100);
+      // Update past expiration (250ms total, exceeds maximum lifetime of 200ms)
+      vi.advanceTimersByTime(220);
       particleEffects.update(0.016);
 
       expect(particleEffects.getActiveCount()).toBe(0);

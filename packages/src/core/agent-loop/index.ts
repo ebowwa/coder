@@ -20,6 +20,7 @@ import { PermissionManager } from "../permissions.js";
 import { DEFAULT_REMINDER_CONFIG } from "../system-reminders.js";
 import { DEFAULT_MODEL } from "../models.js";
 import type { HookManager } from "../../ecosystem/hooks/index.js";
+import { builtInTools } from "../../ecosystem/tools/index.js";
 
 import type { AgentLoopOptions, AgentLoopResult, LoopPersistenceConfig } from "./types.js";
 import { LoopState, type LoopStateOptions } from "./loop-state.js";
@@ -519,6 +520,12 @@ export async function agentLoop(
         break;
       }
 
+      // MCP tools = tools not in builtInTools registry
+      const builtinToolNames = new Set(builtInTools.map((t) => t.name));
+      const availableMcpTools = tools
+        .filter((t) => t.name && !builtinToolNames.has(t.name))
+        .map((t) => t.name);
+
       const turnOptions: TurnExecutorOptions = {
         apiKey,
         model,
@@ -531,6 +538,7 @@ export async function agentLoop(
         workingDirectory,
         gitStatus,
         reminderConfig: mergedReminderConfig,
+        availableMcpTools,
         hookManager,
         sessionId,
         signal,

@@ -4,6 +4,7 @@
  */
 
 import type { Message, ToolDefinition, ExtendedThinkingConfig, GitStatus } from "../../../../schemas/index.js";
+import { builtInTools } from "../../../../ecosystem/tools/index.js";
 import { agentLoop, formatCost, formatCostBrief, createResultConditionsConfig, type ResultConditionsConfig, RALPH_CONTINUATION_CONFIG, type AgentLoopResult } from "../../../../core/agent-loop.js";
 import { HookManager } from "../../../../ecosystem/hooks/index.js";
 import { SessionStore } from "../../../../core/session-store.js";
@@ -16,8 +17,8 @@ import {
   type StatusLineOptions,
 } from "./status-line.js";
 import type { CLIArgs } from "./args.js";
-import { execSync } from "child_process";
-import { readFileSync, existsSync } from "fs";
+import { execSync, spawnSync } from "child_process";
+import { readFileSync, existsSync, statSync } from "fs";
 import { join } from "path";
 import { verifyQualityGate } from "../../../../ecosystem/plugins/daemon/quality-gate.js";
 
@@ -28,6 +29,50 @@ const DAEMON_POLL_INTERVAL_MS = parseInt(process.env.CODER_DAEMON_POLL_MS || "10
 const DAEMON_ASSESS_COOLDOWN_BASE_MS = parseInt(process.env.CODER_ASSESS_COOLDOWN_MS || "45000", 10);
 const DAEMON_ASSESS_COOLDOWN_MAX_MS = 3 * 60_000; // 3 min max between assessments
 const DAEMON_CONSECUTIVE_CLEAN_BACKOFF = 1.5; // gentle backoff -- always stay productive
+
+/** Headless Playwright (dev-browser) often captures WebGL/Three.js as black; Chrome + SwiftShader matches real compositing. */
+function resolveHeadlessChromeExecutable(): string | null {
+  const candidates =
+    process.platform === "darwin"
+      ? ["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"]
+      : process.platform === "win32"
+        ? [
+            String.raw`C:\Program Files\Google\Chrome\Application\chrome.exe`,
+            String.raw`C:\Program Files (x86)\Google\Chrome\Application\chrome.exe`,
+          ]
+        : ["/usr/bin/google-chrome-stable", "/usr/bin/google-chrome", "/usr/bin/chromium", "/usr/bin/chromium-browser"];
+  for (const p of candidates) {
+    if (existsSync(p)) return p;
+  }
+  return null;
+}
+
+function tryHeadlessChromeScreenshot(
+  chromePath: string,
+  outFile: string,
+  width: number,
+  height: number,
+  url: string,
+): boolean {
+  const args = [
+    "--headless=new",
+    "--no-sandbox",
+    "--disable-dev-shm-usage",
+    "--use-gl=angle",
+    "--use-angle=swiftshader",
+    "--run-all-compositor-stages-before-draw",
+    `--screenshot=${outFile}`,
+    `--window-size=${width},${height}`,
+    url,
+  ];
+  const r = spawnSync(chromePath, args, { stdio: "ignore", timeout: 35_000 });
+  if (r.status !== 0 || !existsSync(outFile)) return false;
+  try {
+    return statSync(outFile).size > 800;
+  } catch {
+    return false;
+  }
+}
 
 async function buildHandoffPrompt(
   originalQuery: string,
@@ -594,10 +639,14 @@ async function runVisionVerification(
       return;
     }
 
-    const { appendFileSync, mkdirSync: mkdirSyncFs } = await import("fs");
+    const { appendFileSync, copyFileSync, mkdirSync: mkdirSyncFs } = await import("fs");
     const { getVisionLLM } = await import("../../../../core/meta-llm-client.js");
     const { readImageFile } = await import("../../../../core/image.js");
 
+    const coderDir = join(workingDirectory, ".coder");
+    if (!existsSync(coderDir)) mkdirSyncFs(coderDir, { recursive: true });
+    const cacheVisualsDir = join(coderDir, "visuals");
+    if (!existsSync(cacheVisualsDir)) mkdirSyncFs(cacheVisualsDir, { recursive: true });
     const projectVisualsDir = join(workingDirectory, "visuals");
     if (!existsSync(projectVisualsDir)) mkdirSyncFs(projectVisualsDir, { recursive: true });
     const logPath = join(workingDirectory, "VISUAL_LOG.md");
@@ -606,129 +655,102 @@ async function runVisionVerification(
     }
 
     const baseUrl = `http://localhost:${expectedPort}`;
+    const chromePath = resolveHeadlessChromeExecutable();
 
-    // Use dev-browser MCP for interactive multi-view screenshots
-    const views: Array<{ name: string; script: string }> = [
-      {
-        name: "landing",
-        script: `
-const page = await browser.getPage("main");
-await page.setViewportSize({ width: 1280, height: 720 });
-await page.goto("${baseUrl}", { waitUntil: "networkidle" });
-await page.waitForTimeout(2000);
-const buf = await page.screenshot({ fullPage: false });
-const path = await saveScreenshot(buf, "landing.png");
-console.log(JSON.stringify({ path }));
-`,
-      },
-      {
-        name: "mobile",
-        script: `
-const page = await browser.getPage("mobile");
-await page.setViewportSize({ width: 375, height: 812 });
-await page.goto("${baseUrl}", { waitUntil: "networkidle" });
-await page.waitForTimeout(2000);
-const buf = await page.screenshot({ fullPage: false });
-const path = await saveScreenshot(buf, "mobile.png");
-console.log(JSON.stringify({ path }));
-`,
-      },
+    const views = [
+      { name: "desktop", width: 1280, height: 720 },
+      { name: "mobile", width: 375, height: 812 },
     ];
 
-    // Give the app extra time to render (Three.js/WebGL/React hydration)
-    await new Promise((r) => setTimeout(r, 2000));
+    // Prefer reusing an already-running server (agent started it → WebGL already rendered)
+    // Only start a fresh server if nothing is on the port. Fresh servers need longer to render.
+    let usedExistingServer = false;
+    try {
+      execSync(`curl -s -o /dev/null -w "%{http_code}" http://localhost:${expectedPort}`, { timeout: 2000 });
+      usedExistingServer = true;
+      console.log(`\x1b[90m[Vision] Reusing existing server on port ${expectedPort}\x1b[0m`);
+    } catch { /* nothing running, proceed to start */ }
 
-    const devBrowserCmd = join(process.env.HOME || "", ".local", "bin", "dev-browser");
+    if (usedExistingServer) {
+      // Server already warm — WebGL is rendering. Short wait for any recent DOM changes.
+      await new Promise((r) => setTimeout(r, 1000));
+    } else {
+      await new Promise((r) => setTimeout(r, 4000));
+    }
+
     let anySuccess = false;
 
     for (const view of views) {
       const viewStart = Date.now();
       const viewTs = new Date().toISOString().replace(/[:.]/g, "-");
+      const cachePath = join(cacheVisualsDir, `${viewTs}-${view.name}.png`);
       const readableName = `${view.name}-${viewTs}.png`;
       const projectPath = join(projectVisualsDir, readableName);
 
-      try {
-        // Execute via dev-browser (Playwright under the hood)
-        const dbResult = execSync(
-          `echo '${view.script.replace(/'/g, "'\\''")}' | "${devBrowserCmd}" --headless 2>/dev/null`,
-          { timeout: 30_000, cwd: workingDirectory },
-        ).toString().trim();
-
-        // dev-browser saves to ~/.dev-browser/tmp/<filename>.png
-        let savedPath = "";
-        try {
-          const parsed = JSON.parse(dbResult);
-          savedPath = parsed.path || "";
-        } catch { /* output wasn't JSON */ }
-
-        if (!savedPath || !existsSync(savedPath)) {
-          // Fallback: try ~/.dev-browser/tmp/<name>.png
-          const fallback = join(process.env.HOME || "", ".dev-browser", "tmp", `${view.name}.png`);
-          if (existsSync(fallback)) savedPath = fallback;
-        }
-
-        if (savedPath && existsSync(savedPath)) {
-          const { copyFileSync } = await import("fs");
-          copyFileSync(savedPath, projectPath);
-
-          // Analyze with vision LLM
-          let analysisText = "";
-          try {
-            const imgData = await readImageFile(projectPath);
-            const analysis = await getVisionLLM().completeWithImage(
-              "You are a UI quality verifier for web applications.",
-              `Analyze this ${view.name} screenshot. Does the UI render correctly? Any broken layouts, blank pages, error messages, overflow issues, or missing content? Be concise (2-3 sentences).`,
-              { base64: imgData.base64, mediaType: imgData.mediaType },
-              256,
-            );
-            analysisText = analysis?.text?.trim() || "";
-          } catch { /* vision optional */ }
-
-          const viewMs = Date.now() - viewStart;
-          const isViewError = !analysisText;
-          anySuccess = anySuccess || !isViewError;
-
-          if (analysisText) {
-            console.log(`\x1b[90m[Vision/MCP] ${view.name}: ${analysisText.slice(0, 120)}\x1b[0m`);
-          }
-
-          statusWriter.recordMcpCall("browser", `screenshot_${view.name}`, viewMs, isViewError);
-          statusWriter.recordEvent("vision_verify", {
-            taskId, view: view.name, port: expectedPort,
-            analysis: analysisText?.slice(0, 300),
-          });
-
-          try {
-            const entry = [
-              `\n## ${new Date().toISOString()} -- Task \`${taskId}\` (${view.name})\n`,
-              `**Port:** ${expectedPort}  `,
-              `**Verdict:** ${isViewError ? "FAILED" : "OK"}  `,
-              `**Latency:** ${viewMs}ms  `,
-              `**Method:** dev-browser MCP\n`,
-              `![${view.name}](visuals/${readableName})\n`,
-              analysisText ? `> ${analysisText.replace(/\n/g, "\n> ")}\n` : "> (no analysis)\n",
-              "---\n",
-            ].join("\n");
-            appendFileSync(logPath, entry);
-          } catch { /* best-effort */ }
-        } else {
-          console.log(`\x1b[33m[Vision/MCP] ${view.name}: screenshot not saved\x1b[0m`);
-          statusWriter.recordMcpCall("browser", `screenshot_${view.name}`, Date.now() - viewStart, true);
-        }
-      } catch (viewErr) {
-        console.log(`\x1b[33m[Vision/MCP] ${view.name} failed: ${viewErr instanceof Error ? viewErr.message : viewErr}\x1b[0m`);
-        statusWriter.recordMcpCall("browser", `screenshot_${view.name}`, Date.now() - viewStart, true);
+      let captured = false;
+      if (chromePath) {
+        captured = tryHeadlessChromeScreenshot(chromePath, cachePath, view.width, view.height, baseUrl);
       }
-    }
+      if (!captured) {
+        console.log(`\x1b[33m[Vision] ${view.name}: Chrome capture failed or missing (${chromePath ? "chrome" : "no Chrome"})\x1b[0m`);
+        statusWriter.recordMcpCall("vision", `screenshot_${view.name}`, Date.now() - viewStart, true);
+        continue;
+      }
 
-    // Cleanup browser pages
-    try {
-      execSync(`echo 'await browser.closePage("main"); await browser.closePage("mobile");' | "${devBrowserCmd}" --headless 2>/dev/null`, { timeout: 5000 });
-    } catch { /* cleanup best-effort */ }
+      try {
+        copyFileSync(cachePath, projectPath);
+      } catch {
+        statusWriter.recordMcpCall("vision", `screenshot_${view.name}`, Date.now() - viewStart, true);
+        continue;
+      }
+
+      let analysisText = "";
+      try {
+        const imgData = await readImageFile(cachePath);
+        const analysis = await getVisionLLM().completeWithImage(
+          "You are a UI quality verifier for web applications.",
+          `Analyze this ${view.name} screenshot (${view.width}x${view.height}). If the image is mostly black or empty, say so. Otherwise: does the UI render correctly? Any broken layouts, errors, overflow? Be concise (2-3 sentences).`,
+          { base64: imgData.base64, mediaType: imgData.mediaType },
+          256,
+        );
+        analysisText = analysis?.text?.trim() || "";
+      } catch { /* vision optional */ }
+
+      const viewMs = Date.now() - viewStart;
+      const looksBroken = /mostly black|blank page|empty|no visible content|entirely black/i.test(analysisText);
+      const isViewError = !analysisText || looksBroken;
+      anySuccess = anySuccess || !isViewError;
+
+      if (analysisText) {
+        console.log(`\x1b[90m[Vision] ${view.name}: ${analysisText.slice(0, 120)}\x1b[0m`);
+      }
+
+      statusWriter.recordMcpCall("vision", `screenshot_${view.name}`, viewMs, isViewError);
+      statusWriter.recordEvent("vision_verify", {
+        taskId,
+        view: view.name,
+        port: expectedPort,
+        analysis: analysisText?.slice(0, 300),
+      });
+
+      try {
+        const entry = [
+          `\n## ${new Date().toISOString()} -- Task \`${taskId}\` (${view.name} ${view.width}x${view.height})\n`,
+          `**Port:** ${expectedPort}  `,
+          `**Verdict:** ${isViewError ? "FAILED" : "OK"}  `,
+          `**Latency:** ${viewMs}ms  `,
+          `**Method:** headless-chrome+swiftshader\n`,
+          `![${view.name}](visuals/${readableName})\n`,
+          analysisText ? `> ${analysisText.replace(/\n/g, "\n> ")}\n` : "> (no analysis)\n",
+          "---\n",
+        ].join("\n");
+        appendFileSync(logPath, entry);
+      } catch { /* best-effort */ }
+    }
 
     const visionMs = Date.now() - visionStart;
     if (!anySuccess) {
-      statusWriter.recordMcpCall("browser", "screenshot_verify", visionMs, true);
+      statusWriter.recordMcpCall("vision", "screenshot_verify", visionMs, true);
     }
   } catch (err) {
     console.log(`\x1b[33m[Vision] Error: ${err instanceof Error ? err.message : err}\x1b[0m`);
@@ -765,26 +787,46 @@ async function buildSelfAssessmentTask(
     ? `\nALREADY COMPLETED (do NOT repeat these):\n${recentTaskSummaries.map((s, i) => `${i + 1}. ${s}`).join("\n")}\n`
     : "";
 
+  const hasBrowserTools = availableTools.some((t) => /browser_navigate|browser_screenshot/i.test(t));
+  const hasVisionTools = availableTools.some((t) => /4_5v_mcp|glmvision|tempglm/i.test(t));
+  const hasQualityGate = availableTools.some((t) => /QualityGate/i.test(t));
+
   const toolBlock = availableTools.length > 0
     ? [
-        `\nAVAILABLE TOOLS (you MUST use these, not just Read/Edit/Bash):`,
+        `\nAGENT = LLM + TOOL CALLING. MCP tools are your primary action layer, not just Read/Edit/Bash.`,
+        ``,
+        `AVAILABLE MCP TOOLS (prefer these over raw Bash equivalents):`,
         ...availableTools.map((t) => `  - ${t}`),
         ``,
-        `VISION-FIRST WORKFLOW (mandatory for web projects):`,
-        `  1. Build the project (Bash: bun run build)`,
-        `  2. Run scoped tests (Bash: cd <dir> && bun test)`,
-        `  3. Start the dev server and use vision/screenshot tools to verify UI renders`,
-        `  4. Use vision tools AFTER EVERY significant UI change, not just at the end`,
-        `  5. Save screenshots to visuals/ (project root) with descriptive names`,
-        `  6. Use QualityGate before committing`,
-        `  7. Append each screenshot + analysis to VISUAL_LOG.md at project root`,
+        `TOOL SELECTION RULES:`,
+        ...(hasBrowserTools ? [
+          `  - Browser/DOM/UI inspection → mcp__browser__browser_navigate + browser_snapshot + browser_screenshot`,
+          `  - User interactions → browser_click, browser_fill, browser_press (test real flows, not just code)`,
+        ] : []),
+        ...(hasVisionTools ? [
+          `  - Visual analysis → mcp__4_5v_mcp__analyze_image or tempglmvision (REQUIRED after every visual change)`,
+        ] : []),
+        ...(hasQualityGate ? [
+          `  - Before every commit → QualityGate (replaces running bun test + tsc + git diff manually)`,
+        ] : []),
+        `  - Web research → mcp__exa__* (search before implementing unknown patterns)`,
         ``,
-        `VISUAL_LOG.md FORMAT (append after each vision check):`,
-        `  ## [ISO timestamp] - What changed`,
-        `  ![description](visuals/filename.png)`,
-        `  **Analysis:** vision model's assessment`,
-        `  **Action:** what you did next`,
-        `  ---`,
+        `MANDATORY WEB TASK SEQUENCE (skip any step = task is incomplete):`,
+        `  1. Edit code`,
+        `  2. bun run build`,
+        ...(hasBrowserTools ? [
+          `  3. mcp__browser__browser_navigate http://localhost:<port>`,
+          `  4. mcp__browser__browser_snapshot  (inspect DOM state)`,
+          `  5. mcp__browser__browser_screenshot filename=<name>.png  → save path`,
+        ] : []),
+        ...(hasVisionTools ? [
+          `  6. mcp__4_5v_mcp__analyze_image <saved screenshot path>`,
+          `  7. Append to VISUAL_LOG.md: ## [timestamp] - what changed, ![](visuals/file.png), **Analysis:** result`,
+        ] : []),
+        ...(hasQualityGate ? [
+          `  8. QualityGate  (verify tests pass, no TS errors)`,
+        ] : []),
+        `  9. git commit -m "feat: <description>"`,
       ].join("\n")
     : "";
 
@@ -898,11 +940,11 @@ export async function runDaemonLoop(options: DaemonOptions): Promise<never> {
   }
 
   // Collect MCP/tool names + descriptions for self-assessment prompts
-  const builtinTools = new Set(["Read", "Edit", "Write", "Bash", "Glob", "Grep", "MultiEdit"]);
+  const builtinToolNames = new Set(builtInTools.map((t) => t.name));
   const availableTools: string[] = [];
   if (options.tools) {
     for (const t of options.tools) {
-      if (t.name && !builtinTools.has(t.name)) {
+      if (t.name && !builtinToolNames.has(t.name)) {
         const desc = (t as { description?: string }).description;
         availableTools.push(desc ? `${t.name} -- ${desc.slice(0, 80)}` : t.name);
       }
@@ -1027,49 +1069,44 @@ export async function runDaemonLoop(options: DaemonOptions): Promise<never> {
       query: task.query.slice(0, 200),
     });
 
-    // Inject vision-first workflow directives referencing dev-browser MCP
-    const visionToolList = availableTools.filter(
-      (t) => /vision|image|screenshot|4_5v|glmvision|browser/i.test(t),
-    );
-    const hasBrowserMcp = availableTools.some((t) => /browser_navigate|browser_screenshot/i.test(t));
-    const visionPreamble = visionToolList.length > 0
+    // Inject MCP-first directive into every task
+    const hasBrowserMcp = availableTools.some((t) => /browser_navigate/i.test(t));
+    const hasVisionMcp = availableTools.some((t) => /4_5v_mcp|tempglmvision/i.test(t));
+    const hasQualityGateMcp = availableTools.some((t) => /QualityGate/i.test(t));
+
+    const mcpPreamble = (hasBrowserMcp || hasVisionMcp || hasQualityGateMcp)
       ? [
-          `\nVISION-FIRST DEVELOPMENT (mandatory):`,
-          `You have these vision/browser tools: ${visionToolList.map((t) => t.split(" -- ")[0]).join(", ")}`,
           ``,
-          `HOW TO SCREENSHOT (exact steps):`,
-          `  1. Build: bun run build`,
-          `  2. Start dev server: bun run dev &`,
-          `  3. Wait for server: sleep 3`,
+          `AGENT DIRECTIVE: You are an LLM with tool calling. MCP tools are your primary action layer.`,
+          `Do NOT rely only on Read/Edit/Bash — you have richer tools available.`,
+          ``,
+          `MCP TOOL OBLIGATIONS for this task:`,
           ...(hasBrowserMcp ? [
-            `  4. Use browser MCP tools (Playwright-based):`,
-            `     - mcp__browser__browser_navigate to load the page`,
-            `     - mcp__browser__browser_click / browser_fill to interact with UI`,
-            `     - mcp__browser__browser_screenshot to capture the current state`,
-            `     - mcp__browser__browser_snapshot for AI-friendly DOM inspection`,
-            `     - mcp__browser__browser_evaluate to run JS in the page`,
-            `  5. For multi-state captures, navigate through flows:`,
-            `     navigate -> screenshot "landing" -> click button -> screenshot "gameplay" -> etc.`,
-          ] : [
-            `  4. Use dev-browser CLI for Playwright screenshots:`,
-            `     echo 'const p=await browser.getPage("v");await p.goto("http://localhost:3000",{waitUntil:"networkidle"});await p.screenshot({path:"visuals/NAME.png"})' | dev-browser --headless`,
-          ]),
-          `  6. Analyze with vision: mcp__4_5v_mcp__analyze_image with absolute path to the PNG`,
-          `  7. Kill dev server when done: lsof -ti:3000 | xargs kill 2>/dev/null`,
+            `  BROWSER (mcp__browser__*):`,
+            `    - After ANY UI change: browser_navigate → browser_snapshot (inspect DOM) → browser_screenshot`,
+            `    - Test user flows: browser_click, browser_fill, browser_press to interact with the UI`,
+            `    - For WebGL/Three.js canvas (black screenshot issue): use headless Chrome instead:`,
+            `      "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --no-sandbox --disable-dev-shm-usage --use-gl=angle --use-angle=swiftshader --run-all-compositor-stages-before-draw --screenshot=visuals/NAME.png --window-size=1280,720 http://localhost:PORT`,
+          ] : []),
+          ...(hasVisionMcp ? [
+            `  VISION (mcp__4_5v_mcp__analyze_image or tempglmvision):`,
+            `    - Call after EVERY screenshot — analyze quality, layout, errors`,
+            `    - Save screenshot to visuals/ and append to VISUAL_LOG.md:`,
+            `      ## [timestamp] - <what changed>`,
+            `      ![name](visuals/file.png)`,
+            `      **Analysis:** <vision output>`,
+            `      ---`,
+          ] : []),
+          ...(hasQualityGateMcp ? [
+            `  QUALITY (QualityGate):`,
+            `    - Call QualityGate BEFORE every git commit — do NOT run bun test manually`,
+          ] : []),
           ``,
-          `AFTER EACH SCREENSHOT, append to VISUAL_LOG.md:`,
-          `  ## [ISO timestamp] - What changed`,
-          `  ![desc](visuals/filename.png)`,
-          `  **Analysis:** paste vision model output`,
-          `  **Action:** what you did next`,
-          `  ---`,
-          ``,
-          `Capture EVERY significant UI state: landing, interaction, error, mobile. Not just the default page.`,
-          `The visuals/ directory and VISUAL_LOG.md are your visual audit trail.\n`,
+          `Capture ALL states: landing, interaction, error, mobile viewport. Not just the default page.`,
         ].join("\n")
       : "";
-    const augmentedQuery = visionPreamble
-      ? `${task.query}\n${visionPreamble}`
+    const augmentedQuery = mcpPreamble
+      ? `${task.query}\n${mcpPreamble}`
       : task.query;
 
     try {
