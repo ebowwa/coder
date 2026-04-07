@@ -546,12 +546,13 @@ async function runVisionVerification(
   const isWebProject = deps.express || deps.three || deps.react || deps.next || deps.vite || deps.svelte;
   if (!isWebProject) return;
 
-  // Determine start command and expected port
+  // Determine which script to run and expected port
   const scripts = (pkg.scripts ?? {}) as Record<string, string>;
-  const startCmd = scripts.dev || scripts.start || scripts.serve;
-  if (!startCmd) return;
+  const scriptName = scripts.dev ? "dev" : scripts.start ? "start" : scripts.serve ? "serve" : null;
+  if (!scriptName) return;
 
-  const portMatch = startCmd.match(/--port\s+(\d+)|PORT=(\d+)/);
+  const scriptValue = scripts[scriptName]!;
+  const portMatch = scriptValue.match(/--port\s+(\d+)|PORT=(\d+)/);
   const expectedPort = portMatch ? parseInt(portMatch[1] || portMatch[2]!, 10) : 3000;
 
   const visionStart = Date.now();
@@ -565,11 +566,10 @@ async function runVisionVerification(
       } catch { /* build optional -- server may work without it */ }
     }
 
-    // Start dev server in background
+    // Start dev server via `bun run <scriptName>` (not the script value directly)
     const { spawn } = await import("child_process");
-    const cmdParts = startCmd.split(/\s+/);
-    console.log(`\x1b[90m[Vision] Starting dev server: ${startCmd} (port ${expectedPort})\x1b[0m`);
-    serverProc = spawn("bun", ["run", cmdParts[0]!], {
+    console.log(`\x1b[90m[Vision] Starting: bun run ${scriptName} (port ${expectedPort})\x1b[0m`);
+    serverProc = spawn("bun", ["run", scriptName], {
       cwd: workingDirectory,
       stdio: "ignore",
       detached: true,

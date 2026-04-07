@@ -446,7 +446,7 @@ export const META_LLM_MODEL = process.env.CODER_META_MODEL || "glm-5-turbo";
 export const SUMMARIZATION_MODEL = META_LLM_MODEL;
 
 /** Fixed vision-capable model for image analysis (screenshots, rendered output) */
-export const VISION_MODEL = process.env.CODER_VISION_MODEL || "glm-5v-turbo";
+export const VISION_MODEL = process.env.CODER_VISION_MODEL || "glm-4.5v";
 
 /** Backup model to use if primary model fails all retries (read from Doppler) */
 export const BACKUP_MODEL = process.env.CODER_BACKUP_MODEL;
