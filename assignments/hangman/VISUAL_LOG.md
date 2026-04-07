@@ -189,3 +189,29 @@ Starting point before visual improvements.
 > The UI does not render correctly. The screen is entirely black with no visible content, indicating a potential rendering failure or blank state. There are no discernible elements, layouts, or error messages present.
 
 ---
+
+## 2026-04-07T09:35:09.647Z -- Task `task_1775554388837_5ovsrl` (landing)
+
+**Port:** 3000  
+**Verdict:** OK  
+**Latency:** 6216ms  
+**Method:** dev-browser MCP
+
+![landing](visuals/landing-2026-04-07T09-35-03-431Z.png)
+
+> The UI does not render correctly; the screen is entirely black with no visible content, indicating missing or failed loading of elements. There are no discernible layouts, text, or interactive components present.
+
+---
+
+## 2026-04-07T09:35:15.397Z -- Task `task_1775554388837_5ovsrl` (mobile)
+
+**Port:** 3000  
+**Verdict:** OK  
+**Latency:** 5748ms  
+**Method:** dev-browser MCP
+
+![mobile](visuals/mobile-2026-04-07T09-35-09-648Z.png)
+
+> The UI does not render correctly; the screen is entirely black with no visible content, indicating a potential blank page, rendering failure, or missing elements.
+
+---
