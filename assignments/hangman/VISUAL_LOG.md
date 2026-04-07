@@ -423,3 +423,29 @@ Starting point before visual improvements.
 > The UI renders correctly. All elements (input fields, color options, buttons) are properly displayed without broken layouts, overflow, or errors.
 
 ---
+
+## 2026-04-07T18:54:05.720Z -- Task `task_1775587845689_usoidq` (desktop 1280x720)
+
+**Port:** 3000  
+**Verdict:** FAILED  
+**Latency:** 10306ms  
+**Method:** headless-chrome+swiftshader
+
+![desktop](visuals/desktop-2026-04-07T18-53-55-408Z.png)
+
+> The UI is not mostly black/empty. It renders correctly; all elements (input fields, color options, buttons) are properly displayed with no broken layouts, errors, or overflow.
+
+---
+
+## 2026-04-07T18:54:13.515Z -- Task `task_1775587845689_usoidq` (mobile 375x812)
+
+**Port:** 3000  
+**Verdict:** OK  
+**Latency:** 7791ms  
+**Method:** headless-chrome+swiftshader
+
+![mobile](visuals/mobile-2026-04-07T18-54-05-723Z.png)
+
+> The UI renders correctly with no broken layouts, errors, or overflow. All elements (text fields, buttons, color options) are properly displayed and aligned.
+
+---
