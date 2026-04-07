@@ -160,9 +160,10 @@ export const DEFAULT_CONTINUATION_PROMPT = `Continue working on the task. Follow
 2. cd into the project directory, then run the build (tsc --noEmit, bun build, etc.) to verify changes compile.
 3. Run ONLY project-scoped tests (cd into the project dir first). NEVER run bare \`bun test\` from the repo root.
 4. Pipe large outputs through \`head -50\` or \`tail -30\` to avoid context bloat.
-5. If build passes, commit the working changes with a conventional commit message.
-6. If build fails, fix the errors first.
-7. Take the next logical step -- prefer writing/editing files over reasoning about them.`;
+5. For web projects: take a screenshot with vision tools (mcp__4_5v_mcp__analyze_image or tempglmvision), save to visuals/, and append to VISUAL_LOG.md with ![desc](visuals/file.png) + analysis.
+6. If build passes, commit the working changes with a conventional commit message.
+7. If build fails, fix the errors first.
+8. Take the next logical step -- prefer writing/editing files over reasoning about them.`;
 
 /**
  * Stuck prompt - when model seems to be looping without progress
@@ -266,7 +267,7 @@ export const RALPH_CONTINUATION_CONFIG: ContinuationConfig = {
       id: "goal_reminder",
       description: "Remind of original goal after context compaction",
       action: "inject_prompt",
-      continuationPrompt: "Your context was compacted. Remember your original task and continue. cd into the project directory, run the build to see current state. Fix any errors, then commit. Verify with tool output, not words. Prefer writing code over reasoning.",
+      continuationPrompt: "Your context was compacted. Remember your original task and continue. cd into the project directory, run the build to see current state. Fix any errors, then commit. For web projects: use vision/screenshot tools to verify UI renders correctly after every significant change. Save screenshots to visuals/ and append each to VISUAL_LOG.md with ![desc](visuals/file.png) + analysis. Verify with tool output, not words. Prefer writing code over reasoning.",
       priority: 300,
     },
     // === HIGH PRIORITY: Stuck detection ===
@@ -300,13 +301,32 @@ export const RALPH_CONTINUATION_CONFIG: ContinuationConfig = {
       action: "inject_prompt",
       priority: 100,
     },
+    // === VISION GATE: Use browser MCP to capture visuals for web projects ===
+    {
+      id: "vision_documentation",
+      description: "Use browser MCP to capture and document visuals after UI changes",
+      action: "inject_prompt",
+      continuationPrompt: [
+        "VISION CHECK: You made UI changes. Before moving on:",
+        "1) Start the dev server if not running.",
+        "2) Use mcp__browser__browser_navigate to load the page.",
+        "3) Use mcp__browser__browser_screenshot to capture the current state.",
+        "4) For interactive flows: use mcp__browser__browser_click / browser_fill to reach different UI states, screenshot each one.",
+        "5) Use mcp__browser__browser_snapshot for AI-readable DOM structure.",
+        "6) Analyze screenshots with mcp__4_5v_mcp__analyze_image.",
+        "7) Save screenshots to visuals/ (project root) with descriptive names.",
+        "8) Append to VISUAL_LOG.md: ## [timestamp] - Description, ![desc](visuals/file.png), **Analysis:** vision result.",
+        "The visuals/ directory + VISUAL_LOG.md are your visual audit trail. Capture EVERY UI state.",
+      ].join(" "),
+      priority: 50,
+    },
     // === LOWEST PRIORITY: Uncommitted changes -- build gate before commit ===
     {
       id: "uncommitted_changes",
       description: "Build-verify-commit gate for pending changes",
       checkPendingState: true,
       action: "inject_prompt",
-      continuationPrompt: "You have uncommitted changes. Before committing: 1) cd into the project directory, run build/typecheck. 2) Run project-scoped tests (never bare `bun test` from root). 3) If clean, commit with a conventional message. If not clean, fix errors first.",
+      continuationPrompt: "You have uncommitted changes. Before committing: 1) cd into the project directory, run build/typecheck. 2) Run project-scoped tests (never bare `bun test` from root). 3) For web projects: take a screenshot with vision tools, save to visuals/, and append to VISUAL_LOG.md with ![desc](visuals/file.png) + analysis. 4) If clean, commit with a conventional message. If not clean, fix errors first.",
       priority: 10,
     },
   ],
@@ -321,7 +341,7 @@ export const RALPH_CONTINUATION_CONFIG: ContinuationConfig = {
   activeWorkTools: ["Edit", "Write", "Bash", "Read", "Grep", "Glob"],
   activeWorkWindow: 3,
   requireVerification: true,
-  verificationTools: ["Bash"], // Running tests/builds counts as verification
+  verificationTools: ["Bash", "mcp__4_5v_mcp__analyze_image", "tempglmvision", "mcp__browser__browser_screenshot", "mcp__browser__browser_navigate", "mcp__browser__browser_snapshot"],
 };
 
 // ============================================

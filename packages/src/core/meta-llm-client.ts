@@ -97,11 +97,17 @@ export class MetaLLMClient {
         }
 
         const data = (await res.json()) as {
-          choices?: Array<{ message?: { content?: string } }>;
+          choices?: Array<{
+            message?: {
+              content?: string;
+              reasoning_content?: string;
+            };
+          }>;
           usage?: { prompt_tokens?: number; completion_tokens?: number };
         };
 
-        const text = data.choices?.[0]?.message?.content ?? "";
+        const msg = data.choices?.[0]?.message;
+        const text = msg?.content || msg?.reasoning_content || "";
         if (!text) return null;
 
         return {
@@ -111,12 +117,12 @@ export class MetaLLMClient {
           durationMs: Date.now() - start,
         };
       } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        if (msg.includes("abort") && attempt < META_MAX_RETRIES) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        if (errMsg.includes("abort") && attempt < META_MAX_RETRIES) {
           console.error(`\x1b[33m[MetaLLM] Timeout, retrying...\x1b[0m`);
           continue;
         }
-        console.error(`\x1b[33m[MetaLLM] Error: ${msg}\x1b[0m`);
+        console.error(`\x1b[33m[MetaLLM] Error: ${errMsg}\x1b[0m`);
         return null;
       } finally {
         clearTimeout(timeout);
@@ -193,11 +199,17 @@ export class MetaLLMClient {
         }
 
         const data = (await res.json()) as {
-          choices?: Array<{ message?: { content?: string } }>;
+          choices?: Array<{
+            message?: {
+              content?: string;
+              reasoning_content?: string;
+            };
+          }>;
           usage?: { prompt_tokens?: number; completion_tokens?: number };
         };
 
-        const text = data.choices?.[0]?.message?.content ?? "";
+        const msg = data.choices?.[0]?.message;
+        const text = msg?.content || msg?.reasoning_content || "";
         if (!text) return null;
 
         return {
@@ -207,12 +219,12 @@ export class MetaLLMClient {
           durationMs: Date.now() - start,
         };
       } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        if (msg.includes("abort") && attempt < META_MAX_RETRIES) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        if (errMsg.includes("abort") && attempt < META_MAX_RETRIES) {
           console.error(`\x1b[33m[VisionLLM] Timeout, retrying...\x1b[0m`);
           continue;
         }
-        console.error(`\x1b[33m[VisionLLM] Error: ${msg}\x1b[0m`);
+        console.error(`\x1b[33m[VisionLLM] Error: ${errMsg}\x1b[0m`);
         return null;
       } finally {
         clearTimeout(timeout);

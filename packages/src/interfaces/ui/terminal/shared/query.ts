@@ -25,9 +25,9 @@ const STATS_PORT = parseInt(process.env.CODER_STATS_PORT || "7420", 10);
 const MAX_HANDOFF_SESSIONS = parseInt(process.env.CODER_MAX_HANDOFFS || "10", 10);
 const HANDOFF_COOLDOWN_MS = 5_000;
 const DAEMON_POLL_INTERVAL_MS = parseInt(process.env.CODER_DAEMON_POLL_MS || "10000", 10);
-const DAEMON_ASSESS_COOLDOWN_BASE_MS = parseInt(process.env.CODER_ASSESS_COOLDOWN_MS || "60000", 10);
-const DAEMON_ASSESS_COOLDOWN_MAX_MS = 30 * 60_000; // 30 min max between assessments
-const DAEMON_CONSECUTIVE_CLEAN_BACKOFF = 2; // multiply cooldown by this after each "nothing actionable"
+const DAEMON_ASSESS_COOLDOWN_BASE_MS = parseInt(process.env.CODER_ASSESS_COOLDOWN_MS || "45000", 10);
+const DAEMON_ASSESS_COOLDOWN_MAX_MS = 3 * 60_000; // 3 min max between assessments
+const DAEMON_CONSECUTIVE_CLEAN_BACKOFF = 1.5; // gentle backoff -- always stay productive
 
 async function buildHandoffPrompt(
   originalQuery: string,
@@ -594,76 +594,142 @@ async function runVisionVerification(
       return;
     }
 
-    // Take screenshot with headless Chrome
-    const coderDir = join(workingDirectory, ".coder");
-    if (!existsSync(coderDir)) {
-      const { mkdirSync } = await import("fs");
-      mkdirSync(coderDir, { recursive: true });
+    const { appendFileSync, mkdirSync: mkdirSyncFs } = await import("fs");
+    const { getVisionLLM } = await import("../../../../core/meta-llm-client.js");
+    const { readImageFile } = await import("../../../../core/image.js");
+
+    const projectVisualsDir = join(workingDirectory, "visuals");
+    if (!existsSync(projectVisualsDir)) mkdirSyncFs(projectVisualsDir, { recursive: true });
+    const logPath = join(workingDirectory, "VISUAL_LOG.md");
+    if (!existsSync(logPath)) {
+      appendFileSync(logPath, "# Visual Verification Log\n\nAutomated screenshots and vision analysis from daemon runs.\n\n---\n");
     }
-    const screenshotPath = join(coderDir, `screenshot-${expectedPort}.png`);
 
-    // Give the app extra time to render (Three.js/WebGL/React hydration)
-    await new Promise((r) => setTimeout(r, 3000));
+    const baseUrl = `http://localhost:${expectedPort}`;
 
-    const chromePath = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
-    const chromeArgs = [
-      "--headless=new",
-      "--no-sandbox",
-      "--use-gl=angle",
-      "--use-angle=swiftshader",
-      "--run-all-compositor-stages-before-draw",
-      "--virtual-time-budget=8000",
-      `--screenshot=${screenshotPath}`,
-      "--window-size=1280,720",
-      `http://localhost:${expectedPort}`,
+    // Use dev-browser MCP for interactive multi-view screenshots
+    const views: Array<{ name: string; script: string }> = [
+      {
+        name: "landing",
+        script: `
+const page = await browser.getPage("main");
+await page.setViewportSize({ width: 1280, height: 720 });
+await page.goto("${baseUrl}", { waitUntil: "networkidle" });
+await page.waitForTimeout(2000);
+const buf = await page.screenshot({ fullPage: false });
+const path = await saveScreenshot(buf, "landing.png");
+console.log(JSON.stringify({ path }));
+`,
+      },
+      {
+        name: "mobile",
+        script: `
+const page = await browser.getPage("mobile");
+await page.setViewportSize({ width: 375, height: 812 });
+await page.goto("${baseUrl}", { waitUntil: "networkidle" });
+await page.waitForTimeout(2000);
+const buf = await page.screenshot({ fullPage: false });
+const path = await saveScreenshot(buf, "mobile.png");
+console.log(JSON.stringify({ path }));
+`,
+      },
     ];
 
-    try {
-      execSync(`"${chromePath}" ${chromeArgs.map((a) => `"${a}"`).join(" ")} 2>/dev/null`, { timeout: 25_000 });
-    } catch {
+    // Give the app extra time to render (Three.js/WebGL/React hydration)
+    await new Promise((r) => setTimeout(r, 2000));
+
+    const devBrowserCmd = join(process.env.HOME || "", ".local", "bin", "dev-browser");
+    let anySuccess = false;
+
+    for (const view of views) {
+      const viewStart = Date.now();
+      const viewTs = new Date().toISOString().replace(/[:.]/g, "-");
+      const readableName = `${view.name}-${viewTs}.png`;
+      const projectPath = join(projectVisualsDir, readableName);
+
       try {
-        execSync(`chromium ${chromeArgs.join(" ")} 2>/dev/null`, { timeout: 25_000 });
-      } catch {
-        console.log(`\x1b[33m[Vision] Screenshot failed (no headless browser)\x1b[0m`);
-        statusWriter.recordMcpCall("vision", "screenshot_verify", Date.now() - visionStart, true);
-        return;
+        // Execute via dev-browser (Playwright under the hood)
+        const dbResult = execSync(
+          `echo '${view.script.replace(/'/g, "'\\''")}' | "${devBrowserCmd}" --headless 2>/dev/null`,
+          { timeout: 30_000, cwd: workingDirectory },
+        ).toString().trim();
+
+        // dev-browser saves to ~/.dev-browser/tmp/<filename>.png
+        let savedPath = "";
+        try {
+          const parsed = JSON.parse(dbResult);
+          savedPath = parsed.path || "";
+        } catch { /* output wasn't JSON */ }
+
+        if (!savedPath || !existsSync(savedPath)) {
+          // Fallback: try ~/.dev-browser/tmp/<name>.png
+          const fallback = join(process.env.HOME || "", ".dev-browser", "tmp", `${view.name}.png`);
+          if (existsSync(fallback)) savedPath = fallback;
+        }
+
+        if (savedPath && existsSync(savedPath)) {
+          const { copyFileSync } = await import("fs");
+          copyFileSync(savedPath, projectPath);
+
+          // Analyze with vision LLM
+          let analysisText = "";
+          try {
+            const imgData = await readImageFile(projectPath);
+            const analysis = await getVisionLLM().completeWithImage(
+              "You are a UI quality verifier for web applications.",
+              `Analyze this ${view.name} screenshot. Does the UI render correctly? Any broken layouts, blank pages, error messages, overflow issues, or missing content? Be concise (2-3 sentences).`,
+              { base64: imgData.base64, mediaType: imgData.mediaType },
+              256,
+            );
+            analysisText = analysis?.text?.trim() || "";
+          } catch { /* vision optional */ }
+
+          const viewMs = Date.now() - viewStart;
+          const isViewError = !analysisText;
+          anySuccess = anySuccess || !isViewError;
+
+          if (analysisText) {
+            console.log(`\x1b[90m[Vision/MCP] ${view.name}: ${analysisText.slice(0, 120)}\x1b[0m`);
+          }
+
+          statusWriter.recordMcpCall("browser", `screenshot_${view.name}`, viewMs, isViewError);
+          statusWriter.recordEvent("vision_verify", {
+            taskId, view: view.name, port: expectedPort,
+            analysis: analysisText?.slice(0, 300),
+          });
+
+          try {
+            const entry = [
+              `\n## ${new Date().toISOString()} -- Task \`${taskId}\` (${view.name})\n`,
+              `**Port:** ${expectedPort}  `,
+              `**Verdict:** ${isViewError ? "FAILED" : "OK"}  `,
+              `**Latency:** ${viewMs}ms  `,
+              `**Method:** dev-browser MCP\n`,
+              `![${view.name}](visuals/${readableName})\n`,
+              analysisText ? `> ${analysisText.replace(/\n/g, "\n> ")}\n` : "> (no analysis)\n",
+              "---\n",
+            ].join("\n");
+            appendFileSync(logPath, entry);
+          } catch { /* best-effort */ }
+        } else {
+          console.log(`\x1b[33m[Vision/MCP] ${view.name}: screenshot not saved\x1b[0m`);
+          statusWriter.recordMcpCall("browser", `screenshot_${view.name}`, Date.now() - viewStart, true);
+        }
+      } catch (viewErr) {
+        console.log(`\x1b[33m[Vision/MCP] ${view.name} failed: ${viewErr instanceof Error ? viewErr.message : viewErr}\x1b[0m`);
+        statusWriter.recordMcpCall("browser", `screenshot_${view.name}`, Date.now() - viewStart, true);
       }
     }
 
-    if (!existsSync(screenshotPath)) {
-      console.log(`\x1b[33m[Vision] Screenshot file not created\x1b[0m`);
-      statusWriter.recordMcpCall("vision", "screenshot_verify", Date.now() - visionStart, true);
-      return;
-    }
-
-    // Analyze with vision LLM
-    const { getVisionLLM } = await import("../../../../core/meta-llm-client.js");
-    const { readImageFile } = await import("../../../../core/image.js");
-    const imgData = await readImageFile(screenshotPath);
-    const analysis = await getVisionLLM().completeWithImage(
-      "You are a UI quality verifier for web applications.",
-      "Analyze this screenshot. Does the UI render correctly? Any broken layouts, blank pages, error messages, or missing content? Report issues or confirm it looks good. Be concise (2-3 sentences).",
-      { base64: imgData.base64, mediaType: imgData.mediaType },
-      256,
-    );
+    // Cleanup browser pages
+    try {
+      execSync(`echo 'await browser.closePage("main"); await browser.closePage("mobile");' | "${devBrowserCmd}" --headless 2>/dev/null`, { timeout: 5000 });
+    } catch { /* cleanup best-effort */ }
 
     const visionMs = Date.now() - visionStart;
-    const analysisText = analysis?.text?.trim();
-    const isError = !analysisText;
-
-    if (analysisText) {
-      console.log(`\x1b[90m[Vision] Port ${expectedPort}: ${analysisText.slice(0, 150)}\x1b[0m`);
-    } else {
-      console.log(`\x1b[33m[Vision] Vision LLM returned empty response\x1b[0m`);
+    if (!anySuccess) {
+      statusWriter.recordMcpCall("browser", "screenshot_verify", visionMs, true);
     }
-
-    statusWriter.recordMcpCall("vision", "screenshot_verify", visionMs, isError);
-    statusWriter.recordEvent("vision_verify", {
-      taskId,
-      port: expectedPort,
-      analysis: analysisText?.slice(0, 300),
-      screenshotPath,
-    });
   } catch (err) {
     console.log(`\x1b[33m[Vision] Error: ${err instanceof Error ? err.message : err}\x1b[0m`);
     statusWriter.recordMcpCall("vision", "screenshot_verify", Date.now() - visionStart, true);
@@ -701,14 +767,24 @@ async function buildSelfAssessmentTask(
 
   const toolBlock = availableTools.length > 0
     ? [
-        `\nAVAILABLE TOOLS (you SHOULD use these, not just Read/Edit/Bash):`,
+        `\nAVAILABLE TOOLS (you MUST use these, not just Read/Edit/Bash):`,
         ...availableTools.map((t) => `  - ${t}`),
         ``,
-        `WORKFLOW: After code changes, you MUST verify with available tools:`,
-        `  1. Build the project (Bash)`,
-        `  2. Run scoped tests (Bash)`,
-        `  3. If this is a web project, use browser/vision tools to verify the UI renders correctly`,
-        `  4. Use QualityGate or similar tools if available before committing`,
+        `VISION-FIRST WORKFLOW (mandatory for web projects):`,
+        `  1. Build the project (Bash: bun run build)`,
+        `  2. Run scoped tests (Bash: cd <dir> && bun test)`,
+        `  3. Start the dev server and use vision/screenshot tools to verify UI renders`,
+        `  4. Use vision tools AFTER EVERY significant UI change, not just at the end`,
+        `  5. Save screenshots to visuals/ (project root) with descriptive names`,
+        `  6. Use QualityGate before committing`,
+        `  7. Append each screenshot + analysis to VISUAL_LOG.md at project root`,
+        ``,
+        `VISUAL_LOG.md FORMAT (append after each vision check):`,
+        `  ## [ISO timestamp] - What changed`,
+        `  ![description](visuals/filename.png)`,
+        `  **Analysis:** vision model's assessment`,
+        `  **Action:** what you did next`,
+        `  ---`,
       ].join("\n")
     : "";
 
@@ -721,13 +797,27 @@ async function buildSelfAssessmentTask(
         `Given workspace signals, produce a SINGLE actionable task description.`,
         `The task must be specific: name the exact file(s) and what to do.`,
         `ONLY reference files inside ${workingDirectory}. Ignore signals from other directories.`,
-        `Prioritize: build errors > test failures > uncommitted work > code TODOs.`,
+        ``,
+        `Priority order:`,
+        `  1. Build errors or test failures (fix immediately)`,
+        `  2. Uncommitted work (commit it)`,
+        `  3. Code TODOs / FIXMEs in source files`,
+        `  4. Missing or low test coverage (add tests for untested modules)`,
+        `  5. Performance improvements (lazy loading, bundle size, render optimization)`,
+        `  6. Accessibility (ARIA labels, keyboard navigation, color contrast)`,
+        `  7. UI/UX polish (animations, responsive design, error states, loading states)`,
+        `  8. Code quality (extract duplicated logic, improve types, reduce complexity)`,
+        `  9. Documentation (update README, add JSDoc, document APIs)`,
+        ``,
+        `There is ALWAYS something to improve. A clean build just means you move to categories 4-9.`,
+        `NEVER respond with NOTHING_ACTIONABLE unless the project has <3 source files.`,
+        `NEVER generate a task that only commits/stages files. Commits are handled automatically.`,
+        `Your task MUST involve writing or modifying source code, tests, or documentation content.`,
         recentTaskSummaries.length > 0
           ? `ALREADY DONE (do NOT repeat): ${recentTaskSummaries.join(" | ")}`
           : ``,
-        `If all signals are clean and there is genuinely nothing to do, respond with exactly: NOTHING_ACTIONABLE`,
-        `Output ONLY the task description (or NOTHING_ACTIONABLE), nothing else. Max 200 words.`,
-      ].filter(Boolean).join(" "),
+        `Output ONLY the task description, nothing else. Max 200 words.`,
+      ].filter(Boolean).join("\n"),
       signals,
       512,
     );
@@ -735,37 +825,54 @@ async function buildSelfAssessmentTask(
     if (result?.text) {
       console.log(`\x1b[90m[SelfAssess] Meta-LLM task: ${result.inputTokens} in, ${result.outputTokens} out, ${result.durationMs}ms\x1b[0m`);
 
-      if (result.text.trim() === "NOTHING_ACTIONABLE") {
-        console.log(`\x1b[90m[SelfAssess] Meta-LLM says nothing actionable.\x1b[0m`);
-        return null;
+      const trimmed = result.text.trim();
+      const isCommitOnly = /^(commit|stage|git add|git commit)\b/i.test(trimmed)
+        && !/\b(fix|implement|add|create|update|refactor|test|improve)\b/i.test(trimmed);
+      if (trimmed === "NOTHING_ACTIONABLE" || trimmed.length < 20 || isCommitOnly) {
+        if (isCommitOnly) {
+          console.log(`\x1b[90m[SelfAssess] Rejected commit-only task, falling through to improvement scan.\x1b[0m`);
+        } else {
+          console.log(`\x1b[90m[SelfAssess] Meta-LLM says nothing actionable, falling through to improvement scan.\x1b[0m`);
+        }
+        // Fall through to template-based assessment below
+      } else {
+        return [
+          `[AUTONOMOUS ASSESSMENT -- self-generated task #${completedCount + 1}]`,
+          scopeRule,
+          `You are a daemon running autonomously. The task queue is empty.`,
+          `The meta-LLM analyzed the workspace and selected this task:`,
+          ``,
+          result.text,
+          dedupBlock,
+          toolBlock,
+          ``,
+          `After completing: cd ${workingDirectory}, build, test (scoped), commit.`,
+          `For web projects: use vision/screenshot tools to verify UI after changes. Save screenshots to visuals/.`,
+          `Append each screenshot + analysis to VISUAL_LOG.md. Update PROGRESS.md with a visual summary.`,
+          `NEVER run bare \`bun test\` from the repo root. NEVER edit files outside ${workingDirectory}.`,
+        ].join("\n");
       }
-
-      return [
-        `[AUTONOMOUS ASSESSMENT -- self-generated task #${completedCount + 1}]`,
-        scopeRule,
-        `You are a daemon running autonomously. The task queue is empty.`,
-        `The meta-LLM analyzed the workspace and selected this task:`,
-        ``,
-        result.text,
-        dedupBlock,
-        toolBlock,
-        ``,
-        `After completing: cd ${workingDirectory}, build, test (scoped), commit, update PROGRESS.md.`,
-        `NEVER run bare \`bun test\` from the repo root. NEVER edit files outside ${workingDirectory}.`,
-      ].join("\n");
     }
   } catch { /* fall through to template */ }
 
   return [
-    `[AUTONOMOUS ASSESSMENT -- self-generated task #${completedCount + 1}]`,
+    `[AUTONOMOUS IMPROVEMENT -- self-generated task #${completedCount + 1}]`,
     scopeRule,
-    `You are a daemon running autonomously. The task queue is empty.`,
-    `Inspect the workspace signals below and take the SINGLE most impactful action.`,
-    `Prioritize: build errors > test failures > uncommitted work > open TODOs.`,
+    `You are a daemon running autonomously. The task queue is empty and the project builds clean.`,
+    `Your job is continuous improvement. Commits are handled automatically -- focus on CODE CHANGES.`,
+    `Pick ONE from this priority list (you MUST write/modify code, not just commit):`,
+    `  1. Add tests for any module with <80% coverage`,
+    `  2. Performance: lazy loading, bundle size reduction, render optimization`,
+    `  3. Accessibility: ARIA labels, keyboard navigation, screen reader support`,
+    `  4. UI polish: better error states, loading indicators, responsive breakpoints`,
+    `  5. Code quality: extract duplicated logic, improve TypeScript types, reduce complexity`,
+    `  6. Documentation: update README with setup/usage, add JSDoc to public APIs`,
     dedupBlock,
     toolBlock,
     `Do NOT repeat work that is already done. Check git log to see recent commits.`,
-    `After completing: cd ${workingDirectory}, build, test (scoped), commit, update PROGRESS.md.`,
+    `After completing: cd ${workingDirectory}, build, test (scoped), commit.`,
+    `For web projects: use vision/screenshot tools to verify UI. Save to visuals/.`,
+    `Append each screenshot + analysis to VISUAL_LOG.md. Update PROGRESS.md with a visual summary.`,
     `NEVER edit files outside ${workingDirectory}.`,
     ``,
     `WORKSPACE SIGNALS:`,
@@ -837,6 +944,22 @@ export async function runDaemonLoop(options: DaemonOptions): Promise<never> {
 
       if (canAssess) {
         lastAssessmentAt = now;
+
+        // Auto-commit any pending changes BEFORE assessment to break the commit loop.
+        // This way the Meta-LLM never sees uncommitted changes and can focus on real work.
+        try {
+          const gitStatus = execSync("git status --short -- . 2>/dev/null", {
+            cwd: workingDirectory, timeout: 5_000,
+          }).toString().trim();
+          if (gitStatus) {
+            console.log(`\x1b[90m[Daemon] Auto-committing ${gitStatus.split("\n").length} pending file(s) before assessment...\x1b[0m`);
+            execSync("git add -A . && git commit -m 'chore(daemon): auto-commit pending changes' --no-verify 2>/dev/null", {
+              cwd: workingDirectory, timeout: 15_000,
+            });
+            statusWriter.recordEvent("auto_commit", { files: gitStatus.split("\n").length });
+          }
+        } catch { /* commit failed or nothing to commit -- fine */ }
+
         console.log(`\n\x1b[35m[Daemon] Queue empty. Running self-assessment (cooldown: ${Math.round(assessCooldownMs / 1000)}s)...\x1b[0m`);
         statusWriter.recordEvent("self_assessment_start", { selfGenCount: selfGeneratedTasks, cooldownMs: assessCooldownMs });
 
@@ -904,10 +1027,55 @@ export async function runDaemonLoop(options: DaemonOptions): Promise<never> {
       query: task.query.slice(0, 200),
     });
 
+    // Inject vision-first workflow directives referencing dev-browser MCP
+    const visionToolList = availableTools.filter(
+      (t) => /vision|image|screenshot|4_5v|glmvision|browser/i.test(t),
+    );
+    const hasBrowserMcp = availableTools.some((t) => /browser_navigate|browser_screenshot/i.test(t));
+    const visionPreamble = visionToolList.length > 0
+      ? [
+          `\nVISION-FIRST DEVELOPMENT (mandatory):`,
+          `You have these vision/browser tools: ${visionToolList.map((t) => t.split(" -- ")[0]).join(", ")}`,
+          ``,
+          `HOW TO SCREENSHOT (exact steps):`,
+          `  1. Build: bun run build`,
+          `  2. Start dev server: bun run dev &`,
+          `  3. Wait for server: sleep 3`,
+          ...(hasBrowserMcp ? [
+            `  4. Use browser MCP tools (Playwright-based):`,
+            `     - mcp__browser__browser_navigate to load the page`,
+            `     - mcp__browser__browser_click / browser_fill to interact with UI`,
+            `     - mcp__browser__browser_screenshot to capture the current state`,
+            `     - mcp__browser__browser_snapshot for AI-friendly DOM inspection`,
+            `     - mcp__browser__browser_evaluate to run JS in the page`,
+            `  5. For multi-state captures, navigate through flows:`,
+            `     navigate -> screenshot "landing" -> click button -> screenshot "gameplay" -> etc.`,
+          ] : [
+            `  4. Use dev-browser CLI for Playwright screenshots:`,
+            `     echo 'const p=await browser.getPage("v");await p.goto("http://localhost:3000",{waitUntil:"networkidle"});await p.screenshot({path:"visuals/NAME.png"})' | dev-browser --headless`,
+          ]),
+          `  6. Analyze with vision: mcp__4_5v_mcp__analyze_image with absolute path to the PNG`,
+          `  7. Kill dev server when done: lsof -ti:3000 | xargs kill 2>/dev/null`,
+          ``,
+          `AFTER EACH SCREENSHOT, append to VISUAL_LOG.md:`,
+          `  ## [ISO timestamp] - What changed`,
+          `  ![desc](visuals/filename.png)`,
+          `  **Analysis:** paste vision model output`,
+          `  **Action:** what you did next`,
+          `  ---`,
+          ``,
+          `Capture EVERY significant UI state: landing, interaction, error, mobile. Not just the default page.`,
+          `The visuals/ directory and VISUAL_LOG.md are your visual audit trail.\n`,
+        ].join("\n")
+      : "";
+    const augmentedQuery = visionPreamble
+      ? `${task.query}\n${visionPreamble}`
+      : task.query;
+
     try {
       const result = await runSingleQuery({
         ...options,
-        query: task.query,
+        query: augmentedQuery,
         sessionId: taskSessionId,
         sharedStatusWriter: statusWriter,
       });
