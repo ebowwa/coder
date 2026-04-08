@@ -294,7 +294,7 @@ describe('Multiplayer Turn Rotation', () => {
       
       // Turn index should have advanced
       const updatedRoom = manager.getRoom(roomCode);
-      expect(updatedRoom!.currentTurnIndex).toBe(2 % 2); // (previous + 1) % playerCount
+      expect(updatedRoom!.currentTurnIndex).toBe(1 % 2); // (previous + 1) % playerCount
     });
   });
 

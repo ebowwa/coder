@@ -515,12 +515,13 @@ describe('Multiplayer Turn Rotation Integration', () => {
       client.createRoom('p1', 'Alice', 0xff6b6b);
       client.joinRoom('p2', 'Bob', 0x4ecdc4);
       client.joinRoom('p3', 'Charlie', 0xffe66d);
-      client.startGame(1);
+      client.startGame(1, 'BREAD');
       
       const initialTurnIndex = client.getCurrentTurnIndex();
       expect(initialTurnIndex).toBe(0);
       
       // Complete a round (by exhausting wrong guesses)
+      // BREAD contains no letters from this list, so all will be wrong guesses
       const wrongLetters = ['Z', 'Q', 'X', 'J', 'K', 'V'];
       for (const letter of wrongLetters) {
         if (client.isRoundComplete()) break;
@@ -698,7 +699,9 @@ describe('Multiplayer Turn Rotation Integration', () => {
       client.createRoom('p1', 'Alice', 0xff6b6b);
       client.joinRoom('p2', 'Bob', 0x4ecdc4);
       client.joinRoom('p3', 'Charlie', 0xffe66d);
-      client.startGame(1);
+      // Use forced words that don't contain Z,Q,X,J,K,V to ensure rounds complete
+      const forcedWords = ['BREAD', 'MONTH', 'FLAME'];
+      client.startGame(1, forcedWords[0]);
       
       const playerIds = client.getPlayerIds();
       
@@ -717,7 +720,7 @@ describe('Multiplayer Turn Rotation Integration', () => {
         
         // Start next round (if not last round)
         if (round < 2) {
-          client.nextRound();
+          client.nextRound(forcedWords[round + 1]);
         }
       }
       
