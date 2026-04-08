@@ -25,6 +25,7 @@ export interface RoomState {
   players: Map<string, PlayerInfo>;
   spectators: Map<string, SpectatorInfo>;
   currentTurnIndex: number;
+  roundStartTurnIndex: number;
   currentRound: MultiplayerRound | null;
   status: 'waiting' | 'playing' | 'finished';
   maxPlayers: number;

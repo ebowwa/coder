@@ -100,10 +100,10 @@ class MultiplayerGameClient {
     return room !== null;
   }
 
-  startGame(difficulty: number = 1): void {
+  startGame(difficulty: number = 1, forcedWord?: string): void {
     if (!this.roomCode) return;
     
-    const round = this.roomManager.startGame(this.roomCode, difficulty);
+    const round = this.roomManager.startGame(this.roomCode, difficulty, forcedWord);
     if (round) {
       // Update UI for new round
       this.wordDisplay.setWord(round.word);
@@ -164,15 +164,17 @@ class MultiplayerGameClient {
       // Correct guess: same player continues
       this.predictionUI.showMessage(`Correct! ${playerId} guessed "${letter}"`, '#4ecdc4');
     } else {
-      // Wrong guess: turn passes to next player
-      this.turnChanges.push({
-        fromPlayer: previousPlayerId || playerId,
-        toPlayer: nextPlayerId,
-        reason: 'wrong',
-      });
-      
-      this.playerAvatars.setCurrentTurn(nextPlayerId);
-      this.predictionUI.showMessage(`Wrong! Turn passes to ${nextPlayerId}`, '#ff6b6b');
+      // Wrong guess: turn passes to next player (only if round is NOT complete)
+      if (!round.isComplete) {
+        this.turnChanges.push({
+          fromPlayer: previousPlayerId || playerId,
+          toPlayer: nextPlayerId,
+          reason: 'wrong',
+        });
+        
+        this.playerAvatars.setCurrentTurn(nextPlayerId);
+        this.predictionUI.showMessage(`Wrong! Turn passes to ${nextPlayerId}`, '#ff6b6b');
+      }
     }
     
     // Handle round completion
@@ -202,13 +204,13 @@ class MultiplayerGameClient {
   /**
    * Start the next round and reset turn order
    */
-  nextRound(): void {
+  nextRound(forcedWord?: string): void {
     if (!this.roomCode) return;
     
     const previousRoom = this.roomManager.getRoom(this.roomCode);
     const previousTurnIndex = previousRoom?.currentTurnIndex ?? 0;
     
-    const round = this.roomManager.nextRound(this.roomCode);
+    const round = this.roomManager.nextRound(this.roomCode, forcedWord);
     
     if (round) {
       // Record turn order change for new round

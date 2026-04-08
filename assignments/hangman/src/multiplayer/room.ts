@@ -30,6 +30,7 @@ export class RoomManager {
       players: new Map([[playerId, player]]),
       spectators: new Map(),
       currentTurnIndex: 0,
+      roundStartTurnIndex: 0,
       currentRound: null,
       status: 'waiting',
       maxPlayers: 8,
@@ -110,6 +111,8 @@ export class RoomManager {
     const wordEntry = getRandomWord(difficulty);
     const playerIds = Array.from(room.players.keys());
     
+    room.roundStartTurnIndex = room.currentTurnIndex;
+
     room.currentRound = {
       word: forcedWord ? forcedWord.toUpperCase() : wordEntry.word.toUpperCase(),
       category: wordEntry.category,
@@ -173,18 +176,19 @@ export class RoomManager {
     }    return { round, isCorrect, nextPlayerId };
   }
 
-  nextRound(code: string): MultiplayerRound | null {
+  nextRound(code: string, forcedWord?: string): MultiplayerRound | null {
     const room = this.rooms.get(code);
     if (!room) return null;
 
     const playerIds = Array.from(room.players.keys());
-    room.currentTurnIndex = (room.currentTurnIndex + 1) % playerIds.length;
+    room.roundStartTurnIndex = (room.roundStartTurnIndex + 1) % playerIds.length;
+    room.currentTurnIndex = room.roundStartTurnIndex;
 
     const difficulty = Math.min(5, 1 + Math.floor(room.players.size / 2));
     const wordEntry = getRandomWord(difficulty);
 
     room.currentRound = {
-      word: wordEntry.word.toUpperCase(),
+      word: forcedWord ? forcedWord.toUpperCase() : wordEntry.word.toUpperCase(),
       category: wordEntry.category,
       difficulty: wordEntry.difficulty,
       revealedLetters: [],
