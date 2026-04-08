@@ -24,6 +24,8 @@ export class AccessibilityManager {
   private letterButtons: Map<string, HTMLButtonElement> = new Map();
   private previousRevealedCount: number = 0;
   private previousWrongGuesses: number = 0;
+  private keyboardRows: string[] = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'];
+  private keydownHandler: ((event: KeyboardEvent) => void) | null = null;
 
   constructor(options: AccessibilityOptions) {
     this.options = options;
@@ -258,17 +260,30 @@ export class AccessibilityManager {
   }
 
   /**
-   * Set up keyboard shortcuts for direct letter input
+   * Set up keyboard shortcuts and arrow key navigation
    */
   private setupKeyboardShortcuts(): void {
-    document.addEventListener('keydown', (event) => {
+    this.keydownHandler = (event: KeyboardEvent) => {
       // Only handle if not in an input field
       if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
         return;
       }
 
+      // Handle arrow key navigation between keyboard buttons
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
+        event.preventDefault();
+        this.handleArrowNavigation(event.key);
+        return;
+      }
+
+      // Handle Escape to close keyboard
+      if (event.key === 'Escape') {
+        this.hide();
+        return;
+      }
+
       const key = event.key.toUpperCase();
-      
+
       // Handle letter keys A-Z
       if (ALPHABET.includes(key)) {
         const button = this.letterButtons.get(key);
@@ -277,7 +292,68 @@ export class AccessibilityManager {
           this.options.onLetterSelect(key);
         }
       }
-    });
+    };
+    document.addEventListener('keydown', this.keydownHandler);
+  }
+
+  /**
+   * Handle arrow key navigation across the QWERTY keyboard layout
+   */
+  private handleArrowNavigation(key: string): void {
+    const focused = document.activeElement as HTMLButtonElement;
+    const focusedLetter = focused?.dataset?.letter;
+
+    if (!focusedLetter || !this.letterButtons.has(focusedLetter)) {
+      // No letter button focused - focus the first unused button
+      this.focusFirstUnused();
+      return;
+    }
+
+    // Find the current position in the QWERTY grid
+    let currentRow = -1;
+    let currentCol = -1;
+
+    for (let r = 0; r < this.keyboardRows.length; r++) {
+      const col = this.keyboardRows[r].indexOf(focusedLetter);
+      if (col !== -1) {
+        currentRow = r;
+        currentCol = col;
+        break;
+      }
+    }
+
+    if (currentRow === -1) return;
+
+    let nextRow = currentRow;
+    let nextCol = currentCol;
+
+    switch (key) {
+      case 'ArrowLeft':
+        nextCol = currentCol - 1;
+        if (nextCol < 0) nextCol = this.keyboardRows[currentRow].length - 1;
+        break;
+      case 'ArrowRight':
+        nextCol = (currentCol + 1) % this.keyboardRows[currentRow].length;
+        break;
+      case 'ArrowUp':
+        nextRow = currentRow - 1;
+        if (nextRow < 0) return; // Already on top row
+        // Adjust column for shorter rows
+        nextCol = Math.min(currentCol, this.keyboardRows[nextRow].length - 1);
+        break;
+      case 'ArrowDown':
+        nextRow = currentRow + 1;
+        if (nextRow >= this.keyboardRows.length) return; // Already on bottom row
+        // Adjust column for shorter rows
+        nextCol = Math.min(currentCol, this.keyboardRows[nextRow].length - 1);
+        break;
+    }
+
+    const nextLetter = this.keyboardRows[nextRow][nextCol];
+    const nextButton = this.letterButtons.get(nextLetter);
+    if (nextButton) {
+      nextButton.focus();
+    }
   }
 
   /**
@@ -489,6 +565,10 @@ export class AccessibilityManager {
    * Clean up accessibility layer
    */
   destroy(): void {
+    if (this.keydownHandler) {
+      document.removeEventListener('keydown', this.keydownHandler);
+      this.keydownHandler = null;
+    }
     this.container.remove();
   }
 }
