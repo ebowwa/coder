@@ -429,13 +429,16 @@ describe('Multiplayer Turn Rotation Integration', () => {
       // Let's use the game's internal word access via room manager
       const roomManager = new RoomManager();
       
-      // Alternative: Make multiple guesses until we find a correct one
+      // Make guesses until we find a correct one
       const vowels = ['E', 'A', 'I', 'O', 'U'];
       let foundCorrect = false;
       
       for (const letter of vowels) {
         const currentTurn = client.getCurrentTurnPlayerId();
         if (!currentTurn || client.isRoundComplete()) break;
+        
+        // Record wrong turn changes count right before this guess
+        const wrongCountBefore = client.turnChanges.filter(tc => tc.reason === 'wrong').length;
         
         const result = client.processGuess(currentTurn, letter);
         if (result?.isCorrect) {
@@ -445,9 +448,9 @@ describe('Multiplayer Turn Rotation Integration', () => {
           expect(result.nextPlayerId).toBe(currentTurn);
           expect(client.getCurrentTurnPlayerId()).toBe(currentTurn);
           
-          // Verify NO turn change was recorded
-          const wrongTurnChanges = client.turnChanges.filter(tc => tc.reason === 'wrong');
-          expect(wrongTurnChanges.length).toBe(0);
+          // Verify NO new wrong turn change was recorded for this correct guess
+          const wrongCountAfter = client.turnChanges.filter(tc => tc.reason === 'wrong').length;
+          expect(wrongCountAfter).toBe(wrongCountBefore);
           
           // Verify correct UI updates
           const letterTiles = client.getLetterTiles();
