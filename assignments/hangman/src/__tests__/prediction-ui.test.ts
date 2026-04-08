@@ -151,16 +151,16 @@ if (typeof globalThis.document === 'undefined') {
     },
     body: createMockElement('body'),
     head: createMockElement('head'),
-    addEventListener(event: string, handler: Function) {
+    addEventListener(event: string, handler: EventListenerOrEventListenerObject) {
       if (!documentEventListeners[event]) {
         documentEventListeners[event] = [];
       }
-      documentEventListeners[event].push(handler);
+      documentEventListeners[event].push(handler as EventListener);
     },
-    removeEventListener(event: string, handler: Function) {
+    removeEventListener(event: string, handler: EventListenerOrEventListenerObject) {
       const listeners = documentEventListeners[event];
       if (listeners) {
-        const idx = listeners.indexOf(handler);
+        const idx = listeners.indexOf(handler as EventListener);
         if (idx > -1) listeners.splice(idx, 1);
       }
     },

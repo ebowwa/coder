@@ -10,7 +10,7 @@ const eventListeners: Map<string, EventListener[]> = new Map();
 const documentEventListeners: Map<string, EventListener[]> = new Map();
 
 // Mock fetch for API calls
-globalThis.fetch = vi.fn();
+globalThis.fetch = Object.assign(vi.fn(), { preconnect: false }) as any;
 
 // Mock canvas
 const mockCanvas = {
@@ -64,11 +64,11 @@ globalThis.document = {
 globalThis.window = {
   innerWidth: 1024,
   innerHeight: 768,
-  addEventListener: vi.fn((type: string, listener: EventListener) => {
+  addEventListener: vi.fn((type: string, listener: EventListenerOrEventListenerObject) => {
     if (!eventListeners.has(type)) {
       eventListeners.set(type, []);
     }
-    eventListeners.get(type)!.push(listener);
+    eventListeners.get(type)!.push(listener as EventListener);
   }),
   removeEventListener: vi.fn(),
   devicePixelRatio: 1,

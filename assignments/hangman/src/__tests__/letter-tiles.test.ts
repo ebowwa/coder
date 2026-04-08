@@ -30,16 +30,16 @@ globalThis.document = {
 
 // @ts-ignore
 globalThis.window = {
-  addEventListener: vi.fn((type: string, listener: EventListener) => {
+  addEventListener: vi.fn((type: string, listener: EventListenerOrEventListenerObject) => {
     if (!eventListeners.has(type)) {
       eventListeners.set(type, []);
     }
-    eventListeners.get(type)!.push(listener);
+    eventListeners.get(type)!.push(listener as EventListener);
   }),
-  removeEventListener: vi.fn((type: string, listener: EventListener) => {
+  removeEventListener: vi.fn((type: string, listener: EventListenerOrEventListenerObject) => {
     const listeners = eventListeners.get(type);
     if (listeners) {
-      const index = listeners.indexOf(listener);
+      const index = listeners.indexOf(listener as EventListener);
       if (index > -1) {
         listeners.splice(index, 1);
       }
