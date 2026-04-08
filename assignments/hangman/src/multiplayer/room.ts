@@ -162,16 +162,15 @@ export class RoomManager {
       }
     }
 
-    // Move to next player if wrong guess (unless round is complete)
+    // Move to next player if wrong guess AND round is NOT complete after this guess
+    // When round completes (win or lose), turn should NOT advance
     let nextPlayerId = round.currentGuesserId;
     if (!isCorrect && !round.isComplete) {
       const playerIds = Array.from(room.players.keys());
       room.currentTurnIndex = (room.currentTurnIndex + 1) % playerIds.length;
       nextPlayerId = playerIds[room.currentTurnIndex];
       round.currentGuesserId = nextPlayerId;
-    }
-
-    return { round, isCorrect, nextPlayerId };
+    }    return { round, isCorrect, nextPlayerId };
   }
 
   nextRound(code: string): MultiplayerRound | null {
