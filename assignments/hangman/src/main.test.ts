@@ -91,12 +91,8 @@ globalThis.performance = {
   now: vi.fn(() => Date.now()),
 };
 
-// Mock import.meta.env
-vi.stubGlobal('import.meta', {
-  env: {
-    VITE_API_BASE: '',
-  },
-});
+// import.meta.env is not used by main.ts; mock omitted to avoid
+// vi.stubGlobal incompatibility with Bun's native test runner.
 
 // Mock Three.js with comprehensive scene graph
 const mockScene = {
