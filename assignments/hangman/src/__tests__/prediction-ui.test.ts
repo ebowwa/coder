@@ -5,8 +5,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Setup DOM environment for bun test (vitest jsdom env not auto-loaded)
+// Always set up our own mock DOM, even if globalThis.document already exists
+// (other test files may overwrite it with an incomplete mock).
 // @ts-ignore
-if (typeof globalThis.document === 'undefined') {
+{
   // Element registry for tracking created elements by ID
   const elementsById = new Map<string, any>();
 
