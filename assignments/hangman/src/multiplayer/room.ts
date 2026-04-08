@@ -103,7 +103,7 @@ export class RoomManager {
     return code ? this.rooms.get(code) || null : null;
   }
 
-  startGame(code: string, difficulty: number = 1): MultiplayerRound | null {
+  startGame(code: string, difficulty: number = 1, forcedWord?: string): MultiplayerRound | null {
     const room = this.rooms.get(code);
     if (!room || room.status !== 'waiting') return null;
 
@@ -111,7 +111,7 @@ export class RoomManager {
     const playerIds = Array.from(room.players.keys());
     
     room.currentRound = {
-      word: wordEntry.word.toUpperCase(),
+      word: forcedWord ? forcedWord.toUpperCase() : wordEntry.word.toUpperCase(),
       category: wordEntry.category,
       difficulty: wordEntry.difficulty,
       revealedLetters: [],
