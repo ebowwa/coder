@@ -1,25 +1,100 @@
 /**
- * DOM overlay modal for prediction flow - Returns Promise<Prediction> that resolves to 'in' or 'not-in'
+ * DOM overlay modal for the prediction flow in the Hangman game.
+ *
+ * Presents a modal dialog asking the player whether they think a given
+ * letter is in the hidden word. The modal returns a {@link Prediction}
+ * promise that resolves to `'in'` or `'not-in'` based on the player's choice.
+ *
+ * Supports both button clicks and keyboard navigation (1 = IN, 2 = NOT IN,
+ * Escape = NOT IN) and uses a focus trap for accessibility.
+ *
+ * @module prediction-ui
+ * @example
+ * ```typescript
+ * const ui = new PredictionUI(document.body);
+ * const prediction = await ui.getPrediction('A');
+ * console.log(prediction); // 'in' | 'not-in'
+ * ```
  */
 
 import { createFocusTrap } from './accessibility';
 
+/**
+ * Represents the player's prediction about whether a letter is in the word.
+ * - `'in'` — player predicts the letter **is** in the word
+ * - `'not-in'` — player predicts the letter **is not** in the word
+ */
 export type Prediction = 'in' | 'not-in';
 
+/**
+ * Manages the prediction modal UI overlay for the Hangman game.
+ *
+ * Creates and controls a full-screen modal dialog that asks the player
+ * whether they believe a given letter appears in the hidden word.
+ * The modal is keyboard-accessible with focus trapping and supports
+ * both mouse/touch and keyboard input.
+ *
+ * @example
+ * ```typescript
+ * const ui = new PredictionUI(document.getElementById('app')!);
+ *
+ * // Shows the modal and waits for user choice
+ * const prediction = await ui.getPreduction('E');
+ * if (prediction === 'in') {
+ *   console.log('Player thinks E is in the word');
+ * }
+ *
+ * // Display a temporary toast message
+ * ui.showMessage('Correct!', '#4ecdc4');
+ *
+ * // Clean up the modal
+ * ui.hide();
+ * ```
+ */
 export class PredictionUI {
+  /** Root DOM element to which the modal overlay is appended */
   private container: HTMLElement;
+  /** Reference to the current modal overlay element, or null if hidden */
   private modal: HTMLDivElement | null = null;
+  /** The letter currently being predicted, or null if no prediction is active */
   private selectedLetter: string | null = null;
+  /** Resolver function for the active prediction promise */
   private resolvePromise: ((prediction: Prediction) => void) | null = null;
+  /** Cleanup function returned by the focus trap, or null if inactive */
   private cleanupFocusTrap: (() => void) | null = null;
+  /** Bound keyboard event handler for cleanup, or null if not attached */
   private handleKeyDown: ((event: KeyboardEvent) => void) | null = null;
 
+  /**
+   * Create a new PredictionUI instance.
+   *
+   * @param {HTMLElement} container - The DOM element to which the modal overlay
+   *   will be appended when shown. Typically the document body or a main app container.
+   *
+   * @example
+   * ```typescript
+   * const ui = new PredictionUI(document.body);
+   * ```
+   */
   constructor(container: HTMLElement) {
     this.container = container;
   }
 
   /**
-   * Show prediction modal and return a promise that resolves when user makes a choice
+   * Show the prediction modal and return a promise that resolves with the player's choice.
+   *
+   * Displays a full-screen overlay asking whether the given letter is in the word.
+   * The promise resolves when the player clicks a button or presses a keyboard shortcut.
+   *
+   * @param {string} letter - The letter the player is making a prediction about
+   * @returns {Promise<Prediction>} Resolves to `'in'` or `'not-in'` based on the player's selection
+   *
+   * @example
+   * ```typescript
+   * const ui = new PredictionUI(document.body);
+   * const result = await ui.getPrediction('S');
+   * console.log(result); // 'in' | 'not-in'
+   * ```
    */
   async getPrediction(letter: string): Promise<Prediction> {
     this.selectedLetter = letter;
@@ -30,6 +105,17 @@ export class PredictionUI {
     });
   }
 
+  /**
+   * Build and mount the prediction modal DOM structure.
+   *
+   * Creates a full-screen overlay with an accessible dialog containing the
+   * letter question and IN / NOT-IN buttons. Automatically removes any
+   * previously displayed modal before creating a new one. Sets up keyboard
+   * navigation and a focus trap after mounting.
+   *
+   * @param {string} letter - The letter to display in the modal prompt
+   * @returns {void}
+   */
   private createModal(letter: string): void {
     // Remove existing modal if any
     this.hide();
@@ -126,8 +212,17 @@ export class PredictionUI {
   }
 
   /**
-   * Set up keyboard navigation for the prediction modal
-   * 1 = IN, 2 = NOT IN, Escape = close
+   * Set up keyboard navigation for the prediction modal.
+   *
+   * Binds a `keydown` listener on `document` with the following mappings:
+   * - `1` → select IN
+   * - `2` → select NOT IN
+   * - `Escape` → select NOT IN (default dismiss)
+   * - `Enter` / Space → handled by the focused button natively
+   *
+   * Ignores key events originating from `<input>` or `<textarea>` elements.
+   *
+   * @returns {void}
    */
   private setupKeyboardNavigation(): void {
     this.handleKeyDown = (event: KeyboardEvent) => {
@@ -161,6 +256,16 @@ export class PredictionUI {
     document.addEventListener('keydown', this.handleKeyDown);
   }
 
+  /**
+   * Handle the player's prediction selection.
+   *
+   * Resolves the active prediction promise with the chosen value,
+   * then hides the modal. If no promise is pending (e.g. duplicate
+   * selection), only hides the modal.
+   *
+   * @param {Prediction} prediction - The player's choice (`'in'` or `'not-in'`)
+   * @returns {void}
+   */
   private handleSelection(prediction: Prediction): void {
     if (this.resolvePromise) {
       this.resolvePromise(prediction);
@@ -169,6 +274,15 @@ export class PredictionUI {
     this.hide();
   }
 
+  /**
+   * Remove the prediction modal from the DOM.
+   *
+   * Detaches the modal overlay element from its parent node and
+   * resets the internal modal reference to `null`. Safe to call
+   * when no modal is visible (no-op).
+   *
+   * @returns {void}
+   */
   hide(): void {
     if (this.modal) {
       if (this.modal.parentNode) {
@@ -179,7 +293,21 @@ export class PredictionUI {
   }
 
   /**
-   * Show a temporary message toast
+   * Display a temporary toast message on screen.
+   *
+   * Creates a fixed-position toast notification that slides up from the bottom
+   * of the viewport, remains visible for ~2.5 seconds, then fades out and is
+   * removed from the DOM. Any previously displayed toast is removed first.
+   *
+   * @param {string} message - The text content to display in the toast
+   * @param {string} [color='#4ecdc4'] - CSS color for the toast text and border
+   * @returns {void}
+   *
+   * @example
+   * ```typescript
+   * ui.showMessage('Correct prediction!', '#4ecdc4');
+   * ui.showMessage('Wrong guess!', '#ff6b6b');
+   * ```
    */
   showMessage(message: string, color: string = '#4ecdc4'): void {
     // Remove existing toast if any
