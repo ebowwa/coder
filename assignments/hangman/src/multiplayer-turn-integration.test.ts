@@ -611,7 +611,7 @@ describe('Multiplayer Turn Rotation Integration', () => {
 
     it('should record round completion in history', () => {
       client.createRoom('p1', 'Alice', 0xff6b6b);
-      client.startGame(1);
+      client.startGame(1, 'BREAD');
       
       // Complete the round
       const wrongLetters = ['Z', 'Q', 'X', 'J', 'K', 'V'];
@@ -634,7 +634,7 @@ describe('Multiplayer Turn Rotation Integration', () => {
       client.createRoom('p1', 'Alice', 0xff6b6b);
       client.joinRoom('p2', 'Bob', 0x4ecdc4);
       client.joinRoom('p3', 'Charlie', 0xffe66d);
-      client.startGame(1);
+      client.startGame(1, 'BREAD');
       
       // Track the sequence of turns
       const turnSequence: string[] = [];
