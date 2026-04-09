@@ -2594,3 +2594,29 @@ Starting point before visual improvements.
 > (no analysis)
 
 ---
+
+## 2026-04-09T00:24:42.771Z -- Task `task_1775694177119_nvgipu` (desktop 1280x720)
+
+**Port:** 3000  
+**Verdict:** FAILED  
+**Latency:** 12662ms  
+**Method:** headless-chrome+swiftshader
+
+![desktop](visuals/desktop-2026-04-09T00-24-30-109Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T00:24:57.235Z -- Task `task_1775694177119_nvgipu` (mobile 375x812)
+
+**Port:** 3000  
+**Verdict:** FAILED  
+**Latency:** 14399ms  
+**Method:** headless-chrome+swiftshader
+
+![mobile](visuals/mobile-2026-04-09T00-24-42-773Z.png)
+
+> (no analysis)
+
+---
