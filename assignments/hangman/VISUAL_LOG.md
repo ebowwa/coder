@@ -5328,3 +5328,93 @@ Starting point before visual improvements.
 > (no analysis)
 
 ---
+
+## 2026-04-09T19:53:49.780Z -- Task `task_1775764377605_glal7q` -- `/` (desktop 1280x720)
+
+**URL:** http://localhost:3000  **Verdict:** FAILED  **Latency:** 7401ms
+
+![home-desktop](visuals/home-desktop-2026-04-09T19-53-42-379Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T19:53:55.866Z -- Task `task_1775764377605_glal7q` -- `/` (mobile 375x812)
+
+**URL:** http://localhost:3000  **Verdict:** FAILED  **Latency:** 6085ms
+
+![home-mobile](visuals/home-mobile-2026-04-09T19-53-49-780Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T19:54:03.955Z -- Task `task_1775764377605_glal7q` -- `#auth` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** FAILED  **Latency:** 8087ms
+
+![auth-desktop](visuals/auth-desktop-2026-04-09T19-53-55-868Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T19:54:09.679Z -- Task `task_1775764377605_glal7q` -- `#auth` (mobile 375x812)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** FAILED  **Latency:** 5722ms
+
+![auth-mobile](visuals/auth-mobile-2026-04-09T19-54-03-956Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T19:54:14.733Z -- Task `task_1775764377605_glal7q` -- `#dashboard` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** FAILED  **Latency:** 5053ms
+
+![dashboard-desktop](visuals/dashboard-desktop-2026-04-09T19-54-09-680Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T19:54:20.700Z -- Task `task_1775764377605_glal7q` -- `#dashboard` (mobile 375x812)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** FAILED  **Latency:** 5966ms
+
+![dashboard-mobile](visuals/dashboard-mobile-2026-04-09T19-54-14-734Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T19:54:28.326Z -- Task `task_1775764377605_glal7q` -- `#lobby` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** FAILED  **Latency:** 7624ms
+
+![lobby-desktop](visuals/lobby-desktop-2026-04-09T19-54-20-701Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T19:54:34.872Z -- Task `task_1775764377605_glal7q` -- `#lobby` (mobile 375x812)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** FAILED  **Latency:** 6539ms
+
+![lobby-mobile](visuals/lobby-mobile-2026-04-09T19-54-28-326Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T19:54:40.847Z -- Task `task_1775764377605_glal7q` -- `#profile` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** FAILED  **Latency:** 5962ms
+
+![profile-desktop](visuals/profile-desktop-2026-04-09T19-54-34-884Z.png)
+
+> (no analysis)
+
+---
