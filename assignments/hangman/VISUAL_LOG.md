@@ -2620,3 +2620,29 @@ Starting point before visual improvements.
 > (no analysis)
 
 ---
+
+## 2026-04-09T00:28:12.616Z -- Task `task_1775694304027_enjnjw` (desktop 1280x720)
+
+**Port:** 3000  
+**Verdict:** FAILED  
+**Latency:** 28692ms  
+**Method:** headless-chrome+swiftshader
+
+![desktop](visuals/desktop-2026-04-09T00-27-43-923Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T00:28:25.464Z -- Task `task_1775694304027_enjnjw` (mobile 375x812)
+
+**Port:** 3000  
+**Verdict:** FAILED  
+**Latency:** 12845ms  
+**Method:** headless-chrome+swiftshader
+
+![mobile](visuals/mobile-2026-04-09T00-28-12-618Z.png)
+
+> (no analysis)
+
+---
