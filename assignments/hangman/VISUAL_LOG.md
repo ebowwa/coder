@@ -3718,3 +3718,93 @@ Starting point before visual improvements.
 > (no analysis)
 
 ---
+
+## 2026-04-09T18:14:17.171Z -- Task `task_1775758349946_2abi96` -- `/` (desktop 1280x720)
+
+**URL:** http://localhost:3000  **Verdict:** FAILED  **Latency:** 27182ms
+
+![home-desktop](visuals/home-desktop-2026-04-09T18-13-49-985Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T18:14:49.993Z -- Task `task_1775758349946_2abi96` -- `/` (mobile 375x812)
+
+**URL:** http://localhost:3000  **Verdict:** FAILED  **Latency:** 32819ms
+
+![home-mobile](visuals/home-mobile-2026-04-09T18-14-17-173Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T18:15:12.488Z -- Task `task_1775758349946_2abi96` -- `#auth` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** FAILED  **Latency:** 22486ms
+
+![auth-desktop](visuals/auth-desktop-2026-04-09T18-14-50-001Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T18:15:33.503Z -- Task `task_1775758349946_2abi96` -- `#auth` (mobile 375x812)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** FAILED  **Latency:** 21012ms
+
+![auth-mobile](visuals/auth-mobile-2026-04-09T18-15-12-490Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T18:17:49.447Z -- Task `task_1775758349946_2abi96` -- `#lobby` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** FAILED  **Latency:** 34660ms
+
+![lobby-desktop](visuals/lobby-desktop-2026-04-09T18-17-14-785Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T18:21:33.613Z -- Task `task_1775758349946_2abi96` -- `#friends` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** FAILED  **Latency:** 42126ms
+
+![friends-desktop](visuals/friends-desktop-2026-04-09T18-20-51-482Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T18:22:09.308Z -- Task `task_1775758349946_2abi96` -- `#friends` (mobile 375x812)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** FAILED  **Latency:** 35683ms
+
+![friends-mobile](visuals/friends-mobile-2026-04-09T18-21-33-622Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T18:22:34.427Z -- Task `task_1775758349946_2abi96` -- `#game` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#game  **Verdict:** FAILED  **Latency:** 25087ms
+
+![game-desktop](visuals/game-desktop-2026-04-09T18-22-09-322Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T18:23:11.311Z -- Task `task_1775758349946_2abi96` -- `#game` (mobile 375x812)
+
+**URL:** http://localhost:3000/#game  **Verdict:** FAILED  **Latency:** 36874ms
+
+![game-mobile](visuals/game-mobile-2026-04-09T18-22-34-429Z.png)
+
+> (no analysis)
+
+---
