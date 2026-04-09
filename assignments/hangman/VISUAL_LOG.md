@@ -3030,3 +3030,195 @@ Starting point before visual improvements.
 > (no analysis)
 
 ---
+
+## 2026-04-09T00:43:45.035Z -- Task `task_1775695176974_yr05gr` -- Route `/` (desktop 1280x720)
+
+**URL:** http://localhost:3000/  
+**Verdict:** FAILED  
+**Latency:** 14702ms
+
+![home-desktop](visuals/home-desktop-2026-04-09T00-43-30-333Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T00:43:57.594Z -- Task `task_1775695176974_yr05gr` -- Route `/` (mobile 375x812)
+
+**URL:** http://localhost:3000/  
+**Verdict:** FAILED  
+**Latency:** 12558ms
+
+![home-mobile](visuals/home-mobile-2026-04-09T00-43-45-036Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T00:44:05.155Z -- Task `task_1775695176974_yr05gr` -- Route `//github` (desktop 1280x720)
+
+**URL:** http://localhost:3000//github  
+**Verdict:** FAILED  
+**Latency:** 7549ms
+
+![-github-desktop](visuals/-github-desktop-2026-04-09T00-43-57-595Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T00:44:11.207Z -- Task `task_1775695176974_yr05gr` -- Route `//github` (mobile 375x812)
+
+**URL:** http://localhost:3000//github  
+**Verdict:** FAILED  
+**Latency:** 6048ms
+
+![-github-mobile](visuals/-github-mobile-2026-04-09T00-44-05-159Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T00:44:19.262Z -- Task `task_1775695176974_yr05gr` -- Route `/BurntSushi/ripgrep` (desktop 1280x720)
+
+**URL:** http://localhost:3000/BurntSushi/ripgrep  
+**Verdict:** FAILED  
+**Latency:** 8052ms
+
+![BurntSushi-ripgrep-desktop](visuals/BurntSushi-ripgrep-desktop-2026-04-09T00-44-11-210Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T00:44:29.586Z -- Task `task_1775695176974_yr05gr` -- Route `/BurntSushi/ripgrep` (mobile 375x812)
+
+**URL:** http://localhost:3000/BurntSushi/ripgrep  
+**Verdict:** FAILED  
+**Latency:** 10324ms
+
+![BurntSushi-ripgrep-mobile](visuals/BurntSushi-ripgrep-mobile-2026-04-09T00-44-19-262Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T00:44:39.619Z -- Task `task_1775695176974_yr05gr` -- Route `/directories` (desktop 1280x720)
+
+**URL:** http://localhost:3000/directories  
+**Verdict:** FAILED  
+**Latency:** 10033ms
+
+![directories-desktop](visuals/directories-desktop-2026-04-09T00-44-29-586Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T00:44:48.680Z -- Task `task_1775695176974_yr05gr` -- Route `/directories` (mobile 375x812)
+
+**URL:** http://localhost:3000/directories  
+**Verdict:** FAILED  
+**Latency:** 9061ms
+
+![directories-mobile](visuals/directories-mobile-2026-04-09T00-44-39-619Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T00:44:56.970Z -- Task `task_1775695176974_yr05gr` -- Route `/exclude` (desktop 1280x720)
+
+**URL:** http://localhost:3000/exclude  
+**Verdict:** FAILED  
+**Latency:** 8290ms
+
+![exclude-desktop](visuals/exclude-desktop-2026-04-09T00-44-48-680Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T00:45:07.176Z -- Task `task_1775695176974_yr05gr` -- Route `/exclude` (mobile 375x812)
+
+**URL:** http://localhost:3000/exclude  
+**Verdict:** FAILED  
+**Latency:** 10206ms
+
+![exclude-mobile](visuals/exclude-mobile-2026-04-09T00-44-56-970Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T00:45:29.091Z -- Task `task_1775695176974_yr05gr` -- Route `#aaa` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#aaa  
+**Verdict:** FAILED  
+**Latency:** 21913ms
+
+![aaa-desktop](visuals/aaa-desktop-2026-04-09T00-45-07-176Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T00:45:44.769Z -- Task `task_1775695176974_yr05gr` -- Route `#aaa` (mobile 375x812)
+
+**URL:** http://localhost:3000/#aaa  
+**Verdict:** FAILED  
+**Latency:** 15676ms
+
+![aaa-mobile](visuals/aaa-mobile-2026-04-09T00-45-29-093Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T00:46:00.392Z -- Task `task_1775695176974_yr05gr` -- Route `#nav-logo` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#nav-logo  
+**Verdict:** FAILED  
+**Latency:** 15622ms
+
+![nav-logo-desktop](visuals/nav-logo-desktop-2026-04-09T00-45-44-770Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T00:46:17.555Z -- Task `task_1775695176974_yr05gr` -- Route `#nav-logo` (mobile 375x812)
+
+**URL:** http://localhost:3000/#nav-logo  
+**Verdict:** FAILED  
+**Latency:** 17162ms
+
+![nav-logo-mobile](visuals/nav-logo-mobile-2026-04-09T00-46-00-393Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T00:46:27.212Z -- Task `task_1775695176974_yr05gr` -- Route `#nav-avatar` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#nav-avatar  
+**Verdict:** FAILED  
+**Latency:** 9656ms
+
+![nav-avatar-desktop](visuals/nav-avatar-desktop-2026-04-09T00-46-17-556Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T00:46:34.743Z -- Task `task_1775695176974_yr05gr` -- Route `#nav-avatar` (mobile 375x812)
+
+**URL:** http://localhost:3000/#nav-avatar  
+**Verdict:** FAILED  
+**Latency:** 7531ms
+
+![nav-avatar-mobile](visuals/nav-avatar-mobile-2026-04-09T00-46-27-212Z.png)
+
+> (no analysis)
+
+---
