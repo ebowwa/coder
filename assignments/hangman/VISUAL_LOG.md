@@ -5558,3 +5558,33 @@ Starting point before visual improvements.
 > (no analysis)
 
 ---
+
+## 2026-04-09T20:03:13.610Z -- Task `task_1775764878231_akphiq` -- `/` (desktop 1280x720)
+
+**URL:** http://localhost:3000  **Verdict:** FAILED  **Latency:** 73063ms
+
+![home-desktop](visuals/home-desktop-2026-04-09T20-02-00-547Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T20:03:18.738Z -- Task `task_1775764878231_akphiq` -- `/` (mobile 375x812)
+
+**URL:** http://localhost:3000  **Verdict:** FAILED  **Latency:** 5127ms
+
+![home-mobile](visuals/home-mobile-2026-04-09T20-03-13-611Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T20:04:12.951Z -- Task `task_1775764878231_akphiq` -- `#auth` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** FAILED  **Latency:** 54212ms
+
+![auth-desktop](visuals/auth-desktop-2026-04-09T20-03-18-739Z.png)
+
+> (no analysis)
+
+---
