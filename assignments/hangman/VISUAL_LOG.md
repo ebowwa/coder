@@ -4908,3 +4908,143 @@ Starting point before visual improvements.
 > (no analysis)
 
 ---
+
+## 2026-04-09T19:29:26.912Z -- Task `task_1775762747197_vw1xum` -- `/` (desktop 1280x720)
+
+**URL:** http://localhost:3000  **Verdict:** FAILED  **Latency:** 12110ms
+
+![home-desktop](visuals/home-desktop-2026-04-09T19-29-14-801Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T19:29:36.963Z -- Task `task_1775762747197_vw1xum` -- `/` (mobile 375x812)
+
+**URL:** http://localhost:3000  **Verdict:** FAILED  **Latency:** 10049ms
+
+![home-mobile](visuals/home-mobile-2026-04-09T19-29-26-914Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T19:29:46.742Z -- Task `task_1775762747197_vw1xum` -- `#auth` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** FAILED  **Latency:** 9775ms
+
+![auth-desktop](visuals/auth-desktop-2026-04-09T19-29-36-966Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T19:29:54.445Z -- Task `task_1775762747197_vw1xum` -- `#auth` (mobile 375x812)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** FAILED  **Latency:** 7701ms
+
+![auth-mobile](visuals/auth-mobile-2026-04-09T19-29-46-743Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T19:30:03.080Z -- Task `task_1775762747197_vw1xum` -- `#dashboard` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** FAILED  **Latency:** 8632ms
+
+![dashboard-desktop](visuals/dashboard-desktop-2026-04-09T19-29-54-447Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T19:30:11.647Z -- Task `task_1775762747197_vw1xum` -- `#dashboard` (mobile 375x812)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** FAILED  **Latency:** 8566ms
+
+![dashboard-mobile](visuals/dashboard-mobile-2026-04-09T19-30-03-081Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T19:30:21.506Z -- Task `task_1775762747197_vw1xum` -- `#lobby` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** FAILED  **Latency:** 9853ms
+
+![lobby-desktop](visuals/lobby-desktop-2026-04-09T19-30-11-652Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T19:30:32.556Z -- Task `task_1775762747197_vw1xum` -- `#lobby` (mobile 375x812)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** FAILED  **Latency:** 11046ms
+
+![lobby-mobile](visuals/lobby-mobile-2026-04-09T19-30-21-509Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T19:30:43.030Z -- Task `task_1775762747197_vw1xum` -- `#profile` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** FAILED  **Latency:** 10472ms
+
+![profile-desktop](visuals/profile-desktop-2026-04-09T19-30-32-558Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T19:30:50.110Z -- Task `task_1775762747197_vw1xum` -- `#profile` (mobile 375x812)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** FAILED  **Latency:** 7078ms
+
+![profile-mobile](visuals/profile-mobile-2026-04-09T19-30-43-031Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T19:30:56.666Z -- Task `task_1775762747197_vw1xum` -- `#friends` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** FAILED  **Latency:** 6554ms
+
+![friends-desktop](visuals/friends-desktop-2026-04-09T19-30-50-112Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T19:31:03.430Z -- Task `task_1775762747197_vw1xum` -- `#friends` (mobile 375x812)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** FAILED  **Latency:** 6762ms
+
+![friends-mobile](visuals/friends-mobile-2026-04-09T19-30-56-667Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T19:31:10.094Z -- Task `task_1775762747197_vw1xum` -- `#game` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#game  **Verdict:** FAILED  **Latency:** 6658ms
+
+![game-desktop](visuals/game-desktop-2026-04-09T19-31-03-433Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T19:31:17.187Z -- Task `task_1775762747197_vw1xum` -- `#game` (mobile 375x812)
+
+**URL:** http://localhost:3000/#game  **Verdict:** FAILED  **Latency:** 7089ms
+
+![game-mobile](visuals/game-mobile-2026-04-09T19-31-10-097Z.png)
+
+> (no analysis)
+
+---
