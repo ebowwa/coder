@@ -2568,3 +2568,29 @@ Starting point before visual improvements.
 > (no analysis)
 
 ---
+
+## 2026-04-09T00:22:44.226Z -- Task `task_1775692969645_wofhqg` (desktop 1280x720)
+
+**Port:** 3000  
+**Verdict:** FAILED  
+**Latency:** 10225ms  
+**Method:** headless-chrome+swiftshader
+
+![desktop](visuals/desktop-2026-04-09T00-22-34-001Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T00:22:53.081Z -- Task `task_1775692969645_wofhqg` (mobile 375x812)
+
+**Port:** 3000  
+**Verdict:** FAILED  
+**Latency:** 8854ms  
+**Method:** headless-chrome+swiftshader
+
+![mobile](visuals/mobile-2026-04-09T00-22-44-227Z.png)
+
+> (no analysis)
+
+---
