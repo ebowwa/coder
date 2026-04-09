@@ -3222,3 +3222,39 @@ Starting point before visual improvements.
 > (no analysis)
 
 ---
+
+## 2026-04-09T00:49:14.998Z -- Task `task_1775695672921_1culzp` -- Route `/` (desktop 1280x720)
+
+**URL:** http://localhost:3000  
+**Verdict:** FAILED  
+**Latency:** 20862ms
+
+![home-desktop](visuals/home-desktop-2026-04-09T00-48-54-135Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T00:49:33.001Z -- Task `task_1775695672921_1culzp` -- Route `/` (mobile 375x812)
+
+**URL:** http://localhost:3000  
+**Verdict:** FAILED  
+**Latency:** 18002ms
+
+![home-mobile](visuals/home-mobile-2026-04-09T00-49-14-999Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T00:49:42.074Z -- Task `task_1775695672921_1culzp` -- Route `#auth` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#auth  
+**Verdict:** FAILED  
+**Latency:** 9070ms
+
+![auth-desktop](visuals/auth-desktop-2026-04-09T00-49-33-004Z.png)
+
+> (no analysis)
+
+---
