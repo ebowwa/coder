@@ -208,7 +208,8 @@ vi.mock('three', () => ({
   Raycaster: vi.fn(function() {
     return {
       setFromCamera: vi.fn(),
-      intersectObjects: vi.fn(() => []),
+      // Uses global mutable so other test files can control intersections
+      intersectObjects: vi.fn(() => (globalThis as any).__mockRaycasterIntersects ?? []),
     };
   }),
   // Three.js constants

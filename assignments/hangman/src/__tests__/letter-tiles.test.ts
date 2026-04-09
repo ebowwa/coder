@@ -19,35 +19,46 @@ const mockCanvas = {
   })),
 };
 
-globalThis.document = {
-  createElement: vi.fn((tagName: string) => {
-    if (tagName === 'canvas') {
-      return mockCanvas;
-    }
-    return {};
-  }),
-} as any;
+// Shared mutable raycaster intersects result — used by the three.js mock.
+// Tests can set this to control what intersectObjects returns.
+let mockIntersects: any[] = [];
 
-// @ts-ignore
-globalThis.window = {
-  addEventListener: vi.fn((type: string, listener: EventListenerOrEventListenerObject) => {
-    if (!eventListeners.has(type)) {
-      eventListeners.set(type, []);
-    }
-    eventListeners.get(type)!.push(listener as EventListener);
-  }),
-  removeEventListener: vi.fn((type: string, listener: EventListenerOrEventListenerObject) => {
-    const listeners = eventListeners.get(type);
-    if (listeners) {
-      const index = listeners.indexOf(listener as EventListener);
-      if (index > -1) {
-        listeners.splice(index, 1);
+// Helper to install globalThis mocks — called in beforeEach to protect against
+// other test files overwriting these globals.
+function installGlobals(): void {
+  globalThis.document = {
+    createElement: vi.fn((tagName: string) => {
+      if (tagName === 'canvas') {
+        return mockCanvas;
       }
-    }
-  }),
-  innerWidth: 1024,
-  innerHeight: 768,
-};
+      return {};
+    }),
+  } as any;
+
+  // @ts-ignore
+  globalThis.window = {
+    addEventListener: vi.fn((type: string, listener: EventListenerOrEventListenerObject) => {
+      if (!eventListeners.has(type)) {
+        eventListeners.set(type, []);
+      }
+      eventListeners.get(type)!.push(listener as EventListener);
+    }),
+    removeEventListener: vi.fn((type: string, listener: EventListenerOrEventListenerObject) => {
+      const listeners = eventListeners.get(type);
+      if (listeners) {
+        const index = listeners.indexOf(listener as EventListener);
+        if (index > -1) {
+          listeners.splice(index, 1);
+        }
+      }
+    }),
+    innerWidth: 1024,
+    innerHeight: 768,
+  };
+}
+
+// Install at module level (needed for module import to work)
+installGlobals();
 
 // Track animation frame callbacks
 let animationFrameCallbacks: FrameRequestCallback[] = [];
@@ -63,62 +74,65 @@ globalThis.performance = {
   now: vi.fn(() => 0),
 };
 
-// Mock Three.js with configurable raycaster
-let mockIntersects: any[] = [];
-
-vi.mock('three', () => ({
-  Scene: vi.fn(function() {
-    return {
-      add: vi.fn(),
-      background: null,
-    }
-  }),
-  PerspectiveCamera: vi.fn(function() {
-    return {
-      position: { set: vi.fn() },
-    }
-  }),
-  Group: vi.fn(function() {
-    return {
-      add: vi.fn(),
-      position: { set: vi.fn() },
-    }
-  }),
-  Mesh: vi.fn(function() {
-    return {
-      position: { set: vi.fn(), y: 0 },
-      rotation: { x: 0 },
-      scale: { set: vi.fn() },
-      castShadow: false,
-      receiveShadow: false,
-      userData: {},
-      add: vi.fn(),
-      material: {
+// Mock Three.js with configurable raycaster.
+// Uses vi.hoisted-compatible pattern — the factory creates fresh instances
+// per constructor call but shares the mockIntersects reference.
+vi.mock('three', () => {
+  return {
+    Scene: vi.fn(function() {
+      return {
+        add: vi.fn(),
+        background: null,
+      }
+    }),
+    PerspectiveCamera: vi.fn(function() {
+      return {
+        position: { set: vi.fn() },
+      }
+    }),
+    Group: vi.fn(function() {
+      return {
+        add: vi.fn(),
+        position: { set: vi.fn() },
+      }
+    }),
+    Mesh: vi.fn(function() {
+      return {
+        position: { set: vi.fn(), y: 0 },
+        rotation: { x: 0 },
+        scale: { set: vi.fn() },
+        castShadow: false,
+        receiveShadow: false,
+        userData: {},
+        add: vi.fn(),
+        material: {
+          color: { setHex: vi.fn() },
+          emissive: { setHex: vi.fn() },
+        },
+      }
+    }),
+    BoxGeometry: vi.fn(),
+    PlaneGeometry: vi.fn(),
+    MeshStandardMaterial: vi.fn(function() {
+      return {
         color: { setHex: vi.fn() },
         emissive: { setHex: vi.fn() },
-      },
-    }
-  }),
-  BoxGeometry: vi.fn(),
-  PlaneGeometry: vi.fn(),
-  MeshStandardMaterial: vi.fn(function() {
-    return {
-      color: { setHex: vi.fn() },
-      emissive: { setHex: vi.fn() },
-    }
-  }),
-  CanvasTexture: vi.fn(),
-  Raycaster: vi.fn(function() {
-    return {
-      setFromCamera: vi.fn(),
-      intersectObjects: vi.fn(() => mockIntersects),
-    }
-  }),
-  Vector2: vi.fn(function() {
-    return { x: 0, y: 0 }
-  }),
-  Object3D: vi.fn(),
-}));
+      }
+    }),
+    CanvasTexture: vi.fn(),
+    Raycaster: vi.fn(function() {
+      return {
+        setFromCamera: vi.fn(),
+        // IMPORTANT: reads mockIntersects by reference so tests can control it
+        intersectObjects: vi.fn(() => mockIntersects),
+      }
+    }),
+    Vector2: vi.fn(function() {
+      return { x: 0, y: 0 }
+    }),
+    Object3D: vi.fn(),
+  };
+});
 
 // Mock three/examples/jsm
 vi.mock('three/examples/jsm/controls/OrbitControls.js', () => ({
@@ -157,15 +171,19 @@ describe('LetterTiles', () => {
   let mockCamera: any;
 
   beforeEach(() => {
-    vi.clearAllMocks();
     eventListeners.clear();
     animationFrameCallbacks = [];
     mockIntersects = [];
     mockCamera = {} as any;
+    // Re-install globals before each test — other test files may overwrite them
+    installGlobals();
+    // Set global raycaster intersects so main.test.ts's three mock returns our data
+    (globalThis as any).__mockRaycasterIntersects = mockIntersects;
     letterTiles = new LetterTiles(mockCamera);
   });
 
   afterEach(() => {
+    delete (globalThis as any).__mockRaycasterIntersects;
     vi.restoreAllMocks();
   });
 

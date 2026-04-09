@@ -32,8 +32,19 @@ globalThis.performance = {
   now: vi.fn(() => 0),
 };
 
-// Mock Three.js
+// Mock Three.js (must be compatible with letter-tiles.test.ts mock shape)
 vi.mock('three', () => ({
+  Scene: vi.fn(function() {
+    return {
+      add: vi.fn(),
+      background: null,
+    }
+  }),
+  PerspectiveCamera: vi.fn(function() {
+    return {
+      position: { set: vi.fn() },
+    }
+  }),
   Group: vi.fn(function() {
     return {
       add: vi.fn(),
@@ -43,12 +54,17 @@ vi.mock('three', () => ({
   }),
   Mesh: vi.fn(function() {
     return {
-      position: { set: vi.fn() },
-      scale: { set: vi.fn(), x: 0 },
+      position: { set: vi.fn(), y: 0 },
+      rotation: { x: 0 },
+      scale: { set: vi.fn() },
       castShadow: false,
       receiveShadow: false,
-      material: {},
+      userData: {},
       add: vi.fn(),
+      material: {
+        color: { setHex: vi.fn() },
+        emissive: { setHex: vi.fn() },
+      },
     }
   }),
   BoxGeometry: vi.fn(),
@@ -56,9 +72,20 @@ vi.mock('three', () => ({
   MeshStandardMaterial: vi.fn(function() {
     return {
       color: { setHex: vi.fn() },
+      emissive: { setHex: vi.fn() },
     }
   }),
   CanvasTexture: vi.fn(),
+  Raycaster: vi.fn(function() {
+    return {
+      setFromCamera: vi.fn(),
+      intersectObjects: vi.fn(() => []),
+    }
+  }),
+  Vector2: vi.fn(function() {
+    return { x: 0, y: 0 }
+  }),
+  Object3D: vi.fn(),
 }));
 
 import { WordDisplay } from '../word-display';
