@@ -16,6 +16,9 @@ import {
   type Tournament,
   type TournamentMatch,
 } from "./tournament";
+import { authManager } from "./auth";
+import { lobbyManager } from "./lobby";
+import { friendsManager } from "./friends";
 import type {
   MultiplayerMessage,
   MessageType,
@@ -39,6 +42,21 @@ import { generatePlayerId } from "../src/multiplayer/types";
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 const roomManager = new RoomManager();
+
+// Helper for JSON responses
+function json(data: unknown, status = 200): Response {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+  });
+}
+
+// Remove password hash from user objects
+function sanitizeUser(user: any): object {
+  if (!user) return {};
+  const { passwordHash, ...safe } = user;
+  return safe;
+}
 
 // Track WebSocket connections with player info
 interface WebSocketData {
@@ -740,6 +758,325 @@ const server = serve({
       return new Response(JSON.stringify(replay), {
         headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
       });
+    }
+
+    // ===== AUTH ROUTES =====
+    // POST /api/auth/register
+    if (url.pathname === "/api/auth/register" && req.method === "POST") {
+      const body = await req.json() as { username: string; password: string; displayName?: string };
+      const result = await authManager.register(body.username, body.password, body.displayName);
+      if (!result) {
+        return json({ error: "Registration failed (username taken or invalid)" }, 400);
+      }
+      return json({ user: sanitizeUser(result.user), token: result.token }, 201);
+    }
+
+    // POST /api/auth/login
+    if (url.pathname === "/api/auth/login" && req.method === "POST") {
+      const body = await req.json() as { username: string; password: string };
+      const result = await authManager.login(body.username, body.password);
+      if (!result) {
+        return json({ error: "Invalid credentials" }, 401);
+      }
+      friendsManager.setOnline(result.user.id);
+      return json({ user: sanitizeUser(result.user), token: result.token });
+    }
+
+    // GET /api/auth/me - Get current user
+    if (url.pathname === "/api/auth/me" && req.method === "GET") {
+      const authed = authManager.authenticateRequest(req);
+      if (!authed) return json({ error: "Unauthorized" }, 401);
+      const user = authManager.getUser(authed.username);
+      if (!user) return json({ error: "User not found" }, 404);
+      return json({ user: sanitizeUser(user) });
+    }
+
+    // ===== PROFILE ROUTES =====
+    // GET /api/profile/:username
+    if (url.pathname.match(/^\/api\/profile\/[^/]+$/) && req.method === "GET") {
+      const username = decodeURIComponent(url.pathname.split("/")[3]);
+      const user = authManager.getUser(username);
+      if (!user) return json({ error: "User not found" }, 404);
+
+      // Compute stats from leaderboard
+      const playerStats = leaderboardManager.getPlayerStats(user.id);
+      const rank = leaderboardManager.getPlayerRank(user.displayName || user.username);
+
+      return json({
+        user: sanitizeUser(user),
+        stats: playerStats ? {
+          totalGames: playerStats.totalGamesPlayed,
+          wins: playerStats.totalWins,
+          losses: playerStats.totalLosses,
+          winRate: leaderboardManager.getWinRate(user.id),
+          currentStreak: playerStats.currentStreak,
+          bestStreak: playerStats.bestStreak,
+          rank: rank || 0,
+          score: leaderboardManager.getPlayerEntry(user.displayName || user.username)?.score || 0,
+          avgGuesses: leaderboardManager.getAverageGuesses(user.id),
+        } : {
+          totalGames: 0, wins: 0, losses: 0, winRate: 0,
+          currentStreak: 0, bestStreak: 0, rank: 0, score: 0, avgGuesses: 0,
+        },
+      });
+    }
+
+    // PUT /api/profile - Update profile
+    if (url.pathname === "/api/profile" && req.method === "PUT") {
+      const authed = authManager.authenticateRequest(req);
+      if (!authed) return json({ error: "Unauthorized" }, 401);
+      const body = await req.json() as { displayName?: string; avatar?: string };
+      const updated = authManager.updateUser(authed.username, body);
+      if (!updated) return json({ error: "Update failed" }, 400);
+      return json({ user: sanitizeUser(updated) });
+    }
+
+    // ===== LOBBY ROUTES =====
+    // POST /api/lobby/rooms - Create room
+    if (url.pathname === "/api/lobby/rooms" && req.method === "POST") {
+      const authed = authManager.authenticateRequest(req);
+      if (!authed) return json({ error: "Unauthorized" }, 401);
+      const body = await req.json() as {
+        name: string;
+        visibility?: "public" | "private";
+        category?: string;
+        difficulty?: "easy" | "medium" | "hard" | "any";
+        maxPlayers?: number;
+        maxRounds?: number;
+      };
+      const room = lobbyManager.createRoom({
+        name: body.name,
+        hostId: authed.userId,
+        hostName: authed.username,
+        visibility: body.visibility,
+        category: body.category,
+        difficulty: body.difficulty,
+        maxPlayers: body.maxPlayers,
+        maxRounds: body.maxRounds,
+      });
+      return json(room, 201);
+    }
+
+    // GET /api/lobby/rooms - List public rooms
+    if (url.pathname === "/api/lobby/rooms" && req.method === "GET") {
+      const rooms = lobbyManager.getPublicRooms();
+      return json(rooms);
+    }
+
+    // POST /api/lobby/rooms/:code/join
+    if (url.pathname.match(/^\/api\/lobby\/rooms\/[^/]+\/join$/) && req.method === "POST") {
+      const authed = authManager.authenticateRequest(req);
+      if (!authed) return json({ error: "Unauthorized" }, 401);
+      const code = decodeURIComponent(url.pathname.split("/")[4]);
+      const room = lobbyManager.joinRoom(code, authed.userId, authed.username);
+      if (!room) return json({ error: "Cannot join room" }, 400);
+      return json(room);
+    }
+
+    // POST /api/lobby/rooms/:code/leave
+    if (url.pathname.match(/^\/api\/lobby\/rooms\/[^/]+\/leave$/) && req.method === "POST") {
+      const authed = authManager.authenticateRequest(req);
+      if (!authed) return json({ error: "Unauthorized" }, 401);
+      const code = decodeURIComponent(url.pathname.split("/")[4]);
+      lobbyManager.leaveRoom(code, authed.userId);
+      return json({ success: true });
+    }
+
+    // POST /api/lobby/rooms/:code/start
+    if (url.pathname.match(/^\/api\/lobby\/rooms\/[^/]+\/start$/) && req.method === "POST") {
+      const authed = authManager.authenticateRequest(req);
+      if (!authed) return json({ error: "Unauthorized" }, 401);
+      const code = decodeURIComponent(url.pathname.split("/")[4]);
+      const room = lobbyManager.startRoom(code);
+      if (!room) return json({ error: "Cannot start room" }, 400);
+      return json(room);
+    }
+
+    // GET /api/lobby/my-rooms
+    if (url.pathname === "/api/lobby/my-rooms" && req.method === "GET") {
+      const authed = authManager.authenticateRequest(req);
+      if (!authed) return json({ error: "Unauthorized" }, 401);
+      const rooms = lobbyManager.getUserRooms(authed.userId);
+      return json(rooms);
+    }
+
+    // ===== FRIENDS ROUTES =====
+    // POST /api/friends/add
+    if (url.pathname === "/api/friends/add" && req.method === "POST") {
+      const authed = authManager.authenticateRequest(req);
+      if (!authed) return json({ error: "Unauthorized" }, 401);
+      const body = await req.json() as { friendUsername: string };
+      const friend = authManager.getUser(body.friendUsername);
+      if (!friend) return json({ error: "User not found" }, 404);
+      const result = friendsManager.addFriend(authed.userId, friend.id);
+      if ("error" in result) return json({ error: result.error }, 400);
+      return json(result, 201);
+    }
+
+    // POST /api/friends/accept
+    if (url.pathname === "/api/friends/accept" && req.method === "POST") {
+      const authed = authManager.authenticateRequest(req);
+      if (!authed) return json({ error: "Unauthorized" }, 401);
+      const body = await req.json() as { friendUsername: string };
+      const friend = authManager.getUser(body.friendUsername);
+      if (!friend) return json({ error: "User not found" }, 404);
+      const result = friendsManager.acceptFriend(authed.userId, friend.id);
+      if (!result) return json({ error: "No pending request" }, 400);
+      return json(result);
+    }
+
+    // DELETE /api/friends/remove
+    if (url.pathname === "/api/friends/remove" && req.method === "DELETE") {
+      const authed = authManager.authenticateRequest(req);
+      if (!authed) return json({ error: "Unauthorized" }, 401);
+      const body = await req.json() as { friendUsername: string };
+      const friend = authManager.getUser(body.friendUsername);
+      if (!friend) return json({ error: "User not found" }, 404);
+      friendsManager.removeFriend(authed.userId, friend.id);
+      return json({ success: true });
+    }
+
+    // GET /api/friends - List friends
+    if (url.pathname === "/api/friends" && req.method === "GET") {
+      const authed = authManager.authenticateRequest(req);
+      if (!authed) return json({ error: "Unauthorized" }, 401);
+      const relations = friendsManager.getFriends(authed.userId);
+      const pending = friendsManager.getPendingRequests(authed.userId);
+      // Enrich with user data
+      const enriched = relations.map((r) => {
+        const friendId = r.userId === authed.userId ? r.friendId : r.userId;
+        const friendUser = authManager.getUserById(friendId);
+        return {
+          ...r,
+          username: friendUser?.username || "unknown",
+          displayName: friendUser?.displayName || friendUser?.username || "Unknown",
+          avatar: friendUser?.avatar || "#666",
+          online: friendsManager.isOnline(friendId),
+        };
+      });
+      const enrichedPending = pending.map((r) => {
+        const friendUser = authManager.getUserById(r.userId);
+        return {
+          ...r,
+          username: friendUser?.username || "unknown",
+          displayName: friendUser?.displayName || friendUser?.username || "Unknown",
+          avatar: friendUser?.avatar || "#666",
+        };
+      });
+      return json({ friends: enriched, pending: enrichedPending });
+    }
+
+    // ===== THEME / MONETIZATION ROUTES =====
+    // GET /api/themes
+    if (url.pathname === "/api/themes" && req.method === "GET") {
+      return json({
+        themes: [
+          { id: "default", name: "Default", tier: "free", description: "Classic blue theme" },
+          { id: "dark", name: "Dark Mode", tier: "pro", description: "Sleek dark interface" },
+          { id: "neon", name: "Neon Glow", tier: "pro", description: "Vibrant neon colors" },
+          { id: "classic-wood", name: "Classic Wood", tier: "pro", description: "Warm wooden textures" },
+        ],
+      });
+    }
+
+    // POST /api/upgrade - Mock upgrade to pro
+    if (url.pathname === "/api/upgrade" && req.method === "POST") {
+      const authed = authManager.authenticateRequest(req);
+      if (!authed) return json({ error: "Unauthorized" }, 401);
+      const updated = authManager.updateUser(authed.username, { tier: "pro" });
+      return json({ user: sanitizeUser(updated!), message: "Upgraded to Pro!" });
+    }
+
+    // PUT /api/theme - Set user theme
+    if (url.pathname === "/api/theme" && req.method === "PUT") {
+      const authed = authManager.authenticateRequest(req);
+      if (!authed) return json({ error: "Unauthorized" }, 401);
+      const body = await req.json() as { theme: string };
+      const user = authManager.getUser(authed.username);
+      if (!user) return json({ error: "User not found" }, 404);
+
+      const proThemes = ["dark", "neon", "classic-wood"];
+      if (proThemes.includes(body.theme) && user.tier !== "pro") {
+        return json({ error: "Pro theme requires Pro tier" }, 403);
+      }
+
+      const updated = authManager.updateUser(authed.username, { theme: body.theme as any });
+      return json({ user: sanitizeUser(updated!) });
+    }
+
+    // ===== DASHBOARD ROUTES =====
+    // GET /api/dashboard - Full dashboard data
+    if (url.pathname === "/api/dashboard" && req.method === "GET") {
+      const authed = authManager.authenticateRequest(req);
+      if (!authed) return json({ error: "Unauthorized" }, 401);
+
+      const user = authManager.getUser(authed.username);
+      const playerStats = leaderboardManager.getPlayerStats(authed.userId);
+      const rank = leaderboardManager.getPlayerRank(user?.displayName || authed.username);
+      const activeRooms = lobbyManager.getUserRooms(authed.userId);
+      const top10 = leaderboardManager.getLeaderboard(10);
+      const friends = friendsManager.getFriends(authed.userId);
+
+      return json({
+        user: sanitizeUser(user!),
+        stats: playerStats ? {
+          totalGames: playerStats.totalGamesPlayed,
+          wins: playerStats.totalWins,
+          losses: playerStats.totalLosses,
+          winRate: leaderboardManager.getWinRate(authed.userId),
+          currentStreak: playerStats.currentStreak,
+          bestStreak: playerStats.bestStreak,
+          rank: rank || 0,
+          score: leaderboardManager.getPlayerEntry(user?.displayName || authed.username)?.score || 0,
+        } : { totalGames: 0, wins: 0, losses: 0, winRate: 0, currentStreak: 0, bestStreak: 0, rank: 0, score: 0 },
+        activeGames: activeRooms,
+        leaderboard: top10,
+        onlineFriends: friends.length,
+      });
+    }
+
+    // ===== QUICK PLAY =====
+    // POST /api/quickplay - Join or create a random public room
+    if (url.pathname === "/api/quickplay" && req.method === "POST") {
+      const authed = authManager.authenticateRequest(req);
+      if (!authed) return json({ error: "Unauthorized" }, 401);
+
+      const publicRooms = lobbyManager.getPublicRooms();
+      const available = publicRooms.find(
+        (r) => r.players.length < r.maxPlayers && r.hostId !== authed.userId
+      );
+
+      if (available) {
+        const joined = lobbyManager.joinRoom(available.code, authed.userId, authed.username);
+        return json({ room: joined, action: "joined" });
+      }
+
+      const room = lobbyManager.createRoom({
+        name: `${authed.username}'s Game`,
+        hostId: authed.userId,
+        hostName: authed.username,
+      });
+      return json({ room, action: "created" }, 201);
+    }
+
+    // ===== CHALLENGE =====
+    // POST /api/challenge - Challenge a friend
+    if (url.pathname === "/api/challenge" && req.method === "POST") {
+      const authed = authManager.authenticateRequest(req);
+      if (!authed) return json({ error: "Unauthorized" }, 401);
+      const body = await req.json() as { friendUsername: string };
+      const friend = authManager.getUser(body.friendUsername);
+      if (!friend) return json({ error: "User not found" }, 404);
+
+      // Create a private room for the challenge
+      const room = lobbyManager.createRoom({
+        name: `Challenge: ${authed.username} vs ${friend.username}`,
+        hostId: authed.userId,
+        hostName: authed.username,
+        visibility: "private",
+        maxPlayers: 2,
+      });
+      return json({ room, challenged: friend.username }, 201);
     }
 
     return new Response("Not Found", { status: 404 });

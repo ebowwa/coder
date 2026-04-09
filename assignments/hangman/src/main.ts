@@ -3,6 +3,7 @@
 /**
  * Main entry point for Hangman 3D game
  * Supports both single-player and multiplayer modes
+ * SaaS platform: auth, dashboard, lobby, profile, friends
  */
 
 import * as THREE from 'three';
@@ -38,6 +39,14 @@ import type {
   RoundCompletePayload,
 } from './multiplayer/types';
 import type { Tournament } from '../server/tournament';
+
+// SaaS platform imports
+import { router } from './router';
+import { renderAuthPage } from './auth';
+import { renderDashboard } from './dashboard';
+import { renderProfile } from './profile';
+import { renderLobbyPage } from './lobby-page';
+import { renderFriendsPage } from './friends';
 
 type GameMode = 'single' | 'multiplayer' | 'none';
 
@@ -1123,5 +1132,62 @@ class HangmanGame {
 
 // Start the game when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-  new HangmanGame();
+  // Initialize the 3D game engine (always running, just hidden when not playing)
+  const game = new HangmanGame();
+
+  // Register SPA pages with the router
+  router.registerPage('auth', {
+    render: (container) => {
+      const content = container.querySelector('#page-content') as HTMLDivElement || container;
+      renderAuthPage(content);
+    },
+  });
+
+  router.registerPage('dashboard', {
+    render: (container) => {
+      const content = container.querySelector('#page-content') as HTMLDivElement || container;
+      renderDashboard(content);
+    },
+  });
+
+  router.registerPage('lobby', {
+    render: (container) => {
+      const content = container.querySelector('#page-content') as HTMLDivElement || container;
+      renderLobbyPage(content);
+    },
+  });
+
+  router.registerPage('profile', {
+    render: (container) => {
+      const content = container.querySelector('#page-content') as HTMLDivElement || container;
+      renderProfile(content);
+    },
+  });
+
+  router.registerPage('friends', {
+    render: (container) => {
+      const content = container.querySelector('#page-content') as HTMLDivElement || container;
+      renderFriendsPage(content);
+    },
+  });
+
+  router.registerPage('game', {
+    render: () => {
+      // Game page shows the 3D canvas, hide the app container
+      const appPages = document.getElementById('app-pages');
+      if (appPages) appPages.style.display = 'none';
+      const canvas = document.querySelector('canvas');
+      if (canvas) canvas.style.display = 'block';
+      // Show lobby UI overlay for multiplayer
+      (game as any).lobbyUI?.show();
+    },
+  });
+
+  // Check auth state and navigate
+  const token = localStorage.getItem('hm_token');
+  if (token) {
+    router.navigate('dashboard');
+  } else {
+    router.navigate('auth');
+  }
 });

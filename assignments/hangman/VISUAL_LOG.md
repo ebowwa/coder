@@ -2516,3 +2516,55 @@ Starting point before visual improvements.
 > (no analysis)
 
 ---
+
+## 2026-04-08T23:45:08.045Z -- Task `task_1775691308333_ctoe6h` (desktop 1280x720)
+
+**Port:** 3000  
+**Verdict:** FAILED  
+**Latency:** 16106ms  
+**Method:** headless-chrome+swiftshader
+
+![desktop](visuals/desktop-2026-04-08T23-44-51-939Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-08T23:45:21.375Z -- Task `task_1775691308333_ctoe6h` (mobile 375x812)
+
+**Port:** 3000  
+**Verdict:** FAILED  
+**Latency:** 13328ms  
+**Method:** headless-chrome+swiftshader
+
+![mobile](visuals/mobile-2026-04-08T23-45-08-046Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T00:02:37.124Z -- Task `task_1775691867509_7cj1sc` (desktop 1280x720)
+
+**Port:** 3000  
+**Verdict:** FAILED  
+**Latency:** 11597ms  
+**Method:** headless-chrome+swiftshader
+
+![desktop](visuals/desktop-2026-04-09T00-02-25-527Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-09T00:02:46.681Z -- Task `task_1775691867509_7cj1sc` (mobile 375x812)
+
+**Port:** 3000  
+**Verdict:** FAILED  
+**Latency:** 9555ms  
+**Method:** headless-chrome+swiftshader
+
+![mobile](visuals/mobile-2026-04-09T00-02-37-126Z.png)
+
+> (no analysis)
+
+---
