@@ -7584,3 +7584,143 @@ Starting point before visual improvements.
 > (no analysis)
 
 ---
+
+## 2026-04-10T05:29:58.034Z -- Task `task_1775797204986_i0h8l4` -- `#profile` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** FAILED  **Latency:** 32670ms
+
+![profile-desktop](visuals/profile-desktop-2026-04-10T05-29-25-364Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-10T05:30:30.296Z -- Task `task_1775797204986_i0h8l4` -- `#profile` (mobile 375x812)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** FAILED  **Latency:** 32261ms
+
+![profile-mobile](visuals/profile-mobile-2026-04-10T05-29-58-035Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-10T05:31:02.547Z -- Task `task_1775797204986_i0h8l4` -- `#friends` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** FAILED  **Latency:** 32251ms
+
+![friends-desktop](visuals/friends-desktop-2026-04-10T05-30-30-296Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-10T05:31:34.858Z -- Task `task_1775797204986_i0h8l4` -- `#friends` (mobile 375x812)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** FAILED  **Latency:** 32310ms
+
+![friends-mobile](visuals/friends-mobile-2026-04-10T05-31-02-548Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-10T05:32:07.130Z -- Task `task_1775797204986_i0h8l4` -- `#game` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#game  **Verdict:** FAILED  **Latency:** 32272ms
+
+![game-desktop](visuals/game-desktop-2026-04-10T05-31-34-858Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-10T05:32:31.116Z -- Task `task_1775797204986_i0h8l4` -- `#game` (mobile 375x812)
+
+**URL:** http://localhost:3000/#game  **Verdict:** OK  **Latency:** 23985ms
+
+![game-mobile](visuals/game-mobile-2026-04-10T05-32-07-131Z.png)
+
+> The UI is partially rendered as an error page. Visible components: error icon, “This site can’t be reached” text, “localhost refused to connect” subtitle, bullet points (“Checking the connection”, “Checking the proxy and the firewall”), “ERR_CONNECTION_REFUSED” code, and “Details” button. Error: Connection refused; intended game UI not loaded.
+
+---
+
+## 2026-04-10T05:48:01.291Z -- Task `task_1775799030288_jenyob` -- `/` (desktop 1280x720)
+
+**URL:** http://localhost:3000  **Verdict:** OK  **Latency:** 11785ms
+
+![home-desktop](visuals/home-desktop-2026-04-10T05-47-49-506Z.png)
+
+> Visible components: Name input (CleverEagle36), color selector, “Create New Room” button, “OR” text, room code input, “Join as Player,” “Join as Spectator,” “Play Single Player” buttons. No rendering errors detected.
+
+---
+
+## 2026-04-10T05:48:11.208Z -- Task `task_1775799030288_jenyob` -- `/` (mobile 375x812)
+
+**URL:** http://localhost:3000  **Verdict:** OK  **Latency:** 9915ms
+
+![home-mobile](visuals/home-mobile-2026-04-10T05-48-01-293Z.png)
+
+> The UI is rendered. Visible components include "Hangman" title, "Multiplayer Mode" text, name input ("LuckyLion76"), color selection circles, "Create New Room" button, "OR" divider, room code input, "Join as Player"/"Join as Spectator"/"Play Single Player" buttons, and "Not connected" status. No errors detected.
+
+---
+
+## 2026-04-10T05:48:20.866Z -- Task `task_1775799030288_jenyob` -- `#auth` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** OK  **Latency:** 9657ms
+
+![auth-desktop](visuals/auth-desktop-2026-04-10T05-48-11-209Z.png)
+
+> Visible components: Name input, color selector, "Create New Room" button, "OR" separator, room code input, "Join as Player", "Join as Spectator", "Play Single Player" buttons. No rendering errors; all elements display properly.
+
+---
+
+## 2026-04-10T05:48:30.121Z -- Task `task_1775799030288_jenyob` -- `#auth` (mobile 375x812)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** OK  **Latency:** 9254ms
+
+![auth-mobile](visuals/auth-mobile-2026-04-10T05-48-20-867Z.png)
+
+> The UI is rendered. Visible components include "Hangman" title, "Multiplayer Mode" subtitle, name input, color picker, "Create New Room" button, room code input, "Join as Player"/"Spectator" buttons, "Play Single Player" button, and "Not connected" status. No errors observed.
+
+---
+
+## 2026-04-10T05:48:41.284Z -- Task `task_1775799030288_jenyob` -- `#dashboard` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** OK  **Latency:** 11162ms
+
+![dashboard-desktop](visuals/dashboard-desktop-2026-04-10T05-48-30-122Z.png)
+
+> Yes, UI is rendered. Visible components: Name input (LuckyBear29), color selector, “Create New Room” button, “OR” divider, room code input, “Join as Player”/“Join as Spectator” buttons, “Play Single Player” button. No obvious rendering errors.
+
+---
+
+## 2026-04-10T05:48:53.214Z -- Task `task_1775799030288_jenyob` -- `#dashboard` (mobile 375x812)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** OK  **Latency:** 11929ms
+
+![dashboard-mobile](visuals/dashboard-mobile-2026-04-10T05-48-41-285Z.png)
+
+> The UI is rendered. Visible components: "Hangman" title, "Multiplayer Mode" subtitle, name input ("LuckyDragon64"), color selection circles, "Create New Room" button, room code field, "Join as Player"/"Spectator" buttons, "Play Single Player" button, "Not connected" status. Error: Content does not match "#dashboard" route (shows Hangman multiplayer setup instead).
+
+---
+
+## 2026-04-10T05:49:02.031Z -- Task `task_1775799030288_jenyob` -- `#lobby` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** OK  **Latency:** 8816ms
+
+![lobby-desktop](visuals/lobby-desktop-2026-04-10T05-48-53-215Z.png)
+
+> Yes, the UI is rendered. Visible components include a name input field, color selection circles, "Create New Room" button, "OR" divider, room code input, "Join as Player", "Join as Spectator", and "Play Single Player" buttons. No rendering errors observed.
+
+---
+
+## 2026-04-10T05:49:13.275Z -- Task `task_1775799030288_jenyob` -- `#lobby` (mobile 375x812)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** OK  **Latency:** 11243ms
+
+![lobby-mobile](visuals/lobby-mobile-2026-04-10T05-49-02-032Z.png)
+
+> Yes, UI is rendered. Visible components: Hangman title, Multiplayer Mode subtitle, name input (QuickBear17), color options, Create New Room button, OR text, room code input, Join as Player/Join as Spectator/Play Single Player buttons, Not connected status. No errors detected.
+
+---
