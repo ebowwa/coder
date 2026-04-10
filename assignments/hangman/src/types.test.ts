@@ -91,7 +91,7 @@ describe('types', () => {
         word: 'WORLD',
         category: 'general',
         difficulty: 3,
-        revealedLetters: new Set(['W', 'O', 'R']),
+        revealedLetters: new Set(['W', 'O', 'R', 'L', 'D']),
         wrongGuesses: 2,
         guessedLetters: new Set(['W', 'O', 'R', 'L', 'D', 'A']),
         isComplete: true,

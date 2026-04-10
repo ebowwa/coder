@@ -115,11 +115,13 @@ describe('wordLists', () => {
       expect(words.length).toBeGreaterThan(0);
     });
 
-    test('should return default words for null category', () => {
+    test('should return combined words for null category', () => {
       const words = getWordsForCategory(null);
       expect(words).toBeInstanceOf(Array);
       expect(words.length).toBeGreaterThan(0);
-      expect(words).toContain('cat'); // From default list
+      // null returns combined words from all JSON categories
+      expect(words).toContain('elephant'); // From Animals
+      expect(words).toContain('spaghetti'); // From Food
     });
 
     test('should return default words for "Random" category', () => {
@@ -135,7 +137,7 @@ describe('wordLists', () => {
       expect(words).toContain('cat'); // Fallback to default
     });
 
-    test('should return combined words for null category', () => {
+    test('should return all category words combined for null category', () => {
       const words = getWordsForCategory(null);
       const allCategoryWords = [
         ...getCategoriesData().categories.Animals.words,
@@ -145,8 +147,11 @@ describe('wordLists', () => {
         ...(getCategoriesData().categories['Programming Languages']?.words || []),
       ];
       
-      // Should include words from all categories plus default
-      expect(words.length).toBeGreaterThan(allCategoryWords.length);
+      // Should include all words from categories
+      expect(words.length).toBe(allCategoryWords.length);
+      allCategoryWords.forEach(word => {
+        expect(words).toContain(word);
+      });
     });
   });
 
@@ -157,7 +162,8 @@ describe('wordLists', () => {
       expect(word.length).toBeGreaterThan(0);
       
       // Should be one of the animal words
-      expect(['elephant', 'giraffe', 'penguin']).toContain(word);
+      const animalWords = getCategoriesData().categories.Animals.words;
+      expect(animalWords).toContain(word);
     });
 
     test('should return a word from normalized category', () => {
@@ -254,7 +260,8 @@ describe('wordLists', () => {
     test('should only accept valid category keys', () => {
       // This is a type-level test - TypeScript would catch invalid assignments
       // At runtime, we can verify the categories exist in wordLists
-      const validCategories: WordCategory[] = ['default', 'Animals', 'Countries', 'Food', 'Movies', 'Programming Languages'];
+      // Categories are normalized to lowercase with spaces removed
+      const validCategories: string[] = ['default', 'animals', 'countries', 'food', 'movies', 'programminglanguages'];
 
       validCategories.forEach(category => {
         expect(wordLists[category]).toBeDefined();

@@ -3,8 +3,8 @@
  * Auth, lobby, friends, profile, dashboard, themes
  */
 
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { unlinkSync, existsSync } from "fs";
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import * as fs from "node:fs";
 
 // We'll test the server modules directly since we can't easily spin up HTTP
 // in vitest. The modules export manager singletons we can test.
@@ -17,8 +17,12 @@ describe("AuthManager", () => {
   beforeAll(async () => {
     // Remove stale data so the singleton starts fresh
     const dataFile = "data/users.json";
-    if (existsSync(dataFile)) {
-      unlinkSync(dataFile);
+    try {
+      if (fs.existsSync(dataFile)) {
+        fs.unlinkSync(dataFile);
+      }
+    } catch {
+      // Ignore fs errors in test environment
     }
     // Re-import to get fresh state
     const mod = await import("../../server/auth");
@@ -28,8 +32,12 @@ describe("AuthManager", () => {
   afterAll(() => {
     // Clean up data file created during tests
     const dataFile = "data/users.json";
-    if (existsSync(dataFile)) {
-      unlinkSync(dataFile);
+    try {
+      if (fs.existsSync(dataFile)) {
+        fs.unlinkSync(dataFile);
+      }
+    } catch {
+      // Ignore fs errors in test environment
     }
   });
 
