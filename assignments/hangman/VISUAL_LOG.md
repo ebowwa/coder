@@ -10545,3 +10545,153 @@ Starting point before visual improvements.
 > The UI is rendered. Visible components: Hangman title, Multiplayer Mode subtitle, name input (MightyBear5), color selector, Create New Room button, OR text, room code input, Join as Player/Join as Spectator buttons, Play Single Player button, Not connected status. No errors found.
 
 ---
+
+## 2026-04-10T09:10:47.877Z -- Task `task_1775812022686_dkisis` -- `#profile` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** OK  **Latency:** 9364ms
+
+![profile-desktop](visuals/profile-desktop-2026-04-10T09-10-38-513Z.png)
+
+> The UI does not render the "#profile" route correctly; it displays a multiplayer setup interface instead. Visible components include "Your Name" input, color selection circles, "Create New Room" button, room code input, and join/spectator buttons.
+
+---
+
+## 2026-04-10T09:11:01.888Z -- Task `task_1775812022686_dkisis` -- `#profile` (mobile 375x812)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** OK  **Latency:** 14011ms
+
+![profile-mobile](visuals/profile-mobile-2026-04-10T09-10-47-877Z.png)
+
+> Visible components: Title “Hangman”, name/color inputs, “Create New Room”/“Join as Player” etc. buttons. Error: Route mismatch (displays multiplayer setup, not profile).
+
+---
+
+## 2026-04-10T09:11:15.710Z -- Task `task_1775812022686_dkisis` -- `#friends` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** OK  **Latency:** 13822ms
+
+![friends-desktop](visuals/friends-desktop-2026-04-10T09-11-01-888Z.png)
+
+> The UI is rendered. Visible components include “Your Name” input, color selector, “Create New Room” button, “OR” separator, “Room Code” input, “Join as Player/Spectator” buttons, and “Play Single Player” button. Error: Route mismatch (expected #friends but displays multiplayer setup).
+
+---
+
+## 2026-04-10T09:11:29.227Z -- Task `task_1775812022686_dkisis` -- `#friends` (mobile 375x812)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** OK  **Latency:** 13515ms
+
+![friends-mobile](visuals/friends-mobile-2026-04-10T09-11-15-711Z.png)
+
+> The UI shown is for Hangman Multiplayer, not the "#friends" route. Visible components include "Hangman" title, name/color inputs, room creation/join buttons, and connection status; error is incorrect route rendering.
+
+---
+
+## 2026-04-10T09:11:37.931Z -- Task `task_1775812022686_dkisis` -- `#game` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#game  **Verdict:** OK  **Latency:** 8704ms
+
+![game-desktop](visuals/game-desktop-2026-04-10T09-11-29-227Z.png)
+
+> Visible components: Name input (CleverWolf8), color selector, "Create New Room" button, "OR" divider, room code input, "Join as Player", "Join as Spectator", "Play Single Player" buttons. No rendering errors observed.
+
+---
+
+## 2026-04-10T09:11:49.866Z -- Task `task_1775812022686_dkisis` -- `#game` (mobile 375x812)
+
+**URL:** http://localhost:3000/#game  **Verdict:** OK  **Latency:** 11935ms
+
+![game-mobile](visuals/game-mobile-2026-04-10T09-11-37-931Z.png)
+
+> Yes, UI is rendered. Visible components: Hangman title, Multiplayer Mode subtitle, name input (LuckyBear32), color circles, Create New Room button, OR text, room code input, Join as Player/Join as Spectator/Play Single Player buttons, Not connected status. No errors.
+
+---
+
+## 2026-04-10T09:13:01.760Z -- Task `task_1775812259327_eonfst` -- `/` (desktop 1280x720)
+
+**URL:** http://localhost:3000  **Verdict:** OK  **Latency:** 8154ms
+
+![home-desktop](visuals/home-desktop-2026-04-10T09-12-53-606Z.png)
+
+> Visible components: Name input, color selector, "Create New Room" button, "OR" divider, room code input, "Join as Player", "Join as Spectator", "Play Single Player" buttons. No rendering errors.
+
+---
+
+## 2026-04-10T09:13:09.879Z -- Task `task_1775812259327_eonfst` -- `/` (mobile 375x812)
+
+**URL:** http://localhost:3000  **Verdict:** OK  **Latency:** 8118ms
+
+![home-mobile](visuals/home-mobile-2026-04-10T09-13-01-761Z.png)
+
+> Visible components: "Hangman" title, "Multiplayer Mode" subtitle, name input (QuickEagle67), color selection circles, "Create New Room" button, "OR" text, room code input, "Join as Player"/"Join as Spectator"/"Play Single Player" buttons, "Not connected" status. No rendering errors; all elements display properly.
+
+---
+
+## 2026-04-10T09:13:18.079Z -- Task `task_1775812259327_eonfst` -- `#auth` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** OK  **Latency:** 8199ms
+
+![auth-desktop](visuals/auth-desktop-2026-04-10T09-13-09-880Z.png)
+
+> The UI is rendered. Visible components include a name input field, color selection circles, “Create New Room” button, “OR” separator, room code input, “Join as Player,” “Join as Spectator,” and “Play Single Player” buttons. No errors observed.
+
+---
+
+## 2026-04-10T09:13:26.989Z -- Task `task_1775812259327_eonfst` -- `#auth` (mobile 375x812)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** OK  **Latency:** 8909ms
+
+![auth-mobile](visuals/auth-mobile-2026-04-10T09-13-18-080Z.png)
+
+> The UI is rendered. Visible components include "Hangman" title, name/color inputs, color circles, "Create New Room"/join buttons, room code field, and "Not connected" status. No errors detected.
+
+---
+
+## 2026-04-10T09:13:36.908Z -- Task `task_1775812259327_eonfst` -- `#dashboard` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** OK  **Latency:** 9918ms
+
+![dashboard-desktop](visuals/dashboard-desktop-2026-04-10T09-13-26-990Z.png)
+
+> Yes, the UI is rendered. Visible components include a name input field ("BraveDragon6"), color selection circles, "Create New Room" button, "OR" separator, room code input, "Join as Player" button, "Join as Spectator" button, and "Play Single Player" button. No obvious rendering errors, though the content may not align with a typical "#dashboard" route.
+
+---
+
+## 2026-04-10T09:13:44.397Z -- Task `task_1775812259327_eonfst` -- `#dashboard` (mobile 375x812)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** OK  **Latency:** 7488ms
+
+![dashboard-mobile](visuals/dashboard-mobile-2026-04-10T09-13-36-909Z.png)
+
+> The UI is rendered. Visible components include the "Hangman" title, name/color inputs, color circles, "Create New Room"/"Join as Player"/etc. buttons, and "Not connected" status. No errors detected.
+
+---
+
+## 2026-04-10T09:13:51.974Z -- Task `task_1775812259327_eonfst` -- `#lobby` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** OK  **Latency:** 7576ms
+
+![lobby-desktop](visuals/lobby-desktop-2026-04-10T09-13-44-398Z.png)
+
+> Visible components: Name input, color selector, "Create New Room" button, "OR" divider, room code input, "Join as Player", "Join as Spectator", "Play Single Player" buttons. No rendering errors—all elements display properly.
+
+---
+
+## 2026-04-10T09:13:59.951Z -- Task `task_1775812259327_eonfst` -- `#lobby` (mobile 375x812)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** OK  **Latency:** 7975ms
+
+![lobby-mobile](visuals/lobby-mobile-2026-04-10T09-13-51-975Z.png)
+
+> Yes, UI is rendered. Visible components: Hangman title, Multiplayer Mode subtitle, name input, color options, “Create New Room” button, “OR” text, room code input, “Join as Player,” “Join as Spectator,” “Play Single Player” buttons, “Not connected” status. No errors.
+
+---
+
+## 2026-04-10T09:14:15.130Z -- Task `task_1775812259327_eonfst` -- `#profile` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** OK  **Latency:** 15177ms
+
+![profile-desktop](visuals/profile-desktop-2026-04-10T09-13-59-951Z.png)
+
+> The UI is rendered. Visible components include a name input field ("SwiftTiger90"), color selection circles, "Create New Room" button, "OR" divider, room code input, "Join as Player"/"Spectator" buttons, and "Play Single Player" button. No obvious rendering errors, though the content may not align with the "#profile" route.
+
+---
