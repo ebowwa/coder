@@ -459,7 +459,7 @@ describe('CategoryUI', () => {
       const container = document.getElementById('category-ui');
       const items = container?.querySelectorAll('.category-item');
       if (items && items.length > 0) {
-        const firstItem = items[0];
+        const firstItem = items[0] as HTMLElement;
         expect(firstItem.dataset.category).toBeDefined();
         expect(firstItem.dataset.category!.length).toBeGreaterThan(0);
       }
@@ -514,7 +514,7 @@ describe('CategoryUI', () => {
       const items = container?.querySelectorAll('.category-item');
 
       if (items && items.length > 0) {
-        const firstItem = items[0];
+        const firstItem = items[0] as HTMLElement;
         const category = firstItem.dataset.category;
         firstItem.click();
         expect(onCategorySelected).toHaveBeenCalledWith(category);
@@ -551,7 +551,7 @@ describe('CategoryUI', () => {
       const items = container?.querySelectorAll('.category-item');
 
       if (items && items.length > 0) {
-        const firstItem = items[0];
+        const firstItem = items[0] as HTMLElement;
         const category = firstItem.dataset.category;
         firstItem.click();
         expect(categoryUI.getSelectedCategory()).toBe(category);
@@ -591,7 +591,7 @@ describe('CategoryUI', () => {
 
       const container = document.getElementById('category-ui');
       // overlay is the first child
-      const overlay = container?.children[0];
+      const overlay = container?.children[0] as HTMLElement;
       expect(overlay?.style.opacity).toBe('1');
     });
   });
