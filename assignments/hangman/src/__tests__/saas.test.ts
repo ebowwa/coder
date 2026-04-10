@@ -4,6 +4,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { unlinkSync, existsSync } from "fs";
 
 // We'll test the server modules directly since we can't easily spin up HTTP
 // in vitest. The modules export manager singletons we can test.
@@ -14,9 +15,22 @@ describe("AuthManager", () => {
   let authManager: any;
 
   beforeAll(async () => {
+    // Remove stale data so the singleton starts fresh
+    const dataFile = "data/users.json";
+    if (existsSync(dataFile)) {
+      unlinkSync(dataFile);
+    }
     // Re-import to get fresh state
     const mod = await import("../../server/auth");
     authManager = mod.authManager;
+  });
+
+  afterAll(() => {
+    // Clean up data file created during tests
+    const dataFile = "data/users.json";
+    if (existsSync(dataFile)) {
+      unlinkSync(dataFile);
+    }
   });
 
   it("should hash passwords consistently", async () => {
