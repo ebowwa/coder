@@ -13202,3 +13202,163 @@ Starting point before visual improvements.
 > Visible components: Title "Hangman", "Multiplayer Mode" subtitle, name input ("NobleDragon17"), color selection circles, "Create New Room" button, "OR" text, room code input ("----"), "Join as Player"/"Join as Spectator"/"Play Single Player" buttons, "Not connected" status. No rendering errors—all elements display properly.
 
 ---
+
+## 2026-04-10T11:03:17.511Z -- Task `task_1775818856246_ek2b6h` -- `#profile` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** OK  **Latency:** 12239ms
+
+![profile-desktop](visuals/profile-desktop-2026-04-10T11-03-05-272Z.png)
+
+> The UI is rendered. Visible components include name input, color selector, “Create New Room”/“Join as Player”/“Join as Spectator” buttons, room code input, and “Play Single Player” button. No rendering errors observed.
+
+---
+
+## 2026-04-10T11:03:31.756Z -- Task `task_1775818856246_ek2b6h` -- `#profile` (mobile 375x812)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** OK  **Latency:** 14244ms
+
+![profile-mobile](visuals/profile-mobile-2026-04-10T11-03-17-512Z.png)
+
+> Yes, UI is rendered. Visible components: "Hangman" title, "Multiplayer Mode" subtitle, name input, color selector, "Create New Room" button, "OR" separator, room code input, "Join as Player"/Spectator buttons, "Play Single Player" button, and "Not connected" status. No errors
+
+---
+
+## 2026-04-10T11:03:42.318Z -- Task `task_1775818856246_ek2b6h` -- `#friends` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** OK  **Latency:** 10561ms
+
+![friends-desktop](visuals/friends-desktop-2026-04-10T11-03-31-757Z.png)
+
+> Yes, the UI is rendered. Visible components include name input, color selector, “Create New Room”/“Join as Player”/“Join as Spectator”/“Play Single Player” buttons, and room code input. Error: Route appears mismatched (shows multiplayer setup instead of friends-related content).
+
+---
+
+## 2026-04-10T11:03:54.740Z -- Task `task_1775818856246_ek2b6h` -- `#friends` (mobile 375x812)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** OK  **Latency:** 12422ms
+
+![friends-mobile](visuals/friends-mobile-2026-04-10T11-03-42-318Z.png)
+
+> The UI shows "Hangman Multiplayer Mode" (not "#friends" route). Visible components: title, name input, color selector, "Create New Room" button, "OR" text, room code field, "Join as Player"/"Spectator" buttons, "Play Single Player" button, "Not connected" status. Error: Incorrect route content (displays multiplayer instead of friends).
+
+---
+
+## 2026-04-10T11:04:02.925Z -- Task `task_1775819003011_tcca34` -- `/` (desktop 1280x720)
+
+**URL:** http://localhost:3000  **Verdict:** OK  **Latency:** 12101ms
+
+![home-desktop](visuals/home-desktop-2026-04-10T11-03-50-824Z.png)
+
+> Visible components: Name input ("CleverTiger47"), color selector, "Create New Room" button, "OR" divider, room code input, "Join as Player", "Join as Spectator", "Play Single Player" buttons. No errors; all elements render properly.
+
+---
+
+## 2026-04-10T11:04:06.977Z -- Task `task_1775818856246_ek2b6h` -- `#game` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#game  **Verdict:** OK  **Latency:** 12237ms
+
+![game-desktop](visuals/game-desktop-2026-04-10T11-03-54-740Z.png)
+
+> Visible components: Name input, color selector, "Create New Room" button, "OR" text, room code input, "Join as Player"/"Join as Spectator"/"Play Single Player" buttons. No rendering errors; all elements display properly.
+
+---
+
+## 2026-04-10T11:04:15.214Z -- Task `task_1775818856246_ek2b6h` -- `#game` (mobile 375x812)
+
+**URL:** http://localhost:3000/#game  **Verdict:** OK  **Latency:** 8237ms
+
+![game-mobile](visuals/game-mobile-2026-04-10T11-04-06-977Z.png)
+
+> Yes, UI is rendered. Visible components: Hangman title, Multiplayer Mode subtitle, name input (QuickEagle4), color selection circles, Create New Room button, OR text, room code input, Join as Player/Join as Spectator/Play Single Player buttons, Not connected status. No errors observed.
+
+---
+
+## 2026-04-10T11:04:15.494Z -- Task `task_1775819003011_tcca34` -- `/` (mobile 375x812)
+
+**URL:** http://localhost:3000  **Verdict:** OK  **Latency:** 12568ms
+
+![home-mobile](visuals/home-mobile-2026-04-10T11-04-02-926Z.png)
+
+> The UI is rendered. Visible components include "Hangman" title, "Multiplayer Mode" subtitle, name input, color selection circles, "Create New Room" button, "OR" text, room code input, "Join as Player", "Join as Spectator", "Play Single Player" buttons, and "Not connected" status. No errors detected.
+
+---
+
+## 2026-04-10T11:04:21.193Z -- Task `task_1775819003011_tcca34` -- `#auth` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** OK  **Latency:** 5699ms
+
+![auth-desktop](visuals/auth-desktop-2026-04-10T11-04-15-494Z.png)
+
+> The UI is not rendered; the browser shows a connection error page instead of the auth interface. Visible components include the error message ("This site can’t be reached"), "Details" and "Reload" buttons, with an "ERR_CONNECTION_REFUSED" error.
+
+---
+
+## 2026-04-10T11:04:35.850Z -- Task `task_1775819003011_tcca34` -- `#auth` (mobile 375x812)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** OK  **Latency:** 14657ms
+
+![auth-mobile](visuals/auth-mobile-2026-04-10T11-04-21-193Z.png)
+
+> Visible components: Error icon, “This site can’t be reached” text, bullet points (“Checking the connection”, “Checking the proxy and the firewall”), “Details” button. Error: ERR_CONNECTION_REFUSED; auth UI not rendered due to connection failure.
+
+---
+
+## 2026-04-10T11:04:43.011Z -- Task `task_1775819003011_tcca34` -- `#dashboard` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** OK  **Latency:** 7160ms
+
+![dashboard-desktop](visuals/dashboard-desktop-2026-04-10T11-04-35-851Z.png)
+
+> No, the UI is not rendered (shows connection error). Visible components: error icon, "This site can’t be reached" text, "localhost refused to connect." message, troubleshooting steps, error code, "Details" and "Reload" buttons. Error: Connection refused (no dashboard content loaded).
+
+---
+
+## 2026-04-10T11:04:49.215Z -- Task `task_1775819003011_tcca34` -- `#dashboard` (mobile 375x812)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** OK  **Latency:** 6204ms
+
+![dashboard-mobile](visuals/dashboard-mobile-2026-04-10T11-04-43-011Z.png)
+
+> No, the UI is not rendered as intended; instead, an error page appears. Visible components include the error message ("This site can’t be reached"), troubleshooting steps, and a "Details" button. Error: Connection refused (ERR_CONNECTION_REFUSED).
+
+---
+
+## 2026-04-10T11:04:54.443Z -- Task `task_1775819003011_tcca34` -- `#lobby` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** OK  **Latency:** 5228ms
+
+![lobby-desktop](visuals/lobby-desktop-2026-04-10T11-04-49-215Z.png)
+
+> The UI for "#lobby" is not rendered due to a connection error. Visible components include the error message ("This site can’t be reached"), "Details" and "Reload" buttons, and troubleshooting steps; error is "ERR_CONNECTION_REFUSED".
+
+---
+
+## 2026-04-10T11:05:00.070Z -- Task `task_1775819003011_tcca34` -- `#lobby` (mobile 375x812)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** OK  **Latency:** 5626ms
+
+![lobby-mobile](visuals/lobby-mobile-2026-04-10T11-04-54-444Z.png)
+
+> The UI for route "#lobby" is not rendered; instead, an error page appears. Visible components include the error message "This site can’t be reached", "localhost refused to connect", troubleshooting steps, "ERR_CONNECTION_REFUSED", and a "Details" button.
+
+---
+
+## 2026-04-10T11:05:06.513Z -- Task `task_1775819003011_tcca34` -- `#profile` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** OK  **Latency:** 6442ms
+
+![profile-desktop](visuals/profile-desktop-2026-04-10T11-05-00-071Z.png)
+
+> The UI for route "#profile" is not rendered; instead, a connection error page is displayed. Visible components include the error icon, "This site can’t be reached" text, "localhost refused to connect" message, troubleshooting steps, ERR_CONNECTION_REFUSED code, "Details" and "Reload" buttons. Error: Connection refused (no profile content loaded).
+
+---
+
+## 2026-04-10T11:05:14.541Z -- Task `task_1775819003011_tcca34` -- `#profile` (mobile 375x812)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** OK  **Latency:** 8028ms
+
+![profile-mobile](visuals/profile-mobile-2026-04-10T11-05-06-513Z.png)
+
+> The UI is not rendered as intended; instead, an error page appears. Visible components include the error icon, “This site can’t be reached” text, connection details, troubleshooting steps, and a “Details” button. Error: Connection refused (ERR_CONNECTION_REFUSED), preventing the profile UI from loading.
+
+---
