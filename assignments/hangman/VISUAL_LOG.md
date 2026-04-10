@@ -7418,3 +7418,49 @@ Starting point before visual improvements.
 > The UI is rendered. Visible components include "Hangman" title, "Multiplayer Mode" subtitle, name/color inputs, color options, "Create New Room"/"Join as Player"/etc. buttons, and "Not connected" status. No errors detected.
 
 ---
+
+## 2026-04-10T04:59:55.251Z -- Task `task_1775796960616_c5glmj` -- `#lobby` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** OK  **Latency:** 11030ms
+
+![lobby-desktop](visuals/lobby-desktop-2026-04-10T04-59-44-221Z.png)
+
+> Yes, the UI is rendered. Visible components include a name input field, color selection circles, “Create New Room” button, room code input, “Join as Player”, “Join as Spectator”, and “Play Single Player” buttons. No errors observed.
+
+---
+
+## 2026-04-10T05:00:07.679Z -- Task `task_1775796960616_c5glmj` -- `#lobby` (mobile 375x812)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** OK  **Latency:** 12428ms
+
+![lobby-mobile](visuals/lobby-mobile-2026-04-10T04-59-55-251Z.png)
+
+> Yes, UI is rendered. Visible components: Hangman title, Multiplayer Mode subtitle, name input, color options, Create New Room button, OR text, room code input, Join as Player/Join as Spectator/Play Single Player buttons, Not connected status. No errors.
+
+---
+
+## 2026-04-10T05:00:22.759Z -- Task `task_1775796960616_c5glmj` -- `#profile` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** OK  **Latency:** 15079ms
+
+![profile-desktop](visuals/profile-desktop-2026-04-10T05-00-07-680Z.png)
+
+> The UI is rendered but displays a multiplayer setup instead of profile content. Visible components: name input, color selector, “Create New Room”/“Join as Player”/“Join as Spectator”/“Play Single Player” buttons. Error: Mismatch between route (“#profile”) and displayed content (multiplayer mode).
+
+---
+
+## 2026-04-10T05:00:49.316Z -- Task `task_1775796960616_c5glmj` -- `#profile` (mobile 375x812)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** OK  **Latency:** 26557ms
+
+![profile-mobile](visuals/profile-mobile-2026-04-10T05-00-22-759Z.png)
+
+> Got it, let's check the problem. The user is asking about the "profile" route on mobile (375x812). First, I need to see if the UI is rendered. Wait, the image provided is of a Hangman multiplayer screen, not a profile page. So maybe there's a mismatch. But the question is about whether the UI is rendered for the profile route. Since the image shows a different screen (Hangman multiplayer), maybe the profile route isn't shown here. But wait, the user might have intended to ask about this screen, but the route is "#profile". Hmm. Wait, no—maybe the image is the profile route? No, the image has "Hangman Multiplayer Mode", so that's not a profile. So perhaps the answer is that the UI for the profile route isn't rendered here (since the image is a different screen), or maybe the visible components are from the current screen. Wait, the user said "Route '#profile' · mobile 375x812. Is the UI rendered?" So first, is the UI rendered? If the image is showing the profile route, then yes, but the image is Hangman multiplayer. So maybe the answer is: The UI for the profile route is not rendered (current screen is Hangman multiplayer). Visible components: Title "Hangman", "Multiplayer Mode", name input ("HappyPanda95"), color selection circles, "Create New Room" button, "OR" text, room code input, "Join as Player"/"Spectator" buttons, "Play Single Player" button, "Not connected" status. Errors: None apparent (but route mismatch). Wait, but the user wants concise. Let me structure:
+> 
+> Is the UI rendered? Yes (assuming the image is the profile route, but maybe not—wait, no, the image is Hangman multiplayer. Maybe the user made a mistake, but the task is to list visible components and errors. So:
+> 
+> The UI is rendered. Visible components: Title "Hangman", "Multiplayer Mode" subtitle, name input field with "HappyPanda95", color selection circles, "Create New Room" button, "OR" divider, room code input, "Join as Player"/"Join as Spectator" buttons, "Play Single Player" button, "Not connected" status. No errors observed.
+> 
+> Wait, but the route is "#profile"—maybe the image is not the profile route. But the user provided the image, so maybe we have
+
+---
