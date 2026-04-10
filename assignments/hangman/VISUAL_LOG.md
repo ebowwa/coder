@@ -12802,3 +12802,123 @@ Starting point before visual improvements.
 > The UI is not rendered; an error page displays instead. Visible components: error message ("This site can’t be reached"), suggestions (checking connection, proxy/firewall), ERR_CONNECTION_REFUSED, and a Details button. Error: Connection refused, preventing profile page load.
 
 ---
+
+## 2026-04-10T10:38:43.086Z -- Task `task_1775817399078_y29oyv` -- `#friends` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** OK  **Latency:** 6960ms
+
+![friends-desktop](visuals/friends-desktop-2026-04-10T10-38-36-126Z.png)
+
+> The UI is not rendered; the page shows a connection error instead of the app’s friends route. Visible components: error icon, “This site can’t be reached” text, “localhost refused to connect” message, bullet points (“Checking the connection,” “Checking the proxy and the firewall”), “Details” button, “Reload” button. Error: ERR_CONNECTION_REFUSED.
+
+---
+
+## 2026-04-10T10:38:50.003Z -- Task `task_1775817399078_y29oyv` -- `#friends` (mobile 375x812)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** OK  **Latency:** 6916ms
+
+![friends-mobile](visuals/friends-mobile-2026-04-10T10-38-43-087Z.png)
+
+> The UI is rendered as an error page, not the intended friends route. Visible components: error icon, “This site can’t be reached” text, connection details, bullet points, error code, and Details button. Error: Connection refused (ERR_CONNECTION_REFUSED), so the #friends route UI failed to load.
+
+---
+
+## 2026-04-10T10:38:56.372Z -- Task `task_1775817399078_y29oyv` -- `#game` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#game  **Verdict:** OK  **Latency:** 6368ms
+
+![game-desktop](visuals/game-desktop-2026-04-10T10-38-50-004Z.png)
+
+> The UI is not rendered as intended; instead, an error page displays. Visible components: error icon, “This site can’t be reached” text, “localhost refused to connect” message, troubleshooting steps, ERR_CONNECTION_REFUSED code, Details button, Reload button. Error: Connection refused, preventing the game UI from loading.
+
+---
+
+## 2026-04-10T10:39:02.235Z -- Task `task_1775817399078_y29oyv` -- `#game` (mobile 375x812)
+
+**URL:** http://localhost:3000/#game  **Verdict:** OK  **Latency:** 5860ms
+
+![game-mobile](visuals/game-mobile-2026-04-10T10-38-56-375Z.png)
+
+> The UI is rendered as an error page, not the intended game interface. Visible components include the error icon, “This site can’t be reached” text, “localhost refused to connect” message, troubleshooting steps, ERR_CONNECTION_REFUSED code, and a “Details” button. Error: Connection refused (ERR_CONNECTION_REFUSED) prevents accessing the game route.
+
+---
+
+## 2026-04-10T10:56:51.829Z -- Task `task_1775817529107_vbwhgw` -- `/` (desktop 1280x720)
+
+**URL:** http://localhost:3000  **Verdict:** OK  **Latency:** 10099ms
+
+![home-desktop](visuals/home-desktop-2026-04-10T10-56-41-729Z.png)
+
+> Visible components: Name input, color selector, "Create New Room" button, "OR" divider, room code input, "Join as Player", "Join as Spectator", "Play Single Player" buttons. No rendering errors detected.
+
+---
+
+## 2026-04-10T10:57:00.432Z -- Task `task_1775817529107_vbwhgw` -- `/` (mobile 375x812)
+
+**URL:** http://localhost:3000  **Verdict:** OK  **Latency:** 8602ms
+
+![home-mobile](visuals/home-mobile-2026-04-10T10-56-51-830Z.png)
+
+> Yes, UI is rendered. Visible components: Hangman title, multiplayer mode subtitle, name input, color selector, create room button, or text, room code input, join player/spectator buttons, single player button, not connected status. No errors.
+
+---
+
+## 2026-04-10T10:57:17.325Z -- Task `task_1775817529107_vbwhgw` -- `#auth` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** OK  **Latency:** 16892ms
+
+![auth-desktop](visuals/auth-desktop-2026-04-10T10-57-00-433Z.png)
+
+> Visible components: Name input, color selector, "Create New Room" button, "OR" divider, room code input, "Join as Player", "Join as Spectator", "Play Single Player" buttons. No rendering errors; all elements display properly.
+
+---
+
+## 2026-04-10T10:57:26.541Z -- Task `task_1775817529107_vbwhgw` -- `#auth` (mobile 375x812)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** OK  **Latency:** 9215ms
+
+![auth-mobile](visuals/auth-mobile-2026-04-10T10-57-17-326Z.png)
+
+> Yes, UI is rendered. Visible components: Hangman title, Multiplayer Mode subtitle, name input (HappyEagle51), color circles, Create New Room button, OR text, room code input, Join as Player/Join as Spectator/Play Single Player buttons, Not connected status. No errors.
+
+---
+
+## 2026-04-10T10:57:37.908Z -- Task `task_1775817529107_vbwhgw` -- `#dashboard` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** OK  **Latency:** 11366ms
+
+![dashboard-desktop](visuals/dashboard-desktop-2026-04-10T10-57-26-542Z.png)
+
+> The UI is not rendered as the "#dashboard" route; instead, a multiplayer setup screen is shown. Visible components: name input, color selector, "Create New Room", room code field, "Join as Player"/"Spectator" buttons, "Play Single Player". Error: incorrect route content (expected dashboard, received multiplayer setup).
+
+---
+
+## 2026-04-10T10:57:49.067Z -- Task `task_1775817529107_vbwhgw` -- `#dashboard` (mobile 375x812)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** OK  **Latency:** 11159ms
+
+![dashboard-mobile](visuals/dashboard-mobile-2026-04-10T10-57-37-908Z.png)
+
+> Yes, UI is rendered. Visible components: "Hangman" title, name input ("BraveTiger61"), color options, "Create New Room" button, room code input, join buttons ("Join as Player", "Join as Spectator"), "Play Single Player" button, "Not connected" status. No errors observed.
+
+---
+
+## 2026-04-10T10:57:57.587Z -- Task `task_1775817529107_vbwhgw` -- `#lobby` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** OK  **Latency:** 8519ms
+
+![lobby-desktop](visuals/lobby-desktop-2026-04-10T10-57-49-068Z.png)
+
+> Yes, the UI is rendered. Visible components include a name input field, color selection circles, "Create New Room" button, "OR" separator, room code input, "Join as Player", "Join as Spectator", and "Play Single Player" buttons. No rendering errors observed.
+
+---
+
+## 2026-04-10T10:58:10.472Z -- Task `task_1775817529107_vbwhgw` -- `#lobby` (mobile 375x812)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** OK  **Latency:** 12883ms
+
+![lobby-mobile](visuals/lobby-mobile-2026-04-10T10-57-57-588Z.png)
+
+> The UI is rendered. Visible components include "Hangman" title, "Multiplayer Mode" subtitle, name input ("QuickPanda9"), color selector, "Create New Room" button, room code input, "Join as Player"/"Spectator" buttons, "Play Single Player" button, and "Not connected" status. No errors detected.
+
+---
