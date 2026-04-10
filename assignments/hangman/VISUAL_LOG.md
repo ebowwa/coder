@@ -10415,3 +10415,133 @@ Starting point before visual improvements.
 > The UI is rendered. Visible components include name input ("QuickDragon70"), color selection circles, "Create New Room" button, "OR" separator, room code input, "Join as Player"/"Join as Spectator" buttons, and "Play Single Player" option. No rendering errors observed.
 
 ---
+
+## 2026-04-10T09:07:05.841Z -- Task `task_1775811825454_4f8pz1` -- `#profile` (mobile 375x812)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** OK  **Latency:** 25278ms
+
+![profile-mobile](visuals/profile-mobile-2026-04-10T09-06-40-563Z.png)
+
+> The UI is rendered. Visible components include the "Hangman" title, "Multiplayer Mode" subtitle, name input field, color selection circles, "Create New Room" button, room code input, join buttons, and "Not connected
+
+---
+
+## 2026-04-10T09:07:16.608Z -- Task `task_1775811825454_4f8pz1` -- `#friends` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** OK  **Latency:** 10765ms
+
+![friends-desktop](visuals/friends-desktop-2026-04-10T09-07-05-843Z.png)
+
+> The UI rendered is for multiplayer setup, not the "#friends" route. Visible components: name input, color selector, "Create New Room" button, room code input, "Join as Player"/"Spectator" buttons, "Play Single Player". Error: Incorrect route content (shows multiplayer instead of friends).
+
+---
+
+## 2026-04-10T09:07:34.748Z -- Task `task_1775811825454_4f8pz1` -- `#friends` (mobile 375x812)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** OK  **Latency:** 18139ms
+
+![friends-mobile](visuals/friends-mobile-2026-04-10T09-07-16-609Z.png)
+
+> Visible components: "Hangman" title, "Multiplayer Mode" subtitle, name input ("BraveLion16"), color selection circles, "Create New Room" button, "OR" text, room code input, "Join as Player"/"Join as Spectator"/"Play Single Player" buttons, "Not connected" status. No rendering errors.
+
+---
+
+## 2026-04-10T09:07:46.619Z -- Task `task_1775811825454_4f8pz1` -- `#game` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#game  **Verdict:** OK  **Latency:** 11871ms
+
+![game-desktop](visuals/game-desktop-2026-04-10T09-07-34-748Z.png)
+
+> Visible components: Name input, color selector, "Create New Room" button, "OR" text, room code input, "Join as Player", "Join as Spectator", "Play Single Player" buttons. No rendering errors observed.
+
+---
+
+## 2026-04-10T09:08:01.465Z -- Task `task_1775811825454_4f8pz1` -- `#game` (mobile 375x812)
+
+**URL:** http://localhost:3000/#game  **Verdict:** OK  **Latency:** 14844ms
+
+![game-mobile](visuals/game-mobile-2026-04-10T09-07-46-621Z.png)
+
+> Yes, UI is rendered. Visible components: Hangman title, Multiplayer Mode subtitle, name input (BraveWolf26), color circles, Create New Room button, OR text, room code field, Join as Player/Join as Spectator/Play Single Player buttons, Not connected status. No errors.
+
+---
+
+## 2026-04-10T09:09:19.188Z -- Task `task_1775812022686_dkisis` -- `/` (desktop 1280x720)
+
+**URL:** http://localhost:3000  **Verdict:** OK  **Latency:** 8503ms
+
+![home-desktop](visuals/home-desktop-2026-04-10T09-09-10-685Z.png)
+
+> Visible components: Name input, color selector, "Create New Room" button, "OR" divider, room code input, "Join as Player", "Join as Spectator", "Play Single Player" buttons. No rendering errors; all elements display properly.
+
+---
+
+## 2026-04-10T09:09:29.726Z -- Task `task_1775812022686_dkisis` -- `/` (mobile 375x812)
+
+**URL:** http://localhost:3000  **Verdict:** OK  **Latency:** 10536ms
+
+![home-mobile](visuals/home-mobile-2026-04-10T09-09-19-189Z.png)
+
+> Yes, UI is rendered. Visible components: "Hangman" title, "Multiplayer Mode" subtitle, name input ("NobleBear10"), color selection circles, "Create New Room" button, "OR" text, room code input, "Join as Player"/"Join as Spectator"/"Play Single Player" buttons, "Not connected" status. No errors.
+
+---
+
+## 2026-04-10T09:09:40.476Z -- Task `task_1775812022686_dkisis` -- `#auth` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** OK  **Latency:** 10750ms
+
+![auth-desktop](visuals/auth-desktop-2026-04-10T09-09-29-726Z.png)
+
+> Yes, the UI is rendered. Visible components include a name input field, color selection circles, "Create New Room" button, "OR" separator, room code input, "Join as Player", "Join as Spectator", and "Play Single Player" buttons. No rendering errors observed.
+
+---
+
+## 2026-04-10T09:09:49.899Z -- Task `task_1775812022686_dkisis` -- `#auth` (mobile 375x812)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** OK  **Latency:** 9422ms
+
+![auth-mobile](visuals/auth-mobile-2026-04-10T09-09-40-477Z.png)
+
+> The UI is rendered. Visible components include "Hangman" title, "Multiplayer Mode" subtitle, name input, color picker, "Create New Room" button, room code input, "Join as Player"/"Spectator" buttons, "Play Single Player" button, and "Not connected" status. No errors detected.
+
+---
+
+## 2026-04-10T09:10:11.043Z -- Task `task_1775812022686_dkisis` -- `#dashboard` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** OK  **Latency:** 21143ms
+
+![dashboard-desktop](visuals/dashboard-desktop-2026-04-10T09-09-49-900Z.png)
+
+> The UI is rendered. Visible components include “Your Name” input (with value “HappyPanda3”), “Your Color” color circles, “Create New Room” button, “OR” separator, “Room Code (4 digits)” input, “Join as Player,” “Join as Spectator,” and “Play Single Player” buttons. No errors observed.
+
+---
+
+## 2026-04-10T09:10:21.667Z -- Task `task_1775812022686_dkisis` -- `#dashboard` (mobile 375x812)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** OK  **Latency:** 10623ms
+
+![dashboard-mobile](visuals/dashboard-mobile-2026-04-10T09-10-11-044Z.png)
+
+> Visible components: Title "Hangman", subtitle "Multiplayer Mode", name input ("LuckyBear9"), color selector, "Create New Room" button, "OR" text, room code input, "Join as Player"/"Spectator" buttons, "Play Single Player" button, "Not connected" status. No rendering errors.
+
+---
+
+## 2026-04-10T09:10:29.732Z -- Task `task_1775812022686_dkisis` -- `#lobby` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** OK  **Latency:** 8065ms
+
+![lobby-desktop](visuals/lobby-desktop-2026-04-10T09-10-21-667Z.png)
+
+> Yes, UI is rendered. Visible components: name input, color selector, “Create New Room” button, room code input, “Join as Player”, “Join as Spectator”, “Play Single Player” buttons. No errors observed.
+
+---
+
+## 2026-04-10T09:10:38.512Z -- Task `task_1775812022686_dkisis` -- `#lobby` (mobile 375x812)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** OK  **Latency:** 8779ms
+
+![lobby-mobile](visuals/lobby-mobile-2026-04-10T09-10-29-733Z.png)
+
+> The UI is rendered. Visible components: Hangman title, Multiplayer Mode subtitle, name input (MightyBear5), color selector, Create New Room button, OR text, room code input, Join as Player/Join as Spectator buttons, Play Single Player button, Not connected status. No errors found.
+
+---
