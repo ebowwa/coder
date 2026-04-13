@@ -14,7 +14,7 @@
     "outDir": "dist",
     "rootDir": ".",
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
-    "types": ["bun-types", "three", "vitest", "vitest/globals"]
+    "types": ["bun-types", "three"]
   },
   "include": ["src/**/*.ts", "server/**/*.ts"],
   "exclude": ["node_modules", "dist"]

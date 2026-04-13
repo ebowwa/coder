@@ -64,7 +64,7 @@ function createMockRound(
 
 describe('WordDisplay', () => {
   let wordDisplay: WordDisplay;
-  let rafSpy: ReturnType<typeof vi.spyOn>;
+  let rafSpy: any;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -343,7 +343,7 @@ describe('WordDisplay', () => {
   describe('clearWord via setWord replacement', () => {
     it('should clear previous meshes when setting a new word', () => {
       wordDisplay.setWord('FIRST');
-      const group = wordDisplay.getMesh();
+      const group = wordDisplay.getMesh() as any;
       const removeCallsAfterFirst = group.remove.mock.calls.length;
 
       wordDisplay.setWord('SECOND');
@@ -353,7 +353,7 @@ describe('WordDisplay', () => {
 
     it('should add new meshes for the new word', () => {
       wordDisplay.setWord('CAT');
-      const group = wordDisplay.getMesh();
+      const group = wordDisplay.getMesh() as any;
 
       wordDisplay.setWord('DOG');
 
