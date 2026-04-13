@@ -17640,3 +17640,33 @@ Starting point before visual improvements.
 > (no analysis)
 
 ---
+
+## 2026-04-13T18:41:52.658Z -- Task `task_1776105635534_n2xfk4` -- `/` (desktop 1280x720)
+
+**URL:** http://localhost:3000  **Verdict:** OK  **Latency:** 26767ms
+
+![home-desktop](visuals/home-desktop-2026-04-13T18-41-25-880Z.png)
+
+> Visible components: Name input ("HappyTiger22"), color selector, "Create New Room" button, "OR" text, room code input, "Join as Player", "Join as Spectator", "Play Single Player" buttons. No rendering errors.
+
+---
+
+## 2026-04-13T18:42:11.411Z -- Task `task_1776105635534_n2xfk4` -- `/` (mobile 375x812)
+
+**URL:** http://localhost:3000  **Verdict:** OK  **Latency:** 18636ms
+
+![home-mobile](visuals/home-mobile-2026-04-13T18-41-52-754Z.png)
+
+> Yes, UI is rendered. Visible components: Hangman title, Multiplayer Mode subtitle, name input, color circles, Create New Room button, OR text, room code input, Join as Player/Join as Spectator/Play Single Player buttons, Not connected status. No errors.
+
+---
+
+## 2026-04-13T18:42:25.332Z -- Task `task_1776105635534_n2xfk4` -- `#auth` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** OK  **Latency:** 13871ms
+
+![auth-desktop](visuals/auth-desktop-2026-04-13T18-42-11-448Z.png)
+
+> Yes, the UI is rendered. Visible components include a name input field, color selection circles, "Create New Room" button, "OR" separator, room code input, "Join as Player", "Join as Spectator", and "Play Single Player" buttons. No rendering errors observed.
+
+---
