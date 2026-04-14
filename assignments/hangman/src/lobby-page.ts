@@ -3,6 +3,7 @@
  */
 
 import { router } from "./router";
+import { LoadingOverlay } from "./loading-overlay";
 
 const API = "";
 
@@ -167,12 +168,21 @@ async function loadRooms(container: HTMLDivElement, token: string | null): Promi
   const listEl = container.querySelector("#rooms-list");
   if (!listEl) return;
 
+  const loader = new LoadingOverlay(listEl as HTMLElement, {
+    message: 'Loading rooms\u2026',
+    fullscreen: false,
+    showDelay: 200,
+  });
+
   try {
+    loader.show();
     const res = await fetch(`${API}/api/lobby/rooms`, {
       headers: { Authorization: `Bearer ${token}` },
     });
+    loader.hide();
+
     if (!res.ok) {
-      listEl.innerHTML = '<div style="color: #f38181; text-align: center; padding: 40px;">Failed to load rooms</div>';
+      loader.showError('Failed to load rooms. Check your connection.', () => loadRooms(container, token));
       return;
     }
     const rooms = await res.json();
@@ -238,7 +248,8 @@ async function loadRooms(container: HTMLDivElement, token: string | null): Promi
       });
     });
   } catch {
-    listEl.innerHTML = '<div style="color: #f38181; text-align: center; padding: 40px;">Connection error</div>';
+    loader.hide();
+    loader.showError('Connection error. Please try again.', () => loadRooms(container, token));
   }
 }
 

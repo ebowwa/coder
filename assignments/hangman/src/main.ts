@@ -16,6 +16,7 @@ import { soundEffects } from './sound-effects';
 import { ParticleEffects } from './particle-effects';
 import { CategoryUI } from './category-ui';
 import { AccessibilityManager, enhanceHintButton } from './accessibility';
+import { LoadingOverlay } from './loading-overlay';
 import type { Round, GameState, WordResponse } from './types';
 import {
   API_CONFIG,
@@ -76,6 +77,7 @@ class HangmanGame {
   private multiplayerRound: MultiplayerRound | null = null;
   private players: PlayerInfo[] = [];
   private unsubscribers: (() => void)[] = [];
+  private loadingOverlay: LoadingOverlay;
 
   constructor() {
     this.clock = new THREE.Clock();
@@ -179,6 +181,13 @@ class HangmanGame {
 
     // Handle window resize
     window.addEventListener('resize', this.onWindowResize.bind(this));
+
+    // Initialize loading overlay
+    this.loadingOverlay = new LoadingOverlay(document.body, {
+      message: 'Fetching word\u2026',
+      fullscreen: true,
+      showDelay: 150,
+    });
 
     // Initialize accessibility manager
     this.initializeAccessibility();
@@ -898,11 +907,20 @@ class HangmanGame {
   private async startNewRound(): Promise<void> {
     if (this.gameMode !== 'single') return;
 
+    this.loadingOverlay.show('Fetching word\u2026');
+
     try {
       // Fetch word from API
       const url = `${API_CONFIG.baseUrl}/api/word?difficulty=${this.gameState.difficulty}`;
       const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error(`API returned ${response.status}`);
+      }
+
       const wordData: WordResponse = await response.json();
+
+      this.loadingOverlay.hide();
 
       // Initialize new round
       this.gameState.currentRound = {
@@ -932,6 +950,16 @@ class HangmanGame {
 
     } catch (error) {
       console.error('Failed to fetch word:', error);
+
+      this.loadingOverlay.hide();
+
+      // Show brief error state, then use fallback
+      this.loadingOverlay.showError(
+        'Could not reach server. Using offline words.',
+        () => this.startNewRound()
+      );
+      setTimeout(() => this.loadingOverlay.hide(), 2500);
+
       // Fallback to local word database
       const fallbackWord = getRandomWord(this.gameState.difficulty);
       this.gameState.currentRound = {
