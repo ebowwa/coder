@@ -16,6 +16,14 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
+// Re-export mock references for use in beforeEach (ESM-safe alternative to require)
+let routerMockRef: any = null;
+let authMockRef: any = null;
+let dashboardMockRef: any = null;
+let profileMockRef: any = null;
+let lobbyMockRef: any = null;
+let friendsMockRef: any = null;
+
 // ---------------------------------------------------------------------------
 // Event listener tracking
 // ---------------------------------------------------------------------------
@@ -290,6 +298,10 @@ vi.mock('./profile', () => ({ renderProfile: vi.fn() }));
 vi.mock('./lobby-page', () => ({ renderLobbyPage: vi.fn() }));
 vi.mock('./friends', () => ({ renderFriendsPage: vi.fn() }));
 
+vi.mock('./leaderboard-page', () => ({ renderLeaderboardPage: vi.fn() }));
+
+vi.mock('../server/tournament', () => ({}));
+
 vi.mock('./word-display', () => ({
   WordDisplay: vi.fn(function () {
     return {
@@ -370,11 +382,12 @@ describe('main module orchestration', () => {
     });
 
     // Reset router mocks so call counts are fresh per test
-    const { router: routerMock } = require('./router') as any;
-    if (routerMock.registerPage) (routerMock.registerPage as any).mockClear();
-    if (routerMock.navigate) (routerMock.navigate as any).mockClear();
-    if (routerMock.getCurrentPage) (routerMock.getCurrentPage as any).mockClear();
-    if (routerMock.getPageContainer) (routerMock.getPageContainer as any).mockClear();
+    if (routerMockRef) {
+      if (routerMockRef.registerPage) routerMockRef.registerPage.mockClear();
+      if (routerMockRef.navigate) routerMockRef.navigate.mockClear();
+      if (routerMockRef.getCurrentPage) routerMockRef.getCurrentPage.mockClear();
+      if (routerMockRef.getPageContainer) routerMockRef.getPageContainer.mockClear();
+    }
   });
 
   /**
@@ -384,6 +397,19 @@ describe('main module orchestration', () => {
   async function loadAndInit() {
     if (!moduleLoaded) {
       await import('./main');
+      // Capture mock references after module loads (ESM-safe)
+      const routerMod = await import('./router');
+      routerMockRef = routerMod.router;
+      const authMod = await import('./auth');
+      authMockRef = authMod;
+      const dashMod = await import('./dashboard');
+      dashboardMockRef = dashMod;
+      const profMod = await import('./profile');
+      profileMockRef = profMod;
+      const lobbyMod = await import('./lobby-page');
+      lobbyMockRef = lobbyMod;
+      const friendsMod = await import('./friends');
+      friendsMockRef = friendsMod;
       moduleLoaded = true;
     }
     simulateDocumentEvent('DOMContentLoaded');
