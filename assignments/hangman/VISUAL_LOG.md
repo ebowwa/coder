@@ -17960,3 +17960,113 @@ Starting point before visual improvements.
 > Yes, UI is rendered. Visible components: name input, color selector, "Create New Room" button, "OR" divider, room code input, "Join as Player", "Join as Spectator", "Play Single Player" buttons. No errors observed.
 
 ---
+
+## 2026-04-14T04:15:51.370Z -- Task `task_1776139490064_j4dhej` -- `#auth` (mobile 375x812)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** OK  **Latency:** 28042ms
+
+![auth-mobile](visuals/auth-mobile-2026-04-14T04-15-23-321Z.png)
+
+> Visible components: Title "Hangman", "Multiplayer Mode" subtitle, name input ("CleverBear46"), color selector, "Create New Room" button, "OR" text, room code input, "Join as Player"/"Spectator" buttons, "Play Single Player" button, "Not connected" status. No rendering errors—all elements display properly.
+
+---
+
+## 2026-04-14T04:21:16.806Z -- Task `task_1776139490064_j4dhej` -- `#dashboard` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** OK  **Latency:** 325430ms
+
+![dashboard-desktop](visuals/dashboard-desktop-2026-04-14T04-15-51-374Z.png)
+
+> The UI for route "#dashboard" is not rendered; the displayed screen is a multiplayer setup interface. Visible components include name input, color selector, "Create New Room" button, room code input, "Join as Player"/"Join as Spectator" buttons, and "Play Single Player" button. Error: Incorrect route rendering (multiplayer setup instead of dashboard).
+
+---
+
+## 2026-04-14T04:21:58.947Z -- Task `task_1776139490064_j4dhej` -- `#dashboard` (mobile 375x812)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** OK  **Latency:** 42103ms
+
+![dashboard-mobile](visuals/dashboard-mobile-2026-04-14T04-21-16-820Z.png)
+
+> The UI is rendered. Visible components include "Hangman" title, "Multiplayer Mode" subtitle, name input ("CleverBear30"), color picker (red selected), "Create New Room" button, "OR" text, room code input, "Join as Player"/"Spectator" buttons, "Play Single Player" button, and "Not connected" status. No errors detected.
+
+---
+
+## 2026-04-14T04:22:30.981Z -- Task `task_1776139490064_j4dhej` -- `#lobby` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** OK  **Latency:** 31848ms
+
+![lobby-desktop](visuals/lobby-desktop-2026-04-14T04-21-59-047Z.png)
+
+> The UI is rendered. Visible components include name input, color selectors, "Create New Room" button, "OR" separator, room code input, "Join as Player", "Join as Spectator", and "Play Single Player" buttons. No errors observed.
+
+---
+
+## 2026-04-14T04:23:00.482Z -- Task `task_1776139490064_j4dhej` -- `#lobby` (mobile 375x812)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** OK  **Latency:** 29340ms
+
+![lobby-mobile](visuals/lobby-mobile-2026-04-14T04-22-31-067Z.png)
+
+> Yes, UI is rendered. Visible components: Hangman title, Multiplayer Mode subtitle, name input (CleverPanda91), color options, Create New Room button, OR text, room code input, Join as Player/Join as Spectator/Play Single Player buttons, Not connected status. No errors.
+
+---
+
+## 2026-04-14T04:23:39.120Z -- Task `task_1776139490064_j4dhej` -- `#profile` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** OK  **Latency:** 38405ms
+
+![profile-desktop](visuals/profile-desktop-2026-04-14T04-23-00-619Z.png)
+
+> Got it, let's check. The user is asking about the "#profile" route on desktop 1280x720. First, look at the image provided. Wait, the image shows a multiplayer mode setup with name input, color selection, create/join room buttons. But the route is #profile—maybe there's a mismatch? Wait, no, maybe the image is for a different route? Wait, the question says "Route '#profile'", but the image might be showing a different page. Wait, no, maybe I need to check if the UI is rendered. The visible components here are: Your Name input (BravePhoenix66), Your Color circles (red, teal, yellow, light teal, coral, purple, pink, light blue), Create New Room button, OR text, Room Code input, Join as Player button, Join as Spectator button, Play Single Player button. But wait, is this the profile route? Maybe the image is not matching the route. Wait, the user might have a mistake, but the task is to list visible components and errors. So first, is the UI rendered? Yes, all elements are visible. Visible components: name input, color selector, create room button, room code input, join player/spectator buttons, play single player button. Errors? Maybe the route doesn't match (since it's showing multiplayer setup instead of profile), but the question is about whether the UI is rendered. Wait, the user said "Is the UI rendered?" So answer: Yes, UI is rendered. Visible components: Name input, color selector, create room button, room code input, join player/spectator buttons, play single player button. No obvious errors in rendering, but route may be incorrect (showing multiplayer instead of profile). But need to keep it concise. Let me structure: Yes, UI is rendered. Visible components: Name input field, color selection circles, “Create New Room” button, room code input, “Join as Player/Spectator” buttons, “Play Single Player” button. No rendering errors, but route may not align with content (shows multiplayer setup instead of profile). Wait, but the user asked for 2 sentences max. So first sentence: Yes, the UI is rendered. Visible components include name input, color selector, create room button, room code input, join player/spectator buttons, and play single player button. Second sentence: No rendering errors, but the displayed content (multiplayer setup) does not match the expected "#profile
+
+---
+
+## 2026-04-14T04:23:54.440Z -- Task `task_1776139490064_j4dhej` -- `#profile` (mobile 375x812)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** OK  **Latency:** 15148ms
+
+![profile-mobile](visuals/profile-mobile-2026-04-14T04-23-39-292Z.png)
+
+> Visible components: Title ("Hangman"), subtitle ("Multiplayer Mode"), name input ("CleverDragon28"), color selector (7 circles), "Create New Room" button, "OR" text, room code input (dashes), "Join as Player"/"Spectator" buttons, "Play Single Player" button, "Not connected" status. No rendering errors observed.
+
+---
+
+## 2026-04-14T04:24:31.708Z -- Task `task_1776139490064_j4dhej` -- `#friends` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** OK  **Latency:** 37106ms
+
+![friends-desktop](visuals/friends-desktop-2026-04-14T04-23-54-467Z.png)
+
+> UI is rendered. Visible components: Name input field, color selection circles, “Create New Room” button, “Room Code” input, “Join as Player,” “Join as Spectator,” and “Play Single Player” buttons. Error: Incorrect route (displays multiplayer setup instead of friends-related content).
+
+---
+
+## 2026-04-14T04:26:16.784Z -- Task `task_1776139490064_j4dhej` -- `#game` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#game  **Verdict:** OK  **Latency:** 62645ms
+
+![game-desktop](visuals/game-desktop-2026-04-14T04-25-14-133Z.png)
+
+> Visible components: Name input (CleverDragon47), color selector, “Create New Room” button, “OR” text, room code input, “Join as Player,” “Join as Spectator,” “Play Single Player” buttons. No rendering errors observed.
+
+---
+
+## 2026-04-14T04:26:45.257Z -- Task `task_1776139490064_j4dhej` -- `#game` (mobile 375x812)
+
+**URL:** http://localhost:3000/#game  **Verdict:** OK  **Latency:** 28417ms
+
+![game-mobile](visuals/game-mobile-2026-04-14T04-26-16-830Z.png)
+
+> Yes, UI is rendered. Visible components: Hangman title, Multiplayer Mode subtitle, name input, color options, Create New Room button, OR text, room code input, Join as Player/Join as Spectator/Play Single Player buttons, Not connected status. No errors.
+
+---
+
+## 2026-04-14T04:28:29.726Z -- Task `task_1776140152897_7b9a2l` -- `/` (desktop 1280x720)
+
+**URL:** http://localhost:3000  **Verdict:** OK  **Latency:** 47593ms
+
+![home-desktop](visuals/home-desktop-2026-04-14T04-27-41-974Z.png)
+
+> Visible components: Name input, color selector, "Create New Room" button, "OR" divider, room code input, "Join as Player", "Join as Spectator", "Play Single Player" buttons. No rendering errors detected.
+
+---
