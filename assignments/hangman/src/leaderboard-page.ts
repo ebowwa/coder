@@ -7,6 +7,7 @@
 
 import { Leaderboard } from './leaderboard';
 import { router } from './router';
+import { escapeHtml } from './escape-html';
 
 const API = '';
 
@@ -153,7 +154,7 @@ function renderLeaderboardRows(entries: ReturnType<Leaderboard['getTopScores']>)
         align-items: center;
       ">
         <span style="color: ${rankColor}; font-weight: bold; font-size: 0.9em;">${rank}</span>
-        <span style="color: #fff; font-size: 0.9em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${entry.playerName}</span>
+        <span style="color: #fff; font-size: 0.9em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(entry.playerName)}</span>
         <span style="color: #4ecdc4; font-size: 0.85em; font-weight: bold; text-align: right;">${entry.score.toLocaleString()}</span>
         <span style="color: #aaa; font-size: 0.85em; text-align: right;">${playerStats.gamesPlayed}</span>
         <span style="color: #ffe66d; font-size: 0.85em; text-align: right;">${playerStats.bestScore}</span>
@@ -207,10 +208,10 @@ function renderCategoryBreakdown(categories: string[]): string {
         display: flex; justify-content: space-between; align-items: center;
         padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05);
       ">
-        <span style="color: #aaa; font-size: 0.85em;">${cat}</span>
+        <span style="color: #aaa; font-size: 0.85em;">${escapeHtml(cat)}</span>
         <div>
           <span style="color: #4ecdc4; font-size: 0.85em; font-weight: bold;">${topScore}</span>
-          <span style="color: #666; font-size: 0.75em; margin-left: 4px;">${topPlayer}</span>
+          <span style="color: #666; font-size: 0.75em; margin-left: 4px;">${escapeHtml(topPlayer)}</span>
         </div>
       </div>
     `;
@@ -231,7 +232,7 @@ function renderRecentEntries(entries: ReturnType<Leaderboard['getTopScores']>): 
         padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05);
       ">
         <div>
-          <div style="color: #fff; font-size: 0.85em;">${entry.playerName}</div>
+          <div style="color: #fff; font-size: 0.85em;">${escapeHtml(entry.playerName)}</div>
           <div style="color: #666; font-size: 0.75em;">${timeAgo}</div>
         </div>
         <span style="color: #4ecdc4; font-size: 0.85em; font-weight: bold;">${entry.score}</span>

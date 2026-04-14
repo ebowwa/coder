@@ -224,7 +224,7 @@ async function loadRooms(container: HTMLDivElement, token: string | null): Promi
           <div style="color: #4ecdc4; font-size: 1.2em; font-weight: bold;">${room.players.length}/${room.maxPlayers}</div>
           <div style="color: #666; font-size: 0.75em;">Players</div>
         </div>
-        <button data-code="${room.code}" class="join-room-btn" style="
+        <button data-code="${escapeHtml(room.code)}" class="join-room-btn" style="
           padding: 10px 20px; border: none; border-radius: 8px;
           background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
           color: #fff; font-weight: bold; cursor: pointer; font-size: 0.9em;

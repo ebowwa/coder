@@ -4,6 +4,7 @@
  */
 
 import { router } from "./router";
+import { escapeHtml } from "./escape-html";
 
 const API = "";
 
@@ -22,7 +23,7 @@ export function renderDashboard(container: HTMLDivElement): void {
       ">
         <div>
           <h2 style="color: #fff; margin: 0 0 6px; font-size: 1.6em;">
-            Welcome back, ${user.displayName || user.username || "Player"}!
+            Welcome back, ${escapeHtml(user.displayName || user.username || "Player")}!
           </h2>
           <p style="color: #888; margin: 0; font-size: 0.95em;" id="dash-stats-line">Loading stats...</p>
         </div>
@@ -167,16 +168,16 @@ async function loadDashboard(container: HTMLDivElement, token: string | null): P
             padding: 10px; margin-bottom: 8px;
             background: rgba(255,255,255,0.03); border-radius: 8px;
             cursor: pointer;
-          " data-room="${g.code}">
+          " data-room="${escapeHtml(g.code)}">
             <div>
-              <div style="color: #fff; font-size: 0.9em;">${g.name}</div>
+              <div style="color: #fff; font-size: 0.9em;">${escapeHtml(g.name)}</div>
               <div style="color: #666; font-size: 0.8em;">${g.players?.length || 0}/${g.maxPlayers} players</div>
             </div>
             <span style="
               padding: 4px 10px; border-radius: 6px; font-size: 0.8em;
               background: ${g.status === "playing" ? "rgba(78,205,196,0.2)" : "rgba(255,230,109,0.2)"};
               color: ${g.status === "playing" ? "#4ecdc4" : "#ffe66d"};
-            ">${g.status}</span>
+            ">${escapeHtml(g.status)}</span>
           </div>
         `).join("");
       }
@@ -199,7 +200,7 @@ async function loadDashboard(container: HTMLDivElement, token: string | null): P
               width: 24px; color: ${i === 0 ? "#ffd700" : i === 1 ? "#c0c0c0" : i === 2 ? "#cd7f32" : "#666"};
               font-weight: bold; font-size: 0.9em;
             ">${i + 1}</span>
-            <span style="flex: 1; color: #fff; font-size: 0.9em;">${e.playerName}</span>
+            <span style="flex: 1; color: #fff; font-size: 0.9em;">${escapeHtml(e.playerName)}</span>
             <span style="color: #4ecdc4; font-size: 0.85em; font-weight: bold;">${e.score}</span>
           </div>
         `).join("");

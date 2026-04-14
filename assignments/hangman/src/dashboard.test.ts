@@ -707,4 +707,130 @@ describe('dashboard', () => {
       expect(headers.Authorization).toBe('Bearer null');
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // XSS prevention
+  // ---------------------------------------------------------------------------
+
+  describe('XSS prevention', () => {
+    it('escapes XSS in active game name', async () => {
+      seedLocalStorage();
+      fetchSpy.mockResolvedValue(
+        makeDashboardResponse({
+          stats: {},
+          activeGames: [
+            {
+              code: 'XSS',
+              name: '<script>alert("xss")</script>',
+              players: ['p1'],
+              maxPlayers: 4,
+              status: 'playing',
+            },
+          ],
+          leaderboard: [],
+        }),
+      );
+
+      const { renderDashboard } = await import('./dashboard');
+      renderDashboard(container);
+
+      await flushAsync();
+
+      const activeEl = container.querySelector('#active-games')!;
+      expect(activeEl.innerHTML).not.toContain('<script>');
+      expect(activeEl.innerHTML).toContain('&lt;script&gt;');
+    });
+
+    it('escapes XSS in leaderboard player name', async () => {
+      seedLocalStorage();
+      fetchSpy.mockResolvedValue(
+        makeDashboardResponse({
+          stats: {},
+          activeGames: [],
+          leaderboard: [
+            { playerName: '<img src=x onerror=alert(1)>', score: 100 },
+          ],
+        }),
+      );
+
+      const { renderDashboard } = await import('./dashboard');
+      renderDashboard(container);
+
+      await flushAsync();
+
+      const lbEl = container.querySelector('#leaderboard-list')!;
+      expect(lbEl.innerHTML).not.toContain('<img');
+      expect(lbEl.innerHTML).toContain('&lt;img');
+    });
+
+    it('escapes XSS in welcome banner username', async () => {
+      seedLocalStorage({ displayName: '<script>alert("hi")</script>' });
+
+      const { renderDashboard } = await import('./dashboard');
+      renderDashboard(container);
+
+      const h2 = container.querySelector('h2');
+      expect(h2!.innerHTML).not.toContain('<script>');
+      expect(h2!.innerHTML).toContain('&lt;script&gt;');
+    });
+
+    it('escapes XSS in active game status', async () => {
+      seedLocalStorage();
+      fetchSpy.mockResolvedValue(
+        makeDashboardResponse({
+          stats: {},
+          activeGames: [
+            {
+              code: 'A',
+              name: 'Room',
+              players: [],
+              maxPlayers: 4,
+              status: '<b>bold</b>',
+            },
+          ],
+          leaderboard: [],
+        }),
+      );
+
+      const { renderDashboard } = await import('./dashboard');
+      renderDashboard(container);
+
+      await flushAsync();
+
+      const activeEl = container.querySelector('#active-games')!;
+      expect(activeEl.innerHTML).not.toContain('<b>bold</b>');
+      expect(activeEl.innerHTML).toContain('&lt;b&gt;bold&lt;/b&gt;');
+    });
+
+    it('escapes XSS in active game code data attribute', async () => {
+      seedLocalStorage();
+      fetchSpy.mockResolvedValue(
+        makeDashboardResponse({
+          stats: {},
+          activeGames: [
+            {
+              code: '"><script>alert(1)</script>',
+              name: 'Room',
+              players: [],
+              maxPlayers: 4,
+              status: 'playing',
+            },
+          ],
+          leaderboard: [],
+        }),
+      );
+
+      const { renderDashboard } = await import('./dashboard');
+      renderDashboard(container);
+
+      await flushAsync();
+
+      const activeEl = container.querySelector('#active-games')!;
+      // The escaped code can't break out of the attribute to inject scripts
+      // When innerHTML reads back the attribute, &quot; gets normalized
+      // but the core check is that no actual <script> element is created
+      const scriptElements = activeEl.querySelectorAll('script');
+      expect(scriptElements.length).toBe(0);
+    });
+  });
 });

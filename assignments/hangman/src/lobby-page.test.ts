@@ -1281,9 +1281,50 @@ describe('lobby-page', () => {
       await renderLobby(container);
       await flushAsync();
 
-      // innerHTML renders the content, but check it doesn't crash
       const roomsList = container.querySelector('#rooms-list');
       expect(roomsList).toBeTruthy();
+      // XSS content should be escaped, not rendered as HTML
+      expect(roomsList!.innerHTML).not.toContain('<script>');
+      expect(roomsList!.innerHTML).toContain('&lt;script&gt;');
+    });
+
+    it('escapes XSS in host name', async () => {
+      const rooms = [{
+        name: 'Normal',
+        code: 'XSS2',
+        hostName: '<img src=x onerror=alert(1)>',
+        category: 'any',
+        difficulty: 'any',
+        visibility: 'public',
+        players: [],
+        maxPlayers: 4,
+      }];
+      fetchSpy.mockResolvedValue(makeRoomsResponse(rooms));
+      await renderLobby(container);
+      await flushAsync();
+
+      const roomsList = container.querySelector('#rooms-list')!;
+      expect(roomsList.innerHTML).not.toContain('<img');
+      expect(roomsList.innerHTML).toContain('&lt;img');
+    });
+
+    it('escapes XSS in room code data attribute', async () => {
+      const rooms = [{
+        name: 'Test',
+        code: '"><script>alert(1)</script>',
+        hostName: 'Host',
+        category: 'any',
+        difficulty: 'any',
+        visibility: 'public',
+        players: [],
+        maxPlayers: 4,
+      }];
+      fetchSpy.mockResolvedValue(makeRoomsResponse(rooms));
+      await renderLobby(container);
+      await flushAsync();
+
+      const roomsList = container.querySelector('#rooms-list')!;
+      expect(roomsList.innerHTML).not.toContain('<script>');
     });
 
     it('renders rooms with unicode characters in host name', async () => {
