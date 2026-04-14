@@ -48,6 +48,7 @@ import { renderDashboard } from './dashboard';
 import { renderProfile } from './profile';
 import { renderLobbyPage } from './lobby-page';
 import { renderFriendsPage } from './friends';
+import { renderLeaderboardPage } from './leaderboard-page';
 
 type GameMode = 'single' | 'multiplayer' | 'none';
 
@@ -1196,6 +1197,13 @@ document.addEventListener('DOMContentLoaded', () => {
     render: (container) => {
       const content = container.querySelector('#page-content') as HTMLDivElement || container;
       renderFriendsPage(content);
+    },
+  });
+
+  router.registerPage('leaderboard', {
+    render: (container) => {
+      const content = container.querySelector('#page-content') as HTMLDivElement || container;
+      renderLeaderboardPage(content);
     },
   });
 

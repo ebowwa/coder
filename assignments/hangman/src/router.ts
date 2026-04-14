@@ -3,7 +3,7 @@
  * Handles page navigation, auth state, and view rendering
  */
 
-export type PageName = "auth" | "dashboard" | "lobby" | "profile" | "friends" | "game";
+export type PageName = "auth" | "dashboard" | "lobby" | "profile" | "friends" | "leaderboard" | "game";
 
 interface RouteState {
   currentPage: PageName;
@@ -106,6 +106,13 @@ class Router {
             color: ${currentPage === "friends" ? "#4ecdc4" : "#aaa"};
             transition: all 0.2s;
           ">Friends</button>
+          <button data-page="leaderboard" style="
+            padding: 8px 16px; border: none; border-radius: 8px; cursor: pointer;
+            font-size: 0.9em; font-weight: 500;
+            background: ${currentPage === "leaderboard" ? "rgba(78,205,196,0.2)" : "transparent"};
+            color: ${currentPage === "leaderboard" ? "#4ecdc4" : "#aaa"};
+            transition: all 0.2s;
+          ">Leaderboard</button>
           <button data-page="profile" style="
             padding: 8px 16px; border: none; border-radius: 8px; cursor: pointer;
             font-size: 0.9em; font-weight: 500;
