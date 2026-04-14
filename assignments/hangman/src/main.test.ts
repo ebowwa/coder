@@ -59,6 +59,7 @@ globalThis.document = {
     return createMockElement(tagName);
   }),
   body: mockBody,
+  head: mockBody,
   addEventListener: vi.fn((type: string, listener: EventListener) => {
     if (!documentEventListeners.has(type)) {
       documentEventListeners.set(type, []);
