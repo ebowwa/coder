@@ -17740,3 +17740,63 @@ Starting point before visual improvements.
 > The UI is rendered as a browser error page, not the app’s intended interface. Visible components: error icon, “This site can’t be reached” title, “localhost refused to connect” message, “Try:” section (bullet points), error code, and Details button. Error: ERR_CONNECTION_REFUSED (connection issue).
 
 ---
+
+## 2026-04-14T03:48:41.580Z -- Task `task_1776106189424_uqp9gl` -- `#auth` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** OK  **Latency:** 39845ms
+
+![auth-desktop](visuals/auth-desktop-2026-04-14T03-48-01-734Z.png)
+
+> The UI for route "#auth" is not rendered; the browser displays a connection error page. Visible components include the error message ("This site can’t be reached"), "Details" and "Reload" buttons, with an "ERR_CONNECTION_REFUSED" error.
+
+---
+
+## 2026-04-14T03:49:13.244Z -- Task `task_1776106189424_uqp9gl` -- `#auth` (mobile 375x812)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** OK  **Latency:** 31649ms
+
+![auth-mobile](visuals/auth-mobile-2026-04-14T03-48-41-588Z.png)
+
+> The UI is not the intended auth interface; it shows a connection error. Visible components: error icon, “This site can’t be reached” text, “localhost refused to connect” message, bullet points (“Checking the connection,” “Checking the proxy and the firewall”), “ERR_CONNECTION_REFUSED” code, and “Details” button. Error: Connection refused, so auth UI failed to load.
+
+---
+
+## 2026-04-14T03:49:39.565Z -- Task `task_1776106189424_uqp9gl` -- `#dashboard` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** OK  **Latency:** 26140ms
+
+![dashboard-desktop](visuals/dashboard-desktop-2026-04-14T03-49-13-375Z.png)
+
+> No, the UI is not rendered; it shows a connection error page. Visible components: error icon, “This site can’t be reached” text, “localhost refused to connect” message, troubleshooting steps, ERR_CONNECTION_REFUSED code, Details button, Reload button. Error: Connection refused (ERR_CONNECTION_REFUSED).
+
+---
+
+## 2026-04-14T03:53:04.571Z -- Task `task_1776106189424_uqp9gl` -- `#profile` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** OK  **Latency:** 44655ms
+
+![profile-desktop](visuals/profile-desktop-2026-04-14T03-52-19-916Z.png)
+
+> No, the UI is not rendered; the browser shows a connection error page. Visible components include the error message, troubleshooting steps, error code, and “Details”/“Reload” buttons. Error: Site failed to connect (ERR_CONNECTION_REFUSED).
+
+---
+
+## 2026-04-14T03:55:20.057Z -- Task `task_1776106189424_uqp9gl` -- `#friends` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** OK  **Latency:** 91267ms
+
+![friends-desktop](visuals/friends-desktop-2026-04-14T03-53-48-734Z.png)
+
+> The UI for route "#friends" is not rendered; the browser displays a connection error page. Visible components include the error message, troubleshooting steps, error code (ERR_CONNECTION_REFUSED), "Details" and "Reload" buttons. Error: Connection to localhost failed, preventing the intended UI from loading.
+
+---
+
+## 2026-04-14T04:02:03.067Z -- Task `task_1776106189424_uqp9gl` -- `#game` (mobile 375x812)
+
+**URL:** http://localhost:3000/#game  **Verdict:** OK  **Latency:** 261081ms
+
+![game-mobile](visuals/game-mobile-2026-04-14T03-57-41-986Z.png)
+
+> The UI is not the intended game interface; an error page is displayed. Visible components: error icon, “This site can’t be reached” text, “localhost refused to connect” message, troubleshooting steps, error code, and “Details” button. Error: Site unreachable (ERR_CONNECTION_REFUSED), so the game UI fails to load.
+
+---
