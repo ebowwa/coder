@@ -23574,3 +23574,93 @@ Starting point before visual improvements.
 > The UI shown is not the "#leaderboard" route; it displays a Hangman multiplayer setup screen. Visible components include the title, name/color inputs, room creation/join buttons, and connection status. Error: Mismatch between requested route and rendered screen.
 
 ---
+
+## 2026-04-14T20:07:11.216Z -- Task `task_1776196987466_lkfi5z` -- `#auth` (mobile 375x812)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** OK  **Latency:** 32249ms
+
+![auth-mobile](visuals/auth-mobile-2026-04-14T20-06-38-966Z.png)
+
+> Yes, UI is rendered. Visible components: Hangman title, Multiplayer Mode subtitle, name input, color options, Create New Room button, OR text, room code input, Join as Player/Join as Spectator/Play Single Player buttons, Not connected status. No errors.
+
+---
+
+## 2026-04-14T20:07:49.992Z -- Task `task_1776196784027_xgw410` -- `#game` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#game  **Verdict:** FAILED  **Latency:** 53903ms
+
+![game-desktop](visuals/game-desktop-2026-04-14T20-06-56-087Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-14T20:08:08.729Z -- Task `task_1776196987466_lkfi5z` -- `#dashboard` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** OK  **Latency:** 57503ms
+
+![dashboard-desktop](visuals/dashboard-desktop-2026-04-14T20-07-11-225Z.png)
+
+> The UI is rendered but does not display the expected "#dashboard" content (shows a multiplayer lobby instead). Visible components include name/color inputs, "Create New Room"/"Join as Player"/"Join as Spectator"/"Play Single Player" buttons, and an "OR" divider; no critical rendering errors in
+
+---
+
+## 2026-04-14T20:08:46.726Z -- Task `task_1776196784027_xgw410` -- `#game` (mobile 375x812)
+
+**URL:** http://localhost:3000/#game  **Verdict:** FAILED  **Latency:** 56690ms
+
+![game-mobile](visuals/game-mobile-2026-04-14T20-07-50-027Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-14T20:08:56.138Z -- Task `task_1776196987466_lkfi5z` -- `#dashboard` (mobile 375x812)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** OK  **Latency:** 47404ms
+
+![dashboard-mobile](visuals/dashboard-mobile-2026-04-14T20-08-08-734Z.png)
+
+> The UI is rendered. Visible components: "Hangman" title, "Multiplayer Mode" subtitle, name input field, color selection circles, "Create New Room" button, "OR" separator, room code input, "Join as Player"/"Join as Spectator"/"Play Single Player" buttons, "Not connected" status. No errors observed.
+
+---
+
+## 2026-04-14T20:09:30.378Z -- Task `task_1776196987466_lkfi5z` -- `#lobby` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** OK  **Latency:** 34180ms
+
+![lobby-desktop](visuals/lobby-desktop-2026-04-14T20-08-56-198Z.png)
+
+> The lobby UI is not rendered; instead, a connection error page appears. Visible components: error icon, “This site can’t be reached” text, “localhost refused to connect” message, troubleshooting steps, ERR_CONNECTION_REFUSED code, Details button, Reload button. Error: Connection refused (site unreachable).
+
+---
+
+## 2026-04-14T20:10:06.590Z -- Task `task_1776196987466_lkfi5z` -- `#lobby` (mobile 375x812)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** OK  **Latency:** 36195ms
+
+![lobby-mobile](visuals/lobby-mobile-2026-04-14T20-09-30-395Z.png)
+
+> No, the intended lobby UI isn’t rendered; an error page appears instead. Visible components: error icon, “This site can’t be reached” text, localhost refusal message, troubleshooting steps, ERR_CONNECTION_REFUSED code, and Details button.
+
+---
+
+## 2026-04-14T20:10:41.961Z -- Task `task_1776197270128_vx7uoc` -- `/` (desktop 1280x720)
+
+**URL:** http://localhost:3000  **Verdict:** OK  **Latency:** 39578ms
+
+![home-desktop](visuals/home-desktop-2026-04-14T20-10-02-377Z.png)
+
+> Visible components: Name input, color selector, "Create New Room" button, "OR" divider, room code input, "Join as Player", "Join as Spectator", "Play Single Player" buttons. No rendering errors detected.
+
+---
+
+## 2026-04-14T20:10:45.267Z -- Task `task_1776196987466_lkfi5z` -- `#profile` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** OK  **Latency:** 38582ms
+
+![profile-desktop](visuals/profile-desktop-2026-04-14T20-10-06-685Z.png)
+
+> The UI is rendered but does not match the "#profile" route (displays multiplayer setup instead). Visible components: name input, color selector, "Create New Room" button, room code input, "Join as Player"/"Spectator" buttons, "Play Single Player" button. Error: incorrect route content.
+
+---
