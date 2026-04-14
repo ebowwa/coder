@@ -4,6 +4,7 @@
 
 import { router } from "./router";
 import { LoadingOverlay } from "./loading-overlay";
+import { escapeHtml } from "./escape-html";
 
 const API = "";
 
@@ -207,24 +208,24 @@ async function loadRooms(container: HTMLDivElement, token: string | null): Promi
       ">
         <div style="flex: 1;">
           <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-            <span style="color: #fff; font-weight: bold; font-size: 1em;">${room.name}</span>
+            <span style="color: #fff; font-weight: bold; font-size: 1em;">${escapeHtml(room.name)}</span>
             <span style="
               padding: 2px 8px; border-radius: 4px; font-size: 0.7em;
               background: ${room.visibility === "private" ? "rgba(170,150,218,0.2)" : "rgba(78,205,196,0.2)"};
               color: ${room.visibility === "private" ? "#aa96da" : "#4ecdc4"};
-            ">${room.visibility}</span>
+            ">${escapeHtml(room.visibility)}</span>
           </div>
           <div style="display: flex; gap: 12px; color: #666; font-size: 0.8em;">
-            <span>Host: ${room.hostName}</span>
-            <span>Category: ${room.category}</span>
-            <span>Difficulty: ${room.difficulty}</span>
+            <span>Host: ${escapeHtml(room.hostName)}</span>
+            <span>Category: ${escapeHtml(room.category)}</span>
+            <span>Difficulty: ${escapeHtml(room.difficulty)}</span>
           </div>
         </div>
         <div style="text-align: center; margin: 0 16px;">
           <div style="color: #4ecdc4; font-size: 1.2em; font-weight: bold;">${room.players.length}/${room.maxPlayers}</div>
           <div style="color: #666; font-size: 0.75em;">Players</div>
         </div>
-        <button data-code="${escapeHtml(room.code)}" class="join-room-btn" style="
+        <button data-code="${room.code.replace(/["'<>]/g, '')}" class="join-room-btn" style="
           padding: 10px 20px; border: none; border-radius: 8px;
           background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
           color: #fff; font-weight: bold; cursor: pointer; font-size: 0.9em;
