@@ -284,6 +284,16 @@ export class PredictionUI {
    * @returns {void}
    */
   hide(): void {
+    // Clean up keyboard listener
+    if (this.handleKeyDown) {
+      document.removeEventListener('keydown', this.handleKeyDown);
+      this.handleKeyDown = null;
+    }
+    // Clean up focus trap
+    if (this.cleanupFocusTrap) {
+      this.cleanupFocusTrap();
+      this.cleanupFocusTrap = null;
+    }
     if (this.modal) {
       if (this.modal.parentNode) {
         this.modal.parentNode.removeChild(this.modal);
