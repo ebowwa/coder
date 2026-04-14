@@ -1,0 +1,208 @@
+// Simple visualization script to show the game
+import { writeFileSync } from 'fs';
+import { join } from 'path';
+
+// Create an HTML visualization of the game state
+const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hangman Game Visualization</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a3e 0%, #2d1b69 100%);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            background: linear-gradient(135deg, #4ecdc4 0%, #44a08d 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .game-state {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        .feature-box {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .feature-box h3 {
+            margin-bottom: 15px;
+            color: #4ecdc4;
+            font-size: 1.3em;
+        }
+        .feature-list {
+            list-style: none;
+        }
+        .feature-list li {
+            margin-bottom: 10px;
+            padding-left: 20px;
+            position: relative;
+        }
+        .feature-list li:before {
+            content: "▸";
+            position: absolute;
+            left: 0;
+            color: #4ecdc4;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .stat-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .stat-label {
+            color: #888;
+            font-size: 0.9em;
+        }
+        .code-section {
+            background: #0a0a0f;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .code-block {
+            background: #1a1a2e;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            color: #4ecdc4;
+        }
+        .note {
+            text-align: center;
+            color: #888;
+            font-style: italic;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Hangman 3D Spelling Prediction Game</h1>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value">3D</div>
+                <div class="stat-label">Graphics</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">2</div>
+                <div class="stat-label">Game Modes</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">38</div>
+                <div class="stat-label">Test Files</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">5+</div>
+                <div class="stat-label">Categories</div>
+            </div>
+        </div>
+        
+        <div class="game-state">
+            <div class="feature-box">
+                <h3>🎮 Single Player Mode</h3>
+                <ul class="feature-list">
+                    <li>Word fetching from API with fallback</li>
+                    <li>Difficulty progression system</li>
+                    <li>Hint system with score penalty</li>
+                    <li>Accessibility features</li>
+                    <li>Particle effects and animations</li>
+                </ul>
+            </div>
+            
+            <div class="feature-box">
+                <h3>👥 Multiplayer Mode</h3>
+                <ul class="feature-list">
+                    <li>Real-time WebSocket sync</li>
+                    <li>Room-based gameplay</li>
+                    <li>Turn-based letter guessing</li>
+                    <li>Player avatars with animations</li>
+                    <li>Tournament support</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="game-state">
+            <div class="feature-box">
+                <h3>🏗️ SaaS Platform</h3>
+                <ul class="feature-list">
+                    <li>User authentication</li>
+                    <li>Dashboard with stats</li>
+                    <li>Friends system</li>
+                    <li>Global leaderboard</li>
+                    <li>Profile management</li>
+                </ul>
+            </div>
+            
+            <div class="feature-box">
+                <h3>♿ Accessibility</h3>
+                <ul class="feature-list">
+                    <li>Keyboard navigation</li>
+                    <li>Screen reader support</li>
+                    <li>ARIA labels</li>
+                    <li>Focus management</li>
+                    <li>High contrast mode</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="code-section">
+            <h3>Key Technologies</h3>
+            <div class="code-block">
+                Three.js - 3D graphics & animations<br>
+                Bun - Runtime & bundler<br>
+                TypeScript - Type safety<br>
+                WebSocket - Real-time multiplayer<br>
+                Vitest - Testing framework
+            </div>
+        </div>
+        
+        <div class="note">
+            🎯 Navigate to http://localhost:3000 to see the live game!
+        </div>
+    </div>
+</body>
+</html>
+`;
+
+writeFileSync(join(__dirname, 'visualization.html'), html);
+console.log('Visualization created: visualization.html');
