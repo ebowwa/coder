@@ -357,8 +357,9 @@ describe('main module orchestration', () => {
   let moduleLoaded = false;
 
   beforeEach(() => {
-    windowEventListeners.clear();
-    documentEventListeners.clear();
+    // Only clear animation frames - NOT the event listener maps,
+    // since those were populated during the one-time module import and
+    // clearing them would lose the real listeners.
     animationFrameCallbacks = [];
     localStorageStore['hm_token'] = 'valid-token';
 
@@ -367,6 +368,13 @@ describe('main module orchestration', () => {
       ok: true,
       json: () => Promise.resolve({ word: 'HELLO', category: 'greetings', difficulty: 1 }),
     });
+
+    // Reset router mocks so call counts are fresh per test
+    const { router: routerMock } = require('./router') as any;
+    if (routerMock.registerPage) (routerMock.registerPage as any).mockClear();
+    if (routerMock.navigate) (routerMock.navigate as any).mockClear();
+    if (routerMock.getCurrentPage) (routerMock.getCurrentPage as any).mockClear();
+    if (routerMock.getPageContainer) (routerMock.getPageContainer as any).mockClear();
   });
 
   /**
@@ -455,7 +463,7 @@ describe('main module orchestration', () => {
 
     it('creates OrbitControls', async () => {
       await loadAndInit();
-      const { default: OrbitControls } = await import('three/examples/jsm/controls/OrbitControls.js');
+      const { OrbitControls } = await import('three/examples/jsm/controls/OrbitControls.js');
       expect(OrbitControls).toHaveBeenCalled();
     });
 
@@ -612,10 +620,10 @@ describe('main module orchestration', () => {
       expect(router.registerPage).toHaveBeenCalledWith('game', expect.any(Object));
     });
 
-    it('registers exactly 6 pages', async () => {
+    it('registers exactly 7 pages', async () => {
       await loadAndInit();
       const { router } = await import('./router');
-      expect(router.registerPage).toHaveBeenCalledTimes(6);
+      expect(router.registerPage).toHaveBeenCalledTimes(7);
     });
 
     it('auth page render calls renderAuthPage', async () => {
@@ -689,17 +697,19 @@ describe('main module orchestration', () => {
 
     it('navigates to auth when no token in localStorage', async () => {
       delete localStorageStore['hm_token'];
+      // Clear navigate mock to only capture this test's calls
+      const { router: r } = await import('./router');
+      (r.navigate as any).mockClear();
       await loadAndInit();
-      const { router } = await import('./router');
-      expect(router.navigate).toHaveBeenCalledWith('auth');
+      expect(r.navigate).toHaveBeenCalledWith('auth');
     });
 
     it('navigates to auth when token is empty string', async () => {
       localStorageStore['hm_token'] = '';
+      const { router: r } = await import('./router');
+      (r.navigate as any).mockClear();
       await loadAndInit();
-      const { router } = await import('./router');
-      // Empty string is falsy → auth
-      expect(router.navigate).toHaveBeenCalledWith('auth');
+      expect(r.navigate).toHaveBeenCalledWith('auth');
     });
   });
 

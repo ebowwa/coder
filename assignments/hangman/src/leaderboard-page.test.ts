@@ -41,6 +41,9 @@ describe('leaderboard-page', () => {
       { playerName: 'Carol', score: 400, category: 'animals', timestamp: Date.now() - 500 },
       { playerName: 'Dave', score: 200, category: 'general', timestamp: Date.now() },
     ]));
+    // Reset modules so leaderboard-page.ts re-imports and creates
+    // a fresh Leaderboard instance that reads current localStorage data.
+    vi.resetModules();
   });
 
   afterEach(() => {
