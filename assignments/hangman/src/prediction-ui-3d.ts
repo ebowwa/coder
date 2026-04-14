@@ -23,6 +23,10 @@ export class PredictionUI3D {
   private questionText: THREE.Mesh | null = null;
   private toastMesh: THREE.Mesh | null = null;
   private toastTimeout: number | null = null;
+  private boundOnMouseMove: (e: MouseEvent) => void;
+  private boundOnClick: (e: MouseEvent) => void;
+  private boundOnTouchStart: (e: TouchEvent) => void;
+  private boundOnTouchEnd: (e: TouchEvent) => void;
 
   constructor(scene: THREE.Scene, camera: THREE.PerspectiveCamera) {
     this.scene = scene;
@@ -30,6 +34,10 @@ export class PredictionUI3D {
     this.group = new THREE.Group();
     this.raycaster = new THREE.Raycaster();
     this.mouse = new THREE.Vector2();
+    this.boundOnMouseMove = this.onMouseMove.bind(this);
+    this.boundOnClick = this.onClick.bind(this);
+    this.boundOnTouchStart = this.onTouchStart.bind(this);
+    this.boundOnTouchEnd = this.onTouchEnd.bind(this);
     
     this.createUI();
     this.setupMouseEvents();
@@ -175,12 +183,12 @@ export class PredictionUI3D {
   }
 
   private setupMouseEvents(): void {
-    window.addEventListener('mousemove', this.onMouseMove.bind(this));
-    window.addEventListener('click', this.onClick.bind(this));
+    window.addEventListener('mousemove', this.boundOnMouseMove);
+    window.addEventListener('click', this.boundOnClick);
     
     // Mobile touch support
-    window.addEventListener('touchstart', this.onTouchStart.bind(this), { passive: false });
-    window.addEventListener('touchend', this.onTouchEnd.bind(this), { passive: false });
+    window.addEventListener('touchstart', this.boundOnTouchStart, { passive: false });
+    window.addEventListener('touchend', this.boundOnTouchEnd, { passive: false });
   }
 
   private onMouseMove(event: MouseEvent): void {
@@ -478,10 +486,10 @@ export class PredictionUI3D {
   }
 
   dispose(): void {
-    window.removeEventListener('mousemove', this.onMouseMove.bind(this));
-    window.removeEventListener('click', this.onClick.bind(this));
-    window.removeEventListener('touchstart', this.onTouchStart.bind(this));
-    window.removeEventListener('touchend', this.onTouchEnd.bind(this));
+    window.removeEventListener('mousemove', this.boundOnMouseMove);
+    window.removeEventListener('click', this.boundOnClick);
+    window.removeEventListener('touchstart', this.boundOnTouchStart);
+    window.removeEventListener('touchend', this.boundOnTouchEnd);
     
     if (this.toastTimeout !== null) {
       clearTimeout(this.toastTimeout);
