@@ -1,11 +1,39 @@
 /**
  * Unit tests for WordDisplay 3D word rendering
- * Tests: setWord, updateDisplay, showFullWord, getMesh, setPosition, clearing/resetting
+ * Tests: setWord, updateDisplay, showFullWord, getMesh, setPosition, clearing/resetting,
+ *        initial rendering, reveal/letter-update flow, special characters, destroy/cleanup
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { WordDisplay } from './word-display';
 import type { Round } from './types';
+
+// Mock document for canvas operations
+const mockCanvas = {
+  width: 128,
+  height: 128,
+  getContext: vi.fn(() => ({
+    fillRect: vi.fn(),
+    fillText: vi.fn(),
+    measureText: vi.fn(() => ({ width: 50 })),
+  })),
+};
+
+globalThis.document = {
+  createElement: vi.fn((tagName: string) => {
+    if (tagName === 'canvas') {
+      return mockCanvas;
+    }
+    return {};
+  }),
+} as any;
+
+// @ts-ignore
+globalThis.requestAnimationFrame = vi.fn((cb: FrameRequestCallback) => 0);
+
+// @ts-ignore
+globalThis.performance = {
+  now: vi.fn(() => 0),
+};
 
 // Mock THREE.js with minimal implementations
 vi.mock('three', () => {
@@ -44,6 +72,8 @@ vi.mock('three', () => {
   };
 });
 
+import { WordDisplay } from './word-display';
+
 function createMockRound(
   word: string,
   revealedLetters: string[] = [],
@@ -64,18 +94,13 @@ function createMockRound(
 
 describe('WordDisplay', () => {
   let wordDisplay: WordDisplay;
-  let rafSpy: any;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    rafSpy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb: FrameRequestCallback) => {
-      return 0;
-    });
     wordDisplay = new WordDisplay();
   });
 
   afterEach(() => {
-    rafSpy.mockRestore();
     vi.restoreAllMocks();
   });
 
@@ -91,12 +116,30 @@ describe('WordDisplay', () => {
       expect(mesh.position).toBeDefined();
       expect(mesh.position.set).toBeDefined();
     });
+
+    it('should return the same group instance consistently', () => {
+      const mesh1 = wordDisplay.getMesh();
+      const mesh2 = wordDisplay.getMesh();
+      expect(mesh1).toBe(mesh2);
+    });
+
+    it('should return group with add and remove methods', () => {
+      const group = wordDisplay.getMesh();
+      expect(typeof group.add).toBe('function');
+      expect(typeof group.remove).toBe('function');
+    });
+
+    it('should return group that persists after setWord', () => {
+      const meshBefore = wordDisplay.getMesh();
+      wordDisplay.setWord('TEST');
+      const meshAfter = wordDisplay.getMesh();
+      expect(meshBefore).toBe(meshAfter);
+    });
   });
 
   describe('setWord', () => {
     it('should add meshes to the group for each character', () => {
       wordDisplay.setWord('CAT');
-
       const group = wordDisplay.getMesh();
       // CAT has 3 letters: each creates a pedestal mesh + a letter mesh
       // Group.add should be called 6 times (3 pedestals + 3 letter meshes)
@@ -105,7 +148,6 @@ describe('WordDisplay', () => {
 
     it('should handle single character word', () => {
       wordDisplay.setWord('A');
-
       const group = wordDisplay.getMesh();
       // 1 pedestal + 1 letter mesh = 2 add calls
       expect(group.add).toHaveBeenCalledTimes(2);
@@ -113,7 +155,6 @@ describe('WordDisplay', () => {
 
     it('should handle multi-character words', () => {
       wordDisplay.setWord('PROGRAMMING');
-
       const group = wordDisplay.getMesh();
       // 11 letters: 11 pedestals + 11 letter meshes = 22 add calls
       expect(group.add).toHaveBeenCalledTimes(22);
@@ -121,7 +162,6 @@ describe('WordDisplay', () => {
 
     it('should handle empty string word', () => {
       wordDisplay.setWord('');
-
       const group = wordDisplay.getMesh();
       expect(group.add).toHaveBeenCalledTimes(0);
     });
@@ -129,16 +169,13 @@ describe('WordDisplay', () => {
     it('should reset letter meshes when setting a new word', () => {
       wordDisplay.setWord('CAT');
       const group = wordDisplay.getMesh();
-
       wordDisplay.setWord('DOG');
-
       // remove should have been called for old meshes during clearWord
       expect(group.remove).toHaveBeenCalled();
     });
 
     it('should start letter meshes with scale zero (hidden)', () => {
       wordDisplay.setWord('AB');
-
       const group = wordDisplay.getMesh();
       // 2 letters = 4 add calls (2 pedestals + 2 letter meshes)
       expect(group.add).toHaveBeenCalledTimes(4);
@@ -148,12 +185,11 @@ describe('WordDisplay', () => {
       vi.clearAllMocks();
       const round = createMockRound('AB', ['A']);
       wordDisplay.updateDisplay(round);
-      expect(rafSpy).toHaveBeenCalledTimes(1);
+      expect(globalThis.requestAnimationFrame).toHaveBeenCalledTimes(1);
     });
 
     it('should convert word to uppercase internally', () => {
       wordDisplay.setWord('hello');
-
       const group = wordDisplay.getMesh();
       // 5 letters = 10 add calls
       expect(group.add).toHaveBeenCalledTimes(10);
@@ -161,9 +197,16 @@ describe('WordDisplay', () => {
 
     it('should set castShadow and receiveShadow on pedestals', () => {
       wordDisplay.setWord('AB');
-
       const group = wordDisplay.getMesh();
       expect(group.add).toHaveBeenCalledTimes(4);
+    });
+
+    it('should handle setting the same word twice (clears and recreates)', () => {
+      wordDisplay.setWord('HELLO');
+      const group = wordDisplay.getMesh();
+      wordDisplay.setWord('HELLO');
+      // Old meshes removed, new ones created
+      expect(group.remove).toHaveBeenCalled();
     });
   });
 
@@ -174,8 +217,7 @@ describe('WordDisplay', () => {
 
       const round = createMockRound('CAT', ['C']);
       wordDisplay.updateDisplay(round);
-
-      expect(rafSpy).toHaveBeenCalled();
+      expect(globalThis.requestAnimationFrame).toHaveBeenCalled();
     });
 
     it('should not reveal letters that have not been guessed', () => {
@@ -184,8 +226,7 @@ describe('WordDisplay', () => {
 
       const round = createMockRound('CAT', []);
       wordDisplay.updateDisplay(round);
-
-      expect(rafSpy).not.toHaveBeenCalled();
+      expect(globalThis.requestAnimationFrame).not.toHaveBeenCalled();
     });
 
     it('should reveal all occurrences of a repeated letter', () => {
@@ -194,9 +235,8 @@ describe('WordDisplay', () => {
 
       const round = createMockRound('BANANA', ['A']);
       wordDisplay.updateDisplay(round);
-
       // A appears 3 times in BANANA, so requestAnimationFrame should be called 3 times
-      expect(rafSpy).toHaveBeenCalledTimes(3);
+      expect(globalThis.requestAnimationFrame).toHaveBeenCalledTimes(3);
     });
 
     it('should reveal multiple different guessed letters', () => {
@@ -205,9 +245,8 @@ describe('WordDisplay', () => {
 
       const round = createMockRound('APPLE', ['A', 'P']);
       wordDisplay.updateDisplay(round);
-
       // A appears once, P appears twice = 3 reveal animations
-      expect(rafSpy).toHaveBeenCalledTimes(3);
+      expect(globalThis.requestAnimationFrame).toHaveBeenCalledTimes(3);
     });
 
     it('should handle revealing all letters in the word', () => {
@@ -216,8 +255,7 @@ describe('WordDisplay', () => {
 
       const round = createMockRound('HI', ['H', 'I']);
       wordDisplay.updateDisplay(round);
-
-      expect(rafSpy).toHaveBeenCalledTimes(2);
+      expect(globalThis.requestAnimationFrame).toHaveBeenCalledTimes(2);
     });
 
     it('should not call requestAnimationFrame when no letters match revealed set', () => {
@@ -226,18 +264,21 @@ describe('WordDisplay', () => {
 
       const round = createMockRound('DOG', ['X', 'Y']);
       wordDisplay.updateDisplay(round);
-
-      expect(rafSpy).not.toHaveBeenCalled();
+      expect(globalThis.requestAnimationFrame).not.toHaveBeenCalled();
     });
 
     it('should handle updateDisplay called with progressive reveals', () => {
       wordDisplay.setWord('CAT');
       vi.clearAllMocks();
 
-      // Guess C
       const round = createMockRound('CAT', ['C']);
       wordDisplay.updateDisplay(round);
-      expect(rafSpy).toHaveBeenCalledTimes(1);
+      expect(globalThis.requestAnimationFrame).toHaveBeenCalledTimes(1);
+    });
+
+    it('should handle updating display before setting a word', () => {
+      const round = createMockRound('TEST', ['T']);
+      expect(() => wordDisplay.updateDisplay(round)).not.toThrow();
     });
   });
 
@@ -247,9 +288,8 @@ describe('WordDisplay', () => {
       vi.clearAllMocks();
 
       wordDisplay.showFullWord();
-
       // 3 letters, all should be revealed
-      expect(rafSpy).toHaveBeenCalledTimes(3);
+      expect(globalThis.requestAnimationFrame).toHaveBeenCalledTimes(3);
     });
 
     it('should handle empty word gracefully', () => {
@@ -257,8 +297,7 @@ describe('WordDisplay', () => {
       vi.clearAllMocks();
 
       wordDisplay.showFullWord();
-
-      expect(rafSpy).not.toHaveBeenCalled();
+      expect(globalThis.requestAnimationFrame).not.toHaveBeenCalled();
     });
 
     it('should handle single-letter word', () => {
@@ -266,8 +305,7 @@ describe('WordDisplay', () => {
       vi.clearAllMocks();
 
       wordDisplay.showFullWord();
-
-      expect(rafSpy).toHaveBeenCalledTimes(1);
+      expect(globalThis.requestAnimationFrame).toHaveBeenCalledTimes(1);
     });
 
     it('should reveal all letters for long words', () => {
@@ -275,43 +313,38 @@ describe('WordDisplay', () => {
       vi.clearAllMocks();
 
       wordDisplay.showFullWord();
+      expect(globalThis.requestAnimationFrame).toHaveBeenCalledTimes(20);
+    });
 
-      expect(rafSpy).toHaveBeenCalledTimes(20);
+    it('should handle showFullWord before setWord', () => {
+      expect(() => wordDisplay.showFullWord()).not.toThrow();
     });
   });
 
   describe('setPosition', () => {
     it('should set group position', () => {
       const group = wordDisplay.getMesh();
-
       wordDisplay.setPosition(1, 2, 3);
-
       expect(group.position.set).toHaveBeenCalledWith(1, 2, 3);
     });
 
     it('should set position to origin', () => {
       const group = wordDisplay.getMesh();
-
       wordDisplay.setPosition(0, 0, 0);
-
       expect(group.position.set).toHaveBeenCalledWith(0, 0, 0);
     });
 
     it('should update position multiple times', () => {
       const group = wordDisplay.getMesh();
-
       wordDisplay.setPosition(1, 2, 3);
       wordDisplay.setPosition(4, 5, 6);
-
       expect(group.position.set).toHaveBeenCalledTimes(2);
       expect(group.position.set).toHaveBeenLastCalledWith(4, 5, 6);
     });
 
     it('should accept negative position values', () => {
       const group = wordDisplay.getMesh();
-
       wordDisplay.setPosition(-5, -3, -10);
-
       expect(group.position.set).toHaveBeenCalledWith(-5, -3, -10);
     });
   });
@@ -320,13 +353,11 @@ describe('WordDisplay', () => {
     it('should return the same group instance consistently', () => {
       const mesh1 = wordDisplay.getMesh();
       const mesh2 = wordDisplay.getMesh();
-
       expect(mesh1).toBe(mesh2);
     });
 
     it('should return group with add and remove methods', () => {
       const group = wordDisplay.getMesh();
-
       expect(typeof group.add).toBe('function');
       expect(typeof group.remove).toBe('function');
     });
@@ -335,7 +366,6 @@ describe('WordDisplay', () => {
       const meshBefore = wordDisplay.getMesh();
       wordDisplay.setWord('TEST');
       const meshAfter = wordDisplay.getMesh();
-
       expect(meshBefore).toBe(meshAfter);
     });
   });
@@ -347,16 +377,13 @@ describe('WordDisplay', () => {
       const removeCallsAfterFirst = group.remove.mock.calls.length;
 
       wordDisplay.setWord('SECOND');
-
       expect(group.remove.mock.calls.length).toBeGreaterThan(removeCallsAfterFirst);
     });
 
     it('should add new meshes for the new word', () => {
       wordDisplay.setWord('CAT');
       const group = wordDisplay.getMesh() as any;
-
       wordDisplay.setWord('DOG');
-
       const addCallCount = group.add.mock.calls.length;
       expect(addCallCount).toBeGreaterThan(0);
     });
@@ -364,9 +391,7 @@ describe('WordDisplay', () => {
     it('should properly handle setting the same word twice', () => {
       wordDisplay.setWord('HELLO');
       const group = wordDisplay.getMesh();
-
       wordDisplay.setWord('HELLO');
-
       expect(group.remove).toHaveBeenCalled();
     });
   });
@@ -382,7 +407,7 @@ describe('WordDisplay', () => {
       });
 
       expect(() => wordDisplay.updateDisplay(round)).not.toThrow();
-      expect(rafSpy).toHaveBeenCalledTimes(1);
+      expect(globalThis.requestAnimationFrame).toHaveBeenCalledTimes(1);
     });
 
     it('should handle showFullWord at game end (loss scenario)', () => {
@@ -390,8 +415,7 @@ describe('WordDisplay', () => {
       vi.clearAllMocks();
 
       wordDisplay.showFullWord();
-
-      expect(rafSpy).toHaveBeenCalledTimes(6);
+      expect(globalThis.requestAnimationFrame).toHaveBeenCalledTimes(6);
     });
 
     it('should handle a full round with progressive reveals then showFullWord', () => {
@@ -401,7 +425,7 @@ describe('WordDisplay', () => {
       // Reveal F
       let round = createMockRound('FISH', ['F']);
       wordDisplay.updateDisplay(round);
-      expect(rafSpy).toHaveBeenCalledTimes(1);
+      expect(globalThis.requestAnimationFrame).toHaveBeenCalledTimes(1);
 
       vi.clearAllMocks();
 
@@ -409,15 +433,14 @@ describe('WordDisplay', () => {
       round = createMockRound('FISH', ['F', 'S', 'H']);
       wordDisplay.updateDisplay(round);
       // F(0), S(2), H(3) all have revealedLetters match and scale.x===0 in mocks
-      expect(rafSpy).toHaveBeenCalledTimes(3);
+      expect(globalThis.requestAnimationFrame).toHaveBeenCalledTimes(3);
 
       vi.clearAllMocks();
 
       // Show full word (I is still hidden)
       wordDisplay.showFullWord();
-      // All 4 letters attempt reveal; F, S, H already revealed (scale.x > 0 check)
-      // but since mocks don't track scale changes, all 4 get revealed
-      expect(rafSpy).toHaveBeenCalledTimes(4);
+      // All 4 letters attempt reveal; since mocks don't track scale changes, all 4 get revealed
+      expect(globalThis.requestAnimationFrame).toHaveBeenCalledTimes(4);
     });
 
     it('should handle completed round state', () => {
@@ -430,7 +453,7 @@ describe('WordDisplay', () => {
       });
 
       wordDisplay.updateDisplay(round);
-      expect(rafSpy).toHaveBeenCalledTimes(3);
+      expect(globalThis.requestAnimationFrame).toHaveBeenCalledTimes(3);
     });
   });
 
@@ -441,13 +464,11 @@ describe('WordDisplay', () => {
 
       const round = createMockRound('AAA', ['A']);
       wordDisplay.updateDisplay(round);
-
-      expect(rafSpy).toHaveBeenCalledTimes(3);
+      expect(globalThis.requestAnimationFrame).toHaveBeenCalledTimes(3);
     });
 
     it('should handle updating display before setting a word', () => {
       const round = createMockRound('TEST', ['T']);
-
       expect(() => wordDisplay.updateDisplay(round)).not.toThrow();
     });
 
@@ -462,7 +483,6 @@ describe('WordDisplay', () => {
     it('should handle very long words', () => {
       const longWord = 'INTERNATIONALIZATION';
       wordDisplay.setWord(longWord);
-
       const group = wordDisplay.getMesh();
       // 20 letters = 40 add calls (20 pedestals + 20 letter meshes)
       expect(group.add).toHaveBeenCalledTimes(40);
@@ -478,11 +498,93 @@ describe('WordDisplay', () => {
 
       const round = createMockRound('MYSTERY', []);
       wordDisplay.updateDisplay(round);
-      expect(rafSpy).not.toHaveBeenCalled();
+      expect(globalThis.requestAnimationFrame).not.toHaveBeenCalled();
 
       // Now reveal everything
       wordDisplay.showFullWord();
-      expect(rafSpy).toHaveBeenCalledTimes(7);
+      expect(globalThis.requestAnimationFrame).toHaveBeenCalledTimes(7);
+    });
+  });
+
+  describe('Special characters and spaces', () => {
+    it('should handle word with spaces (each space creates a mesh)', () => {
+      wordDisplay.setWord('HELLO WORLD');
+      const group = wordDisplay.getMesh();
+      // 11 characters including space = 22 add calls (11 pedestals + 11 letter meshes)
+      expect(group.add).toHaveBeenCalledTimes(22);
+    });
+
+    it('should handle word with hyphens', () => {
+      wordDisplay.setWord('WELL-KNOWN');
+      const group = wordDisplay.getMesh();
+      // 10 characters = 20 add calls
+      expect(group.add).toHaveBeenCalledTimes(20);
+    });
+
+    it('should handle word with numbers', () => {
+      wordDisplay.setWord('LEVEL5');
+      const group = wordDisplay.getMesh();
+      // 6 characters = 12 add calls
+      expect(group.add).toHaveBeenCalledTimes(12);
+    });
+
+    it('should handle single space word', () => {
+      expect(() => wordDisplay.setWord(' ')).not.toThrow();
+      const group = wordDisplay.getMesh();
+      expect(group.add).toHaveBeenCalledTimes(2);
+    });
+
+    it('should handle revealing letters in a word with special characters', () => {
+      wordDisplay.setWord('HELLO-WORLD');
+      vi.clearAllMocks();
+
+      const round = createMockRound('HELLO-WORLD', ['H', 'O']);
+      wordDisplay.updateDisplay(round);
+      // H appears once, O appears twice = 3 reveals
+      expect(globalThis.requestAnimationFrame).toHaveBeenCalledTimes(3);
+    });
+
+    it('should show full word including special characters', () => {
+      wordDisplay.setWord('A-B');
+      vi.clearAllMocks();
+
+      wordDisplay.showFullWord();
+      // 3 characters = 3 reveals
+      expect(globalThis.requestAnimationFrame).toHaveBeenCalledTimes(3);
+    });
+  });
+
+  describe('Cleanup and destroy behavior', () => {
+    it('should remove all pedestal and letter meshes when replacing word', () => {
+      wordDisplay.setWord('FIRST');
+      const group = wordDisplay.getMesh() as any;
+
+      // FIRST = 5 letters, each with pedestal + letter mesh = 10 meshes
+      const initialAddCount = group.add.mock.calls.length;
+      expect(initialAddCount).toBe(10);
+
+      wordDisplay.setWord('HI');
+
+      // All 10 old meshes should be removed (5 pedestals + 5 letters)
+      expect(group.remove).toHaveBeenCalledTimes(10);
+    });
+
+    it('should handle rapid word changes without errors', () => {
+      expect(() => {
+        for (let i = 0; i < 10; i++) {
+          wordDisplay.setWord(`WORD${i}`);
+        }
+      }).not.toThrow();
+    });
+
+    it('should properly clear when setting word to empty after a real word', () => {
+      wordDisplay.setWord('COMPLEX');
+      const group = wordDisplay.getMesh();
+
+      wordDisplay.setWord('');
+
+      // All previous meshes removed
+      expect(group.remove).toHaveBeenCalled();
     });
   });
 });
