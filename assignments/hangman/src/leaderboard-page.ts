@@ -100,7 +100,7 @@ export function renderLeaderboardPage(container: HTMLDivElement): void {
           ">
             <h3 style="color: #4ecdc4; margin: 0 0 12px; font-size: 0.95em;">Your Stats</h3>
             <div id="lb-your-stats">
-              ${renderYourStats(user.username || user.displayName || '')}
+              ${renderYourStats(user.displayName || user.username || '')}
             </div>
           </div>
 

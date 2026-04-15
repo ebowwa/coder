@@ -49,6 +49,7 @@ import { renderProfile } from './profile';
 import { renderLobbyPage } from './lobby-page';
 import { renderFriendsPage } from './friends';
 import { renderLeaderboardPage } from './leaderboard-page';
+import { leaderboard } from './leaderboard';
 
 type GameMode = 'single' | 'multiplayer' | 'none';
 
@@ -1103,6 +1104,13 @@ class HangmanGame {
       const roundScore = Math.max(baseScore - wrongPenalty, GAME_CONFIG.minimumScore);
       this.gameState.score.roundScores.push(roundScore);
       this.gameState.score.totalScore += roundScore;
+
+      // Submit score to leaderboard
+      const user = JSON.parse(localStorage.getItem('hm_user') || '{}');
+      if (user.username || user.displayName) {
+        const playerName = user.username || user.displayName;
+        leaderboard.addScore(playerName, roundScore, round.category);
+      }
 
       // Show full word
       this.wordDisplay.showFullWord();
