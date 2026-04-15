@@ -58,4 +58,35 @@ describe("escapeHtml", () => {
     const result = escapeHtml("test");
     expect(typeof result).toBe("string");
   });
+
+  it("double-escapes already-escaped entities (no double-escape prevention)", () => {
+    // This escape function is not idempotent — calling it on already-escaped
+    // content will re-escape the & in the entity references.
+    expect(escapeHtml("&amp;")).toBe("&amp;amp;");
+    expect(escapeHtml("&lt;")).toBe("&amp;lt;");
+    expect(escapeHtml("&quot;")).toBe("&amp;quot;");
+    expect(escapeHtml("&#x27;")).toBe("&amp;#x27;");
+  });
+
+  it("preserves unicode characters unchanged", () => {
+    expect(escapeHtml("café")).toBe("café");
+    expect(escapeHtml("日本語")).toBe("日本語");
+    expect(escapeHtml("emoji 🎉")).toBe("emoji 🎉");
+  });
+
+  it("handles whitespace-only strings", () => {
+    expect(escapeHtml("   ")).toBe("   ");
+    expect(escapeHtml("\t\n")).toBe("\t\n");
+  });
+
+  it("escapes all five OWASP characters at once", () => {
+    expect(escapeHtml("&<>\"'")).toBe("&amp;&lt;&gt;&quot;&#x27;");
+  });
+
+  it("does not mutate the input (pure function)", () => {
+    const original = '<script>alert("xss")</script>';
+    const copy = original;
+    escapeHtml(original);
+    expect(original).toBe(copy);
+  });
 });
