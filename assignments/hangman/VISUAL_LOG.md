@@ -1730,3 +1730,193 @@ src/
 > The UI is not rendered; it shows a connection error page instead of the dashboard. Visible components include an error icon, text messages ("This site can’t be reached", "localhost refused to connect."), bullet points, the error code "ERR_CONNECTION_REFUSED", and "Details"/"Reload" buttons. Error: Connection refused (ERR_CONNECTION_REFUSED).
 
 ---
+
+## 2026-04-15T17:20:33.168Z -- Task `task_1776273379432_vfo0ps` -- `#dashboard` (mobile 375x812)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** OK  **Latency:** 40227ms
+
+![dashboard-mobile](visuals/dashboard-mobile-2026-04-15T17-19-52-935Z.png)
+
+> No, the dashboard UI is not rendered; the page shows a connection error. Visible components: error icon, “This site can’t be reached” text, “localhost refused to connect” message, troubleshooting steps, error code, and “Details” button. Error: Connection refused (ERR_CONNECTION_REFUSED) prevents dashboard loading.
+
+---
+
+## 2026-04-15T17:21:01.750Z -- Task `task_1776273379432_vfo0ps` -- `#lobby` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** OK  **Latency:** 28577ms
+
+![lobby-desktop](visuals/lobby-desktop-2026-04-15T17-20-33-172Z.png)
+
+> The UI for "#lobby" is not rendered; the browser displays a connection error page. Visible components: error icon, "This site can’t be reached" text, "localhost refused to connect" message, troubleshooting steps, "Details" and "Reload" buttons. Error: ERR_CONNECTION_REFUSED.
+
+---
+
+## 2026-04-15T17:22:07.463Z -- Task `task_1776273379432_vfo0ps` -- `#lobby` (mobile 375x812)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** OK  **Latency:** 65693ms
+
+![lobby-mobile](visuals/lobby-mobile-2026-04-15T17-21-01-770Z.png)
+
+> The UI is not rendered; an error page appears instead. Visible components: error icon, “This site can’t be reached” text, “localhost refused to connect” message, troubleshooting steps, error code, and “Details” button. Error: Connection refused, so lobby UI fails to load.
+
+---
+
+## 2026-04-15T17:22:35.374Z -- Task `task_1776273379432_vfo0ps` -- `#profile` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** OK  **Latency:** 27782ms
+
+![profile-desktop](visuals/profile-desktop-2026-04-15T17-22-07-592Z.png)
+
+> The UI is not rendered (shows connection error). Visible components: error icon, “This site can’t be reached” text, “localhost refused to connect” message, bullet points, “ERR_CONNECTION_REFUSED”, Details button, Reload button. Error: Connection refused, preventing profile page load.
+
+---
+
+## 2026-04-15T17:22:56.401Z -- Task `task_1776273379432_vfo0ps` -- `#profile` (mobile 375x812)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** OK  **Latency:** 21016ms
+
+![profile-mobile](visuals/profile-mobile-2026-04-15T17-22-35-383Z.png)
+
+> The UI is not properly rendered as it shows a connection error instead of the profile content. Visible components include the error icon, “This site can’t be reached” text, connection details, and a “Details” button; the main issue is ERR_CONNECTION_REFUSED preventing the profile from loading.
+
+---
+
+## 2026-04-15T17:23:26.484Z -- Task `task_1776273379432_vfo0ps` -- `#friends` (mobile 375x812)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** OK  **Latency:** 22703ms
+
+![friends-mobile](visuals/friends-mobile-2026-04-15T17-23-03-750Z.png)
+
+> The UI is rendered as an error page (not the intended #friends route). Visible components: error icon, “This site can’t be reached” text, “localhost refused to connect”, “Try:” list (checking connection, proxy/firewall), ERR_CONNECTION_REFUSED, Details button. Error: connection refused, so the #friends UI didn’t load.
+
+---
+
+## 2026-04-15T17:23:54.524Z -- Task `task_1776273379432_vfo0ps` -- `#leaderboard` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#leaderboard  **Verdict:** OK  **Latency:** 27428ms
+
+![leaderboard-desktop](visuals/leaderboard-desktop-2026-04-15T17-23-27-092Z.png)
+
+> The UI is not rendered; the page shows a connection error instead of the leaderboard. Visible components: error icon, “This site can’t be reached” text, “localhost refused to connect” message, troubleshooting steps, ERR_CONNECTION_REFUSED code, Details button, Reload button. Error: Connection refused (site unreachable).
+
+---
+
+## 2026-04-15T17:24:21.816Z -- Task `task_1776273379432_vfo0ps` -- `#leaderboard` (mobile 375x812)
+
+**URL:** http://localhost:3000/#leaderboard  **Verdict:** OK  **Latency:** 27266ms
+
+![leaderboard-mobile](visuals/leaderboard-mobile-2026-04-15T17-23-54-542Z.png)
+
+> The UI is not rendered; an error page appears instead. Visible components: error icon, “This site can’t be reached” text, “localhost refused to connect” message, troubleshooting steps, ERR_CONNECTION_REFUSED code, and a “Details” button. Error: Connection refused, preventing the leaderboard UI from loading.
+
+---
+
+## 2026-04-15T17:24:44.849Z -- Task `task_1776273379432_vfo0ps` -- `#game` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#game  **Verdict:** OK  **Latency:** 22884ms
+
+![game-desktop](visuals/game-desktop-2026-04-15T17-24-21-962Z.png)
+
+> The UI is not rendered; an error page is shown. Visible components: error icon, “This site can’t be reached” text, “localhost refused to connect.” message, bullet points (“Checking the connection”, “Checking the proxy and the firewall”), “ERR_CONNECTION_REFUSED” code, “Details” and “Reload” buttons. Error: Site connection failed (ERR_CONNECTION_REFUSED).
+
+---
+
+## 2026-04-15T17:25:01.235Z -- Task `task_1776273379432_vfo0ps` -- `#game` (mobile 375x812)
+
+**URL:** http://localhost:3000/#game  **Verdict:** OK  **Latency:** 16376ms
+
+![game-mobile](visuals/game-mobile-2026-04-15T17-24-44-859Z.png)
+
+> The UI is rendered as an error page, not the intended game interface. Visible components: error icon, “This site can’t be reached” text, “localhost refused to connect” message, troubleshooting steps, error code, and “Details” button. Error: Connection refused (ERR_CONNECTION_REFUSED) prevents loading the game UI.
+
+---
+
+## 2026-04-15T17:39:00.600Z -- Task `task_1776273628160_giocug` -- `/` (desktop 1280x720)
+
+**URL:** http://localhost:3000  **Verdict:** FAILED  **Latency:** 21309ms
+
+![home-desktop](visuals/home-desktop-2026-04-15T17-38-39-275Z.png)
+
+> No UI components are rendered; the screen is entirely black, indicating a rendering failure.
+
+---
+
+## 2026-04-15T17:39:09.692Z -- Task `task_1776273628160_giocug` -- `/` (mobile 375x812)
+
+**URL:** http://localhost:3000  **Verdict:** FAILED  **Latency:** 9047ms
+
+![home-mobile](visuals/home-mobile-2026-04-15T17-39-00-619Z.png)
+
+> No UI elements are visible; the screen is entirely black. Error: No content is rendered for the specified route and device.
+
+---
+
+## 2026-04-15T17:39:15.582Z -- Task `task_1776273628160_giocug` -- `#auth` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** FAILED  **Latency:** 5861ms
+
+![auth-desktop](visuals/auth-desktop-2026-04-15T17-39-09-721Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI failed to render (no content displayed).
+
+---
+
+## 2026-04-15T17:39:27.265Z -- Task `task_1776273628160_giocug` -- `#auth` (mobile 375x812)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** OK  **Latency:** 11609ms
+
+![auth-mobile](visuals/auth-mobile-2026-04-15T17-39-15-582Z.png)
+
+> No visible components; UI not rendered (black screen indicates rendering issue).
+
+---
+
+## 2026-04-15T17:39:34.709Z -- Task `task_1776273628160_giocug` -- `#dashboard` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** FAILED  **Latency:** 7406ms
+
+![dashboard-desktop](visuals/dashboard-desktop-2026-04-15T17-39-27-303Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI failed to render (no content displayed).
+
+---
+
+## 2026-04-15T17:39:40.058Z -- Task `task_1776273628160_giocug` -- `#dashboard` (mobile 375x812)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** FAILED  **Latency:** 5328ms
+
+![dashboard-mobile](visuals/dashboard-mobile-2026-04-15T17-39-34-713Z.png)
+
+> No, the UI is not rendered; the screen is entirely black with no visible components. Error: Blank/black screen indicates failed rendering or missing content.
+
+---
+
+## 2026-04-15T17:39:46.547Z -- Task `task_1776273628160_giocug` -- `#lobby` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** FAILED  **Latency:** 6455ms
+
+![lobby-desktop](visuals/lobby-desktop-2026-04-15T17-39-40-092Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI not rendered (blank/black screen).
+
+---
+
+## 2026-04-15T17:39:52.319Z -- Task `task_1776273628160_giocug` -- `#lobby` (mobile 375x812)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** FAILED  **Latency:** 5772ms
+
+![lobby-mobile](visuals/lobby-mobile-2026-04-15T17-39-46-547Z.png)
+
+> No visible components are rendered; the screen is entirely black. Error: UI not displayed (blank screen).
+
+---
+
+## 2026-04-15T17:39:57.525Z -- Task `task_1776273628160_giocug` -- `#profile` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** FAILED  **Latency:** 5205ms
+
+![profile-desktop](visuals/profile-desktop-2026-04-15T17-39-52-319Z.png)
+
+> No UI elements are visible; the screen is entirely black. This indicates a rendering error or missing content for the #profile route.
+
+---

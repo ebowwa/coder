@@ -86,7 +86,12 @@ export class ReplayManager {
     this.saveTimeout = setTimeout(() => {
       try {
         this.data.lastUpdated = Date.now();
-        Bun.write(REPLAYS_FILE, JSON.stringify(this.data, null, 2));
+        if (typeof Bun !== 'undefined') {
+          Bun.write(REPLAYS_FILE, JSON.stringify(this.data, null, 2));
+        } else {
+          const fs = require('fs');
+          fs.writeFileSync(REPLAYS_FILE, JSON.stringify(this.data, null, 2));
+        }
       } catch (error) {
         console.error('Failed to save replays:', error);
       }
