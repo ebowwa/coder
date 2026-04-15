@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect } from 'vitest';
 import { escapeHtml } from './escape-html';
 
 describe('escapeHtml', () => {
