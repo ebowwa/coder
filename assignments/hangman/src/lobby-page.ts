@@ -5,8 +5,9 @@
 import { router } from "./router";
 import { LoadingOverlay } from "./loading-overlay";
 import { escapeHtml } from "./escape-html";
+import { API_CONFIG } from "./config";
 
-const API = "";
+const API = API_CONFIG.baseUrl;
 
 export function renderLobbyPage(container: HTMLDivElement): void {
   const user = JSON.parse(localStorage.getItem("hm_user") || "{}");

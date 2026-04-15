@@ -3,8 +3,9 @@
  */
 
 import { router } from "./router";
+import { API_CONFIG } from "./config";
 
-const API = "";
+const API = API_CONFIG.baseUrl;
 
 export function renderFriendsPage(container: HTMLDivElement): void {
   const user = JSON.parse(localStorage.getItem("hm_user") || "{}");
