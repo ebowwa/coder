@@ -7,6 +7,9 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
+// Unmock the module so we get the real CategoryUI, not the mock from main.test.ts
+vi.unmock('../category-ui');
+
 // ---------------------------------------------------------------------------
 // Saved originals so we can restore after each test
 // ---------------------------------------------------------------------------
