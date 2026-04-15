@@ -1920,3 +1920,93 @@ src/
 > No UI elements are visible; the screen is entirely black. This indicates a rendering error or missing content for the #profile route.
 
 ---
+
+## 2026-04-15T17:40:16.780Z -- Task `task_1776273628160_giocug` -- `#profile` (mobile 375x812)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** FAILED  **Latency:** 19099ms
+
+![profile-mobile](visuals/profile-mobile-2026-04-15T17-39-57-607Z.png)
+
+> No UI components are visible; the screen is entirely black, indicating the UI is not rendered.
+
+---
+
+## 2026-04-15T17:40:29.888Z -- Task `task_1776273628160_giocug` -- `#friends` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** FAILED  **Latency:** 12877ms
+
+![friends-desktop](visuals/friends-desktop-2026-04-15T17-40-17-011Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI failed to render (no content displayed).
+
+---
+
+## 2026-04-15T17:40:37.480Z -- Task `task_1776273628160_giocug` -- `#friends` (mobile 375x812)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** OK  **Latency:** 7582ms
+
+![friends-mobile](visuals/friends-mobile-2026-04-15T17-40-29-893Z.png)
+
+> No visible components; UI not rendered (blank screen).
+
+---
+
+## 2026-04-15T17:42:46.905Z -- Task `task_1776273628160_giocug` -- `#leaderboard` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#leaderboard  **Verdict:** FAILED  **Latency:** 129413ms
+
+![leaderboard-desktop](visuals/leaderboard-desktop-2026-04-15T17-40-37-480Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: No content renders for the #leaderboard route.
+
+---
+
+## 2026-04-15T17:43:26.474Z -- Task `task_1776273628160_giocug` -- `#leaderboard` (mobile 375x812)
+
+**URL:** http://localhost:3000/#leaderboard  **Verdict:** FAILED  **Latency:** 39498ms
+
+![leaderboard-mobile](visuals/leaderboard-mobile-2026-04-15T17-42-46-971Z.png)
+
+> No visible components are rendered; the screen is entirely black, indicating a rendering error.
+
+---
+
+## 2026-04-15T17:43:55.845Z -- Task `task_1776273628160_giocug` -- `#game` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#game  **Verdict:** FAILED  **Latency:** 29361ms
+
+![game-desktop](visuals/game-desktop-2026-04-15T17-43-26-484Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI failed to render (no content displayed).
+
+---
+
+## 2026-04-15T17:44:14.904Z -- Task `task_1776273628160_giocug` -- `#game` (mobile 375x812)
+
+**URL:** http://localhost:3000/#game  **Verdict:** FAILED  **Latency:** 18972ms
+
+![game-mobile](visuals/game-mobile-2026-04-15T17-43-55-847Z.png)
+
+> No UI components are rendered; the screen is entirely black, indicating a rendering error.
+
+---
+
+## 2026-04-15T17:44:55.266Z -- Task `task_1776274822703_w6ckje` -- `/` (desktop 1280x720)
+
+**URL:** http://localhost:3000  **Verdict:** OK  **Latency:** 42317ms
+
+![home-desktop](visuals/home-desktop-2026-04-15T17-44-12-891Z.png)
+
+> Visible components: Error icon, “This site can’t be reached” title, “localhost refused to connect.” message, bullet points (“Checking the connection”, “Checking the proxy and the firewall”), “ERR_CONNECTION_REFUSED” code, “Details” and “Reload” buttons. Error: Site failed to load (connection refused).
+
+---
+
+## 2026-04-15T17:45:29.554Z -- Task `task_1776274822703_w6ckje` -- `/` (mobile 375x812)
+
+**URL:** http://localhost:3000  **Verdict:** OK  **Latency:** 34218ms
+
+![home-mobile](visuals/home-mobile-2026-04-15T17-44-55-298Z.png)
+
+> Yes, the UI is rendered. Visible components include an error icon, “This site can’t be reached” title, “localhost refused to connect” text, bullet points (“Checking the connection,” “Checking the proxy and the firewall”), “ERR_CONNECTION_REFUSED” error code, and a “Details” button. Error: Connection refused by localhost.
+
+---
