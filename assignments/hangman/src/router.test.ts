@@ -20,7 +20,7 @@ describe('Router', () => {
     // Reset module to get fresh singleton
     vi.resetModules();
     const mod = await import('./router');
-    Router = mod.Router;
+    Router = mod.router.constructor;
     router = mod.router;
   });
 
