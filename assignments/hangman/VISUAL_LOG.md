@@ -2010,3 +2010,133 @@ src/
 > Yes, the UI is rendered. Visible components include an error icon, “This site can’t be reached” title, “localhost refused to connect” text, bullet points (“Checking the connection,” “Checking the proxy and the firewall”), “ERR_CONNECTION_REFUSED” error code, and a “Details” button. Error: Connection refused by localhost.
 
 ---
+
+## 2026-04-15T17:45:47.837Z -- Task `task_1776274822703_w6ckje` -- `#auth` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** OK  **Latency:** 18252ms
+
+![auth-desktop](visuals/auth-desktop-2026-04-15T17-45-29-582Z.png)
+
+> The UI is not rendered (shows connection error). Visible components: error icon, “This site can’t be reached” text, “localhost refused to connect” message, bullet points, “ERR_CONNECTION_REFUSED”, Details and Reload buttons. Error: Connection refused, so auth UI failed to load.
+
+---
+
+## 2026-04-15T17:46:26.908Z -- Task `task_1776274822703_w6ckje` -- `#auth` (mobile 375x812)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** OK  **Latency:** 39067ms
+
+![auth-mobile](visuals/auth-mobile-2026-04-15T17-45-47-840Z.png)
+
+> The UI is not rendered (shows connection error). Visible components: error icon, “This site can’t be reached” text, “localhost refused to connect.” message, “Try:” section with bullet points, “ERR_CONNECTION_REFUSED”, and “Details” button. Error: Connection refused, so auth page didn’t load.
+
+---
+
+## 2026-04-15T17:47:28.839Z -- Task `task_1776274822703_w6ckje` -- `#dashboard` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** OK  **Latency:** 61906ms
+
+![dashboard-desktop](visuals/dashboard-desktop-2026-04-15T17-46-26-912Z.png)
+
+> No, the UI is not rendered; it shows a connection error page. Visible components include the error icon, error message text, troubleshooting steps, and “Details”/“Reload” buttons. Error: Connection refused (ERR_CONNECTION_REFUSED) prevents loading the dashboard.
+
+---
+
+## 2026-04-15T17:48:17.040Z -- Task `task_1776274822703_w6ckje` -- `#dashboard` (mobile 375x812)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** OK  **Latency:** 48135ms
+
+![dashboard-mobile](visuals/dashboard-mobile-2026-04-15T17-47-28-897Z.png)
+
+> The UI is not rendered due to a connection error. Visible components include the error icon, “This site can’t be reached” text, connection details, and a “Details” button; error is ERR_CONNECTION_REFUSED preventing dashboard display.
+
+---
+
+## 2026-04-15T17:48:45.742Z -- Task `task_1776274822703_w6ckje` -- `#lobby` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** OK  **Latency:** 28677ms
+
+![lobby-desktop](visuals/lobby-desktop-2026-04-15T17-48-17-065Z.png)
+
+> The UI for "#lobby" is not rendered; instead, an error page appears. Visible components: error icon, "This site can’t be reached" text, "localhost refused to connect" message, troubleshooting steps, "ERR_CONNECTION_REFUSED" code, "Details" and "Reload" buttons. Error: Connection refused, preventing lobby content from loading.
+
+---
+
+## 2026-04-15T17:49:04.955Z -- Task `task_1776274822703_w6ckje` -- `#lobby` (mobile 375x812)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** OK  **Latency:** 19202ms
+
+![lobby-mobile](visuals/lobby-mobile-2026-04-15T17-48-45-753Z.png)
+
+> The UI for "#lobby" is not rendered; instead, an error page appears. Visible components: error icon, "This site can’t be reached" text, "localhost refused to connect" message, troubleshooting steps, and "Details" button. Error: Connection refused (ERR_CONNECTION_REFUSED), so lobby content fails to load.
+
+---
+
+## 2026-04-15T17:50:30.079Z -- Task `task_1776274822703_w6ckje` -- `#profile` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** OK  **Latency:** 85069ms
+
+![profile-desktop](visuals/profile-desktop-2026-04-15T17-49-04-973Z.png)
+
+> The UI for route "#profile" is not rendered; the screen shows a connection error instead. Visible components: error icon, "This site can’t be reached" text, "localhost refused to connect" message, troubleshooting steps, "ERR_CONNECTION_REFUSED" code, "Details" and "Reload" buttons. Error: Connection refused (site unreachable).
+
+---
+
+## 2026-04-15T17:53:22.259Z -- Task `task_1776274822703_w6ckje` -- `#profile` (mobile 375x812)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** OK  **Latency:** 171958ms
+
+![profile-mobile](visuals/profile-mobile-2026-04-15T17-50-30-281Z.png)
+
+> The UI is not rendered as intended; it shows a connection error page instead of the profile content. Visible components include the error icon, “This site can’t be reached” text, “localhost refused to connect” message, troubleshooting steps, error code, and “Details” button. Error: Connection failure prevents profile page from loading.
+
+---
+
+## 2026-04-15T17:54:46.745Z -- Task `task_1776274822703_w6ckje` -- `#friends` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** OK  **Latency:** 84469ms
+
+![friends-desktop](visuals/friends-desktop-2026-04-15T17-53-22-276Z.png)
+
+> The UI is not rendered (shows connection error). Visible components: error icon, “This site can’t be reached” text, “localhost refused to connect” message, bullet points (“Checking the connection”, “Checking the proxy and the firewall”), “ERR_CONNECTION_REFUSED” code, “Details” and “Reload” buttons. Error: Site failed to load due to connection refusal.
+
+---
+
+## 2026-04-15T17:57:43.495Z -- Task `task_1776274822703_w6ckje` -- `#friends` (mobile 375x812)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** OK  **Latency:** 176652ms
+
+![friends-mobile](visuals/friends-mobile-2026-04-15T17-54-46-763Z.png)
+
+> The UI for route "#friends" is not rendered; instead, a connection error page appears. Visible components include the error icon, "This site can’t be reached" text, "localhost refused to connect" message, troubleshooting steps, and "Details" button. Error: ERR_CONNECTION_REFUSED.
+
+---
+
+## 2026-04-15T17:59:07.660Z -- Task `task_1776274822703_w6ckje` -- `#leaderboard` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#leaderboard  **Verdict:** FAILED  **Latency:** 83584ms
+
+![leaderboard-desktop](visuals/leaderboard-desktop-2026-04-15T17-57-43-670Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-15T17:59:08.247Z -- Task `task_1776275157701_wqi9ce` -- `/` (desktop 1280x720)
+
+**URL:** http://localhost:3000  **Verdict:** FAILED  **Latency:** 69901ms
+
+![home-desktop](visuals/home-desktop-2026-04-15T17-57-58-343Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-15T17:59:19.422Z -- Task `task_1776274822703_w6ckje` -- `#leaderboard` (mobile 375x812)
+
+**URL:** http://localhost:3000/#leaderboard  **Verdict:** FAILED  **Latency:** 11503ms
+
+![leaderboard-mobile](visuals/leaderboard-mobile-2026-04-15T17-59-07-916Z.png)
+
+> No, the UI is not rendered—the screen is entirely black with no visible components. Error: Blank/black screen suggests rendering failure or missing content.
+
+---
