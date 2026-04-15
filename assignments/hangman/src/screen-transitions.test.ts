@@ -2,7 +2,7 @@
  * Tests for screen-transitions.ts - Smooth animated transitions between game screens
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   applyTransition,
   transitionIn,
@@ -14,10 +14,101 @@ import {
   type TransitionOptions,
 } from './screen-transitions';
 
+// ---------------------------------------------------------------------------
+// DOM Mock — lightweight mock DOM for bun test environment
+// ---------------------------------------------------------------------------
+
+function createMockElement(tagName: string): any {
+  const children: any[] = [];
+  const style: Record<string, string> = {};
+  const el: any = {
+    tagName: tagName.toUpperCase(),
+    id: '',
+    className: '',
+    textContent: '',
+    innerHTML: '',
+    style,
+    parentNode: null as any,
+    offsetHeight: 0,
+    get children() { return children; },
+    get childNodes() { return children; },
+    appendChild(child: any) {
+      child.parentNode = el;
+      children.push(child);
+      return child;
+    },
+    removeChild(child: any) {
+      const idx = children.indexOf(child);
+      if (idx > -1) {
+        children.splice(idx, 1);
+        child.parentNode = null;
+      }
+      return child;
+    },
+    remove() {
+      if (el.parentNode) {
+        const idx = el.parentNode.children.indexOf(el);
+        if (idx > -1) el.parentNode.children.splice(idx, 1);
+      }
+      el.parentNode = null;
+    },
+    querySelector(selector: string): any {
+      if (selector.startsWith('#')) {
+        const targetId = selector.slice(1);
+        for (const child of children) {
+          if (child.id === targetId) return child;
+        }
+      }
+      return null;
+    },
+    querySelectorAll(selector: string): any[] {
+      if (selector.startsWith('#')) {
+        const targetId = selector.slice(1);
+        return children.filter((c: any) => c.id === targetId);
+      }
+      return [];
+    },
+    setAttribute(name: string, value: string) {
+      if (name === 'id') el.id = value;
+    },
+  };
+  return el;
+}
+
+// Set up global document mock
+const headElement = createMockElement('HEAD');
+const bodyElement = createMockElement('BODY');
+
+const globalDocument = {
+  createElement(tag: string) {
+    return createMockElement(tag);
+  },
+  getElementById(id: string) {
+    return headElement.querySelector(`#${id}`) || bodyElement.querySelector(`#${id}`) || null;
+  },
+  querySelectorAll(selector: string) {
+    const fromHead = headElement.querySelectorAll(selector);
+    const fromBody = bodyElement.querySelectorAll(selector);
+    return [...fromHead, ...fromBody];
+  },
+  get head() { return headElement; },
+  get body() { return bodyElement; },
+};
+
+// Install globals
+(globalThis as any).document = globalDocument;
+(globalThis as any).requestAnimationFrame = (cb: FrameRequestCallback) => {
+  return setTimeout(() => cb(Date.now()), 0);
+};
+
 describe('screen-transitions', () => {
-  let element: HTMLDivElement;
+  let element: any;
 
   beforeEach(() => {
+    // Clear body/head children between tests
+    (bodyElement as any).children.length = 0;
+    (headElement as any).children.length = 0;
+
     element = document.createElement('div');
     element.style.display = 'none';
     document.body.appendChild(element);
@@ -130,7 +221,9 @@ describe('screen-transitions', () => {
       vi.useFakeTimers();
       const callback = vi.fn();
       transitionIn(element, { type: 'fade', duration: 200 }, callback);
-      vi.advanceTimersByTime(250);
+      // requestAnimationFrame is mocked to use setTimeout(0), so advance past both
+      vi.advanceTimersByTime(10); // let rAF fire
+      vi.advanceTimersByTime(250); // let the inner setTimeout(callback, duration) fire
       expect(callback).toHaveBeenCalled();
       vi.useRealTimers();
     });
@@ -210,7 +303,7 @@ describe('screen-transitions', () => {
   });
 
   describe('crossFade', () => {
-    let inElement: HTMLDivElement;
+    let inElement: any;
 
     beforeEach(() => {
       inElement = document.createElement('div');
@@ -233,7 +326,7 @@ describe('screen-transitions', () => {
   });
 
   describe('slideTransition', () => {
-    let inElement: HTMLDivElement;
+    let inElement: any;
 
     beforeEach(() => {
       inElement = document.createElement('div');
@@ -266,7 +359,8 @@ describe('screen-transitions', () => {
   describe('injectTransitionStyles', () => {
     it('should inject a style element into the document head', () => {
       // Remove any existing style first
-      document.getElementById('screen-transition-styles')?.remove();
+      const existing = document.getElementById('screen-transition-styles');
+      if (existing) existing.remove();
 
       injectTransitionStyles();
       const style = document.getElementById('screen-transition-styles');
@@ -275,7 +369,8 @@ describe('screen-transitions', () => {
     });
 
     it('should not inject duplicate styles', () => {
-      document.getElementById('screen-transition-styles')?.remove();
+      const existing = document.getElementById('screen-transition-styles');
+      if (existing) existing.remove();
 
       injectTransitionStyles();
       injectTransitionStyles();
@@ -285,7 +380,8 @@ describe('screen-transitions', () => {
     });
 
     it('should include transition CSS rules', () => {
-      document.getElementById('screen-transition-styles')?.remove();
+      const existing = document.getElementById('screen-transition-styles');
+      if (existing) existing.remove();
 
       injectTransitionStyles();
       const style = document.getElementById('screen-transition-styles');
@@ -293,7 +389,8 @@ describe('screen-transitions', () => {
     });
 
     it('should include hardware acceleration rules', () => {
-      document.getElementById('screen-transition-styles')?.remove();
+      const existing = document.getElementById('screen-transition-styles');
+      if (existing) existing.remove();
 
       injectTransitionStyles();
       const style = document.getElementById('screen-transition-styles');
@@ -301,7 +398,8 @@ describe('screen-transitions', () => {
     });
 
     it('should include pulse animation keyframes', () => {
-      document.getElementById('screen-transition-styles')?.remove();
+      const existing = document.getElementById('screen-transition-styles');
+      if (existing) existing.remove();
 
       injectTransitionStyles();
       const style = document.getElementById('screen-transition-styles');
