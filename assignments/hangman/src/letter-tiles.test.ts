@@ -7,46 +7,25 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { LetterTiles } from './letter-tiles';
 
 // ---------------------------------------------------------------------------
-// Global mocks – window must exist before vi.mock callbacks run
+// Ensure window.innerWidth/innerHeight exist (jsdom provides window but no
+// meaningful dimensions) and requestAnimationFrame is polyfilled.
+// jsdom does not implement requestAnimationFrame.
 // ---------------------------------------------------------------------------
-if (typeof (globalThis as any).window === 'undefined') {
-  const listeners: Record<string, Function[]> = {};
-  const raf = vi.fn((cb: FrameRequestCallback) => setTimeout(() => cb(Date.now()), 0));
-  (globalThis as any).window = {
-    innerWidth: 1024,
-    innerHeight: 768,
-    addEventListener: vi.fn((event: string, cb: Function) => {
-      (listeners[event] ??= []).push(cb);
-    }),
-    removeEventListener: vi.fn((event: string, cb: Function) => {
-      const arr = listeners[event];
-      if (arr) {
-        const idx = arr.indexOf(cb);
-        if (idx > -1) arr.splice(idx, 1);
-      }
-    }),
-    requestAnimationFrame: raf,
-  };
-  // Source calls requestAnimationFrame without window. prefix
-  (globalThis as any).requestAnimationFrame = raf;
+if (!(globalThis as any).window?.innerWidth) {
+  (globalThis as any).window ??= {} as any;
+  (globalThis as any).window.innerWidth = 1024;
+  (globalThis as any).window.innerHeight = 768;
 }
 
-if (typeof (globalThis as any).document === 'undefined') {
-  (globalThis as any).document = {
-    createElement: vi.fn(() => ({
-      width: 0,
-      height: 0,
-      getContext: vi.fn(() => ({
-        fillStyle: '',
-        font: '',
-        textAlign: '',
-        textBaseline: '',
-        fillText: vi.fn(),
-        fillRect: vi.fn(),
-        clearRect: vi.fn(),
-      })),
-    })),
+// Polyfill requestAnimationFrame on both globalThis and window
+// (source calls bare requestAnimationFrame which resolves via globalThis)
+if (typeof (globalThis as any).requestAnimationFrame !== 'function') {
+  (globalThis as any).requestAnimationFrame = (cb: FrameRequestCallback) => {
+    return setTimeout(() => cb(Date.now()), 0) as unknown as number;
   };
+}
+if (typeof (window as any).requestAnimationFrame !== 'function') {
+  (window as any).requestAnimationFrame = (globalThis as any).requestAnimationFrame;
 }
 
 // Mock THREE.js with minimal implementations
@@ -118,31 +97,24 @@ describe('LetterTiles', () => {
   let removeEventListenerSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
-    // Reset the global window mock's call tracking but keep implementations
-    (window.addEventListener as any).mockClear?.();
-    (window.removeEventListener as any).mockClear?.();
-    (window.requestAnimationFrame as any).mockClear?.();
-    ((globalThis as any).requestAnimationFrame as any).mockClear?.();
-    // Re-stub requestAnimationFrame so it returns a simple value
-    (window.requestAnimationFrame as any).mockImplementation?.((cb: FrameRequestCallback) => {
-      return 0;
-    });
-    ((globalThis as any).requestAnimationFrame as any).mockImplementation?.((cb: FrameRequestCallback) => {
-      return 0;
-    });
+    // Spy on window methods so assertions work with toHaveBeenCalled
+    addEventListenerSpy = vi.spyOn(window, 'addEventListener');
+    removeEventListenerSpy = vi.spyOn(window, 'removeEventListener');
+    // Source calls bare requestAnimationFrame which resolves via globalThis
+    rafSpy = vi.spyOn(globalThis as any, 'requestAnimationFrame' as any).mockImplementation(() => 0);
+
     // Clear THREE.js mocks
     const THREE = require('three');
     Object.values(THREE).forEach((fn: any) => {
       if (typeof fn?.mockClear === 'function') fn.mockClear();
     });
-    addEventListenerSpy = window.addEventListener as any;
-    removeEventListenerSpy = window.removeEventListener as any;
-    rafSpy = (globalThis as any).requestAnimationFrame as any;
+
     camera = createMockCamera();
     letterTiles = new LetterTiles(camera);
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     try { letterTiles.dispose(); } catch {}
   });
 
@@ -321,7 +293,9 @@ describe('LetterTiles', () => {
     it('should allow setting status again after reset', () => {
       letterTiles.setTileStatus('A', 'correct');
       letterTiles.reset();
-      vi.clearAllMocks();
+
+      // Re-spy on requestAnimationFrame after reset so call tracking is fresh
+      rafSpy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 0);
 
       letterTiles.setTileStatus('A', 'wrong');
 

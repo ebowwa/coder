@@ -5,5 +5,11 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     pool: 'forks',
+    environmentOptions: {
+      jsdom: {
+        resources: 'usable',
+        runScripts: 'dangerously',
+      },
+    },
   },
 })
