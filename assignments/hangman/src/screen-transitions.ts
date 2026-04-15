@@ -82,7 +82,7 @@ export function transitionIn(
   element.offsetHeight;
 
   // Animate to final state
-  requestAnimationFrame(() => {
+  const animate = () => {
     element.style.opacity = '1';
     element.style.transform = 'translateX(0) translateY(0) scale(1)';
     element.style.pointerEvents = 'auto';
@@ -91,7 +91,13 @@ export function transitionIn(
     if (callback) {
       setTimeout(callback, duration);
     }
-  });
+  };
+
+  if (typeof requestAnimationFrame === 'function') {
+    requestAnimationFrame(animate);
+  } else {
+    animate();
+  }
 }
 
 /**

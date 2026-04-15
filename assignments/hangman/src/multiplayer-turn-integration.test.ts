@@ -484,32 +484,33 @@ describe('Multiplayer Turn Rotation Integration', () => {
     it('should allow same player to make multiple correct guesses in a row', () => {
       client.createRoom('p1', 'Alice', 0xff6b6b);
       client.joinRoom('p2', 'Bob', 0x4ecdc4);
-      client.startGame(1);
+      // Use forced word with many common letters to ensure deterministic test
+      // AEROPLANE contains: A, E, R, O, P, L, N
+      // Only use letters that are IN the word so turn never rotates
+      client.startGame(1, 'AEROPLANE');
       
       const initialTurn = client.getCurrentTurnPlayerId();
+      expect(initialTurn).toBe('p1');
       
-      // Make guesses and track correct ones
-      const correctGuesses: string[] = [];
-      const letters = ['E', 'A', 'R', 'S', 'T', 'L', 'N', 'I', 'O'];
+      // Make only correct guesses - turn should stay with p1
+      const correctLetters = ['E', 'A', 'R', 'L', 'N', 'O'];
       
-      for (const letter of letters) {
+      for (const letter of correctLetters) {
         if (client.isRoundComplete()) break;
         
-        const currentTurn = client.getCurrentTurnPlayerId();
-        if (currentTurn !== initialTurn) break; // Turn changed, stop test
-        
-        const result = client.processGuess(currentTurn!, letter);
-        if (result?.isCorrect) {
-          correctGuesses.push(letter);
-          expect(result.nextPlayerId).toBe(initialTurn);
-        }
+        const result = client.processGuess('p1', letter);
+        expect(result).not.toBeNull();
+        expect(result!.isCorrect).toBe(true);
+        // Correct guess: nextPlayerId should remain the same
+        expect(result!.nextPlayerId).toBe('p1');
       }
       
-      // If we made multiple correct guesses, verify turn never changed
-      if (correctGuesses.length >= 2) {
-        expect(client.getCurrentTurnPlayerId()).toBe(initialTurn);
-        expect(client.turnChanges.filter(tc => tc.reason === 'wrong')).toHaveLength(0);
+      // Turn should never have changed
+      if (!client.isRoundComplete()) {
+        expect(client.getCurrentTurnPlayerId()).toBe('p1');
       }
+      // No wrong-guess turn changes should have occurred
+      expect(client.turnChanges.filter(tc => tc.reason === 'wrong')).toHaveLength(0);
     });
   });
 

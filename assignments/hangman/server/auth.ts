@@ -65,7 +65,12 @@ class AuthManager {
     if (this.saveTimeout) clearTimeout(this.saveTimeout);
     this.saveTimeout = setTimeout(() => {
       this.data.lastUpdated = Date.now();
-      Bun.write(USERS_FILE, JSON.stringify(this.data, null, 2));
+      if (typeof Bun !== 'undefined') {
+        Bun.write(USERS_FILE, JSON.stringify(this.data, null, 2));
+      } else {
+        const fs = require('fs');
+        fs.writeFileSync(USERS_FILE, JSON.stringify(this.data, null, 2));
+      }
     }, 100);
   }
 

@@ -48,7 +48,12 @@ class FriendsManager {
     if (this.saveTimeout) clearTimeout(this.saveTimeout);
     this.saveTimeout = setTimeout(() => {
       this.data.lastUpdated = Date.now();
-      Bun.write(FRIENDS_FILE, JSON.stringify(this.data, null, 2));
+      if (typeof Bun !== 'undefined') {
+        Bun.write(FRIENDS_FILE, JSON.stringify(this.data, null, 2));
+      } else {
+        const fs = require('fs');
+        fs.writeFileSync(FRIENDS_FILE, JSON.stringify(this.data, null, 2));
+      }
     }, 100);
   }
 
