@@ -217,15 +217,12 @@ describe('screen-transitions', () => {
       expect(element.style.pointerEvents).toBe('none');
     });
 
-    it('should call callback after duration', () => {
-      vi.useFakeTimers();
+    it('should call callback after duration', async () => {
       const callback = vi.fn();
-      transitionIn(element, { type: 'fade', duration: 200 }, callback);
-      // requestAnimationFrame is mocked to use setTimeout(0), so advance past both
-      vi.advanceTimersByTime(10); // let rAF fire
-      vi.advanceTimersByTime(250); // let the inner setTimeout(callback, duration) fire
+      transitionIn(element, { type: 'fade', duration: 50 }, callback);
+      // Wait for rAF (setTimeout 0) + duration (setTimeout 50)
+      await new Promise((r) => setTimeout(r, 100));
       expect(callback).toHaveBeenCalled();
-      vi.useRealTimers();
     });
   });
 

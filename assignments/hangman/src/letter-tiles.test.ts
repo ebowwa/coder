@@ -6,6 +6,49 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { LetterTiles } from './letter-tiles';
 
+// ---------------------------------------------------------------------------
+// Global mocks – window must exist before vi.mock callbacks run
+// ---------------------------------------------------------------------------
+if (typeof (globalThis as any).window === 'undefined') {
+  const listeners: Record<string, Function[]> = {};
+  const raf = vi.fn((cb: FrameRequestCallback) => setTimeout(() => cb(Date.now()), 0));
+  (globalThis as any).window = {
+    innerWidth: 1024,
+    innerHeight: 768,
+    addEventListener: vi.fn((event: string, cb: Function) => {
+      (listeners[event] ??= []).push(cb);
+    }),
+    removeEventListener: vi.fn((event: string, cb: Function) => {
+      const arr = listeners[event];
+      if (arr) {
+        const idx = arr.indexOf(cb);
+        if (idx > -1) arr.splice(idx, 1);
+      }
+    }),
+    requestAnimationFrame: raf,
+  };
+  // Source calls requestAnimationFrame without window. prefix
+  (globalThis as any).requestAnimationFrame = raf;
+}
+
+if (typeof (globalThis as any).document === 'undefined') {
+  (globalThis as any).document = {
+    createElement: vi.fn(() => ({
+      width: 0,
+      height: 0,
+      getContext: vi.fn(() => ({
+        fillStyle: '',
+        font: '',
+        textAlign: '',
+        textBaseline: '',
+        fillText: vi.fn(),
+        fillRect: vi.fn(),
+        clearRect: vi.fn(),
+      })),
+    })),
+  };
+}
+
 // Mock THREE.js with minimal implementations
 vi.mock('three', () => {
   const createMockPosition = () => ({
@@ -75,22 +118,32 @@ describe('LetterTiles', () => {
   let removeEventListenerSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
-    vi.clearAllMocks();
-    rafSpy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb: FrameRequestCallback) => {
+    // Reset the global window mock's call tracking but keep implementations
+    (window.addEventListener as any).mockClear?.();
+    (window.removeEventListener as any).mockClear?.();
+    (window.requestAnimationFrame as any).mockClear?.();
+    ((globalThis as any).requestAnimationFrame as any).mockClear?.();
+    // Re-stub requestAnimationFrame so it returns a simple value
+    (window.requestAnimationFrame as any).mockImplementation?.((cb: FrameRequestCallback) => {
       return 0;
     });
-    addEventListenerSpy = vi.spyOn(window, 'addEventListener');
-    removeEventListenerSpy = vi.spyOn(window, 'removeEventListener');
+    ((globalThis as any).requestAnimationFrame as any).mockImplementation?.((cb: FrameRequestCallback) => {
+      return 0;
+    });
+    // Clear THREE.js mocks
+    const THREE = require('three');
+    Object.values(THREE).forEach((fn: any) => {
+      if (typeof fn?.mockClear === 'function') fn.mockClear();
+    });
+    addEventListenerSpy = window.addEventListener as any;
+    removeEventListenerSpy = window.removeEventListener as any;
+    rafSpy = (globalThis as any).requestAnimationFrame as any;
     camera = createMockCamera();
     letterTiles = new LetterTiles(camera);
   });
 
   afterEach(() => {
-    letterTiles.dispose();
-    rafSpy.mockRestore();
-    addEventListenerSpy.mockRestore();
-    removeEventListenerSpy.mockRestore();
-    vi.restoreAllMocks();
+    try { letterTiles.dispose(); } catch {}
   });
 
   describe('Tile creation - rendering letter tiles for alphabet', () => {
