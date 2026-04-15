@@ -16,6 +16,44 @@ if (!(globalThis as any).window?.innerWidth) {
   (globalThis as any).window.innerWidth = 1024;
   (globalThis as any).window.innerHeight = 768;
 }
+// Ensure window has addEventListener/removeEventListener stubs (needed before spy wraps them)
+if (typeof (globalThis as any).window.addEventListener !== 'function') {
+  (globalThis as any).window.addEventListener = () => {};
+  (globalThis as any).window.removeEventListener = () => {};
+}
+
+// Polyfill document.createElement for canvas (source uses it in addLetterToTile)
+if (typeof (globalThis as any).document === 'undefined') {
+  (globalThis as any).document = {
+    createElement: (tag: string) => {
+      if (tag === 'canvas') {
+        const canvas = { width: 0, height: 0 };
+        return {
+          ...canvas,
+          getContext: () => ({
+            fillRect: vi.fn(),
+            fillText: vi.fn(),
+          }),
+        };
+      }
+      return {};
+    },
+  } as any;
+} else if (!(globalThis as any).document.createElement) {
+  (globalThis as any).document.createElement = (tag: string) => {
+    if (tag === 'canvas') {
+      return {
+        width: 0,
+        height: 0,
+        getContext: () => ({
+          fillRect: vi.fn(),
+          fillText: vi.fn(),
+        }),
+      };
+    }
+    return {};
+  };
+}
 
 // Polyfill requestAnimationFrame on both globalThis and window
 // (source calls bare requestAnimationFrame which resolves via globalThis)
@@ -295,7 +333,8 @@ describe('LetterTiles', () => {
       letterTiles.reset();
 
       // Re-spy on requestAnimationFrame after reset so call tracking is fresh
-      rafSpy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 0);
+      // Source calls bare requestAnimationFrame which resolves via globalThis
+      rafSpy = vi.spyOn(globalThis as any, 'requestAnimationFrame').mockImplementation(() => 0);
 
       letterTiles.setTileStatus('A', 'wrong');
 
