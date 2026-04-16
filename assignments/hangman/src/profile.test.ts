@@ -23,6 +23,10 @@ vi.mock('./router', () => ({
 // ---------------------------------------------------------------------------
 
 function createContainer(): HTMLDivElement {
+  // Use the global document object provided by jsdom
+  if (typeof document === 'undefined') {
+    throw new Error('document is not available - jsdom environment not properly set up');
+  }
   return document.createElement('div');
 }
 
