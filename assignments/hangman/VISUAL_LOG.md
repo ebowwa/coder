@@ -26350,3 +26350,163 @@ src/
 > No visible components are rendered; the screen is entirely black, indicating a rendering issue.
 
 ---
+
+## 2026-04-16T20:25:10.586Z -- Task `task_1776370780625_jjfpkk` -- `/` (desktop 1280x720)
+
+**URL:** http://localhost:3000  **Verdict:** FAILED  **Latency:** 4818ms
+
+![home-desktop](visuals/home-desktop-2026-04-16T20-25-05-768Z.png)
+
+> No UI elements are visible; the screen is entirely black. No components render, indicating a potential rendering failure or empty state.
+
+---
+
+## 2026-04-16T20:25:14.273Z -- Task `task_1776370780625_jjfpkk` -- `/` (mobile 375x812)
+
+**URL:** http://localhost:3000  **Verdict:** FAILED  **Latency:** 3686ms
+
+![home-mobile](visuals/home-mobile-2026-04-16T20-25-10-588Z.png)
+
+> No visible components are rendered; the screen is entirely black, indicating a rendering error or missing content.
+
+---
+
+## 2026-04-16T20:25:18.268Z -- Task `task_1776370780625_jjfpkk` -- `#auth` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** FAILED  **Latency:** 3995ms
+
+![auth-desktop](visuals/auth-desktop-2026-04-16T20-25-14-273Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI not rendered (blank screen).
+
+---
+
+## 2026-04-16T20:25:22.259Z -- Task `task_1776370780625_jjfpkk` -- `#auth` (mobile 375x812)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** OK  **Latency:** 3991ms
+
+![auth-mobile](visuals/auth-mobile-2026-04-16T20-25-18-268Z.png)
+
+> No, the UI is not rendered—only a black screen is visible with no components displayed. Error: No content loads for the "#auth" route.
+
+---
+
+## 2026-04-16T20:25:26.376Z -- Task `task_1776370780625_jjfpkk` -- `#dashboard` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** FAILED  **Latency:** 4117ms
+
+![dashboard-desktop](visuals/dashboard-desktop-2026-04-16T20-25-22-259Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI failed to render (no content displayed).
+
+---
+
+## 2026-04-16T20:25:30.185Z -- Task `task_1776370780625_jjfpkk` -- `#dashboard` (mobile 375x812)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** OK  **Latency:** 3808ms
+
+![dashboard-mobile](visuals/dashboard-mobile-2026-04-16T20-25-26-377Z.png)
+
+> No visible components; UI not rendered (blank screen).
+
+---
+
+## 2026-04-16T20:25:34.438Z -- Task `task_1776370780625_jjfpkk` -- `#lobby` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** FAILED  **Latency:** 4253ms
+
+![lobby-desktop](visuals/lobby-desktop-2026-04-16T20-25-30-185Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI not rendered (blank/black screen).
+
+---
+
+## 2026-04-16T20:25:38.953Z -- Task `task_1776370780625_jjfpkk` -- `#lobby` (mobile 375x812)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** FAILED  **Latency:** 4515ms
+
+![lobby-mobile](visuals/lobby-mobile-2026-04-16T20-25-34-438Z.png)
+
+> No UI elements are visible; the screen is entirely black. Error: UI failed to render (blank/black screen).
+
+---
+
+## 2026-04-16T20:25:43.760Z -- Task `task_1776370780625_jjfpkk` -- `#profile` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** FAILED  **Latency:** 4807ms
+
+![profile-desktop](visuals/profile-desktop-2026-04-16T20-25-38-953Z.png)
+
+> No UI elements are visible; the screen is entirely black. This indicates a rendering issue or missing content for the #profile route.
+
+---
+
+## 2026-04-16T20:25:47.451Z -- Task `task_1776370780625_jjfpkk` -- `#profile` (mobile 375x812)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** OK  **Latency:** 3690ms
+
+![profile-mobile](visuals/profile-mobile-2026-04-16T20-25-43-761Z.png)
+
+> No, the UI is not rendered—only a black screen is visible. No components are displayed, indicating a rendering issue.
+
+---
+
+## 2026-04-16T20:25:51.921Z -- Task `task_1776370780625_jjfpkk` -- `#friends` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** FAILED  **Latency:** 4469ms
+
+![friends-desktop](visuals/friends-desktop-2026-04-16T20-25-47-452Z.png)
+
+> No UI components are visible; the screen is entirely black. The UI failed to render for the "#friends" route on desktop 1280x720.
+
+---
+
+## 2026-04-16T20:25:55.675Z -- Task `task_1776370780625_jjfpkk` -- `#friends` (mobile 375x812)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** FAILED  **Latency:** 3754ms
+
+![friends-mobile](visuals/friends-mobile-2026-04-16T20-25-51-921Z.png)
+
+> No visible components; UI not rendered (entirely black screen).
+
+---
+
+## 2026-04-16T20:26:00.457Z -- Task `task_1776370780625_jjfpkk` -- `#leaderboard` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#leaderboard  **Verdict:** FAILED  **Latency:** 4781ms
+
+![leaderboard-desktop](visuals/leaderboard-desktop-2026-04-16T20-25-55-676Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: The UI for the "#leaderboard" route is not rendered.
+
+---
+
+## 2026-04-16T20:26:05.538Z -- Task `task_1776370780625_jjfpkk` -- `#leaderboard` (mobile 375x812)
+
+**URL:** http://localhost:3000/#leaderboard  **Verdict:** FAILED  **Latency:** 5081ms
+
+![leaderboard-mobile](visuals/leaderboard-mobile-2026-04-16T20-26-00-457Z.png)
+
+> No visible components are rendered; the screen is entirely black. Error: UI fails to render content for the #leaderboard route.
+
+---
+
+## 2026-04-16T20:26:09.570Z -- Task `task_1776370780625_jjfpkk` -- `#game` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#game  **Verdict:** FAILED  **Latency:** 4031ms
+
+![game-desktop](visuals/game-desktop-2026-04-16T20-26-05-539Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI not rendered (blank display).
+
+---
+
+## 2026-04-16T20:26:13.767Z -- Task `task_1776370780625_jjfpkk` -- `#game` (mobile 375x812)
+
+**URL:** http://localhost:3000/#game  **Verdict:** OK  **Latency:** 4197ms
+
+![game-mobile](visuals/game-mobile-2026-04-16T20-26-09-570Z.png)
+
+> No visible components are rendered. Error: The UI is not displayed (entire screen is black).
+
+---
