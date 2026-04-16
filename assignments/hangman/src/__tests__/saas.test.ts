@@ -208,10 +208,22 @@ describe("FriendsManager", () => {
 // --- Lobby Manager Tests ---
 describe("LobbyManager", () => {
   let lobbyManager: any;
+  let lobbyMod: any;
 
   beforeAll(async () => {
-    const mod = await import("../../server/lobby");
-    lobbyManager = mod.lobbyManager;
+    lobbyMod = await import("../../server/lobby");
+    lobbyManager = lobbyMod.lobbyManager;
+  });
+
+  afterAll(() => {
+    // Cancel any pending save timeouts to prevent post-teardown errors
+    try {
+      if (lobbyManager && typeof lobbyManager.clearSaveTimeout === "function") {
+        lobbyManager.clearSaveTimeout();
+      }
+    } catch {
+      // Ignore cleanup errors
+    }
   });
 
   it("should create a room", () => {

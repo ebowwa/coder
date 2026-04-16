@@ -3,7 +3,7 @@
  * Named rooms, categories, difficulty, max players, rounds, public/private
  */
 
-import { existsSync, readFileSync } from "fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
 
 const DATA_DIR = "data";
 const LOBBY_FILE = DATA_DIR + "/lobby.json";
@@ -54,7 +54,6 @@ class LobbyManager {
   private load(): LobbyData {
     try {
       if (!existsSync(DATA_DIR)) {
-        const { mkdirSync } = require("fs");
         mkdirSync(DATA_DIR, { recursive: true });
       }
       if (existsSync(LOBBY_FILE)) {
@@ -70,8 +69,15 @@ class LobbyManager {
     if (this.saveTimeout) clearTimeout(this.saveTimeout);
     this.saveTimeout = setTimeout(() => {
       this.data.lastUpdated = Date.now();
-      Bun.write(LOBBY_FILE, JSON.stringify(this.data, null, 2));
+      writeFileSync(LOBBY_FILE, JSON.stringify(this.data, null, 2));
     }, 100);
+  }
+
+  clearSaveTimeout(): void {
+    if (this.saveTimeout) {
+      clearTimeout(this.saveTimeout);
+      this.saveTimeout = null;
+    }
   }
 
   createRoom(opts: {
