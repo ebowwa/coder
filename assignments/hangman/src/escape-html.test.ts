@@ -69,4 +69,18 @@ describe('escapeHtml', () => {
       '&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;',
     );
   });
+
+  it('is idempotent: double-escaping does not produce raw HTML', () => {
+    const input = '<div class="a">&foo\'bar</div>';
+    const escaped = escapeHtml(input);
+    const doubleEscaped = escapeHtml(escaped);
+    expect(doubleEscaped).not.toMatch(/[<>"']/);
+    expect(doubleEscaped).toBe(escapeHtml(escaped));
+    // The double-escaped string should contain the escaped & from the first pass
+    expect(doubleEscaped).toContain('&amp;lt;');
+    expect(doubleEscaped).toContain('&amp;gt;');
+    expect(doubleEscaped).toContain('&amp;amp;');
+    expect(doubleEscaped).toContain('&amp;quot;');
+    expect(doubleEscaped).toContain('&amp;#x27;');
+  });
 });
