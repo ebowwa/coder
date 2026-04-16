@@ -415,29 +415,30 @@ describe('PredictionUI3D', () => {
       const freshScene = createMockScene();
       const freshCamera = createMockCamera();
 
-      // Spy on addEventListener to capture the exact handler references
-      const addSpy = vi.spyOn(globalThis.window, 'addEventListener');
+      // Clear existing mock call records to isolate this test's calls
+      const addMock = (globalThis.window.addEventListener as ReturnType<typeof vi.fn>);
+      const removeMock = (globalThis.window.removeEventListener as ReturnType<typeof vi.fn>);
+      addMock.mockClear();
+      removeMock.mockClear();
+
       const freshUI = new PredictionUI3D(freshScene, freshCamera);
 
-      const mousemoveHandler = addSpy.mock.calls.find((c: any[]) => c[0] === 'mousemove')?.[1];
-      const clickHandler = addSpy.mock.calls.find((c: any[]) => c[0] === 'click')?.[1];
+      const mousemoveHandler = addMock.mock.calls.find((c: any[]) => c[0] === 'mousemove')?.[1];
+      const clickHandler = addMock.mock.calls.find((c: any[]) => c[0] === 'click')?.[1];
 
       // These should be the bound references stored on the instance
       expect(mousemoveHandler).toBe((freshUI as any).boundOnMouseMove);
       expect(clickHandler).toBe((freshUI as any).boundOnClick);
 
       // Now verify dispose removes those exact same references
-      const removeSpy = vi.spyOn(globalThis.window, 'removeEventListener');
+      removeMock.mockClear();
       freshUI.dispose();
 
-      const removeMousemove = removeSpy.mock.calls.find((c: any[]) => c[0] === 'mousemove')?.[1];
-      const removeClick = removeSpy.mock.calls.find((c: any[]) => c[0] === 'click')?.[1];
+      const removeMousemove = removeMock.mock.calls.find((c: any[]) => c[0] === 'mousemove')?.[1];
+      const removeClick = removeMock.mock.calls.find((c: any[]) => c[0] === 'click')?.[1];
 
       expect(mousemoveHandler).toBe(removeMousemove);
       expect(clickHandler).toBe(removeClick);
-
-      addSpy.mockRestore();
-      removeSpy.mockRestore();
     });
   });
 
