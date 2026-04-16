@@ -28750,3 +28750,163 @@ src/
 > No visible components are rendered. Error: The UI is not displayed (entire screen is black).
 
 ---
+
+## 2026-04-16T23:34:26.298Z -- Task `task_1776382149770_ph6219` -- `/` (desktop 1280x720)
+
+**URL:** http://localhost:3000  **Verdict:** FAILED  **Latency:** 5427ms
+
+![home-desktop](visuals/home-desktop-2026-04-16T23-34-20-871Z.png)
+
+> No, the UI is not rendered—no visible components. The screen is entirely black, indicating a rendering issue or missing content.
+
+---
+
+## 2026-04-16T23:34:31.380Z -- Task `task_1776382149770_ph6219` -- `/` (mobile 375x812)
+
+**URL:** http://localhost:3000  **Verdict:** FAILED  **Latency:** 5081ms
+
+![home-mobile](visuals/home-mobile-2026-04-16T23-34-26-299Z.png)
+
+> No visible components; the screen is entirely black, indicating a potential rendering error or missing content.
+
+---
+
+## 2026-04-16T23:34:35.992Z -- Task `task_1776382149770_ph6219` -- `#auth` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** FAILED  **Latency:** 4611ms
+
+![auth-desktop](visuals/auth-desktop-2026-04-16T23-34-31-381Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI failed to render (no content displayed).
+
+---
+
+## 2026-04-16T23:34:40.471Z -- Task `task_1776382149770_ph6219` -- `#auth` (mobile 375x812)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** FAILED  **Latency:** 4478ms
+
+![auth-mobile](visuals/auth-mobile-2026-04-16T23-34-35-993Z.png)
+
+> No visible components; the screen is entirely black, indicating a rendering error or missing content.
+
+---
+
+## 2026-04-16T23:34:44.656Z -- Task `task_1776382149770_ph6219` -- `#dashboard` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** FAILED  **Latency:** 4185ms
+
+![dashboard-desktop](visuals/dashboard-desktop-2026-04-16T23-34-40-471Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI failed to render (no content displayed).
+
+---
+
+## 2026-04-16T23:34:49.105Z -- Task `task_1776382149770_ph6219` -- `#dashboard` (mobile 375x812)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** FAILED  **Latency:** 4447ms
+
+![dashboard-mobile](visuals/dashboard-mobile-2026-04-16T23-34-44-657Z.png)
+
+> No UI elements are visible; the screen is entirely black. This indicates a rendering issue or missing content for the dashboard route.
+
+---
+
+## 2026-04-16T23:34:53.829Z -- Task `task_1776382149770_ph6219` -- `#lobby` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** FAILED  **Latency:** 4724ms
+
+![lobby-desktop](visuals/lobby-desktop-2026-04-16T23-34-49-105Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI not rendered (blank/black screen).
+
+---
+
+## 2026-04-16T23:34:57.623Z -- Task `task_1776382149770_ph6219` -- `#lobby` (mobile 375x812)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** FAILED  **Latency:** 3793ms
+
+![lobby-mobile](visuals/lobby-mobile-2026-04-16T23-34-53-830Z.png)
+
+> No visible components; UI not rendered (entirely black screen).
+
+---
+
+## 2026-04-16T23:35:02.645Z -- Task `task_1776382149770_ph6219` -- `#profile` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** OK  **Latency:** 5021ms
+
+![profile-desktop](visuals/profile-desktop-2026-04-16T23-34-57-624Z.png)
+
+> No visible components; UI appears unrendered (black screen). Error: No content displayed for the profile route.
+
+---
+
+## 2026-04-16T23:35:07.457Z -- Task `task_1776382149770_ph6219` -- `#profile` (mobile 375x812)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** FAILED  **Latency:** 4811ms
+
+![profile-mobile](visuals/profile-mobile-2026-04-16T23-35-02-646Z.png)
+
+> No UI components are visible; the screen is entirely black, indicating a rendering error or missing content.
+
+---
+
+## 2026-04-16T23:35:11.906Z -- Task `task_1776382149770_ph6219` -- `#friends` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** FAILED  **Latency:** 4448ms
+
+![friends-desktop](visuals/friends-desktop-2026-04-16T23-35-07-458Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI not rendered (blank screen).
+
+---
+
+## 2026-04-16T23:35:16.248Z -- Task `task_1776382149770_ph6219` -- `#friends` (mobile 375x812)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** FAILED  **Latency:** 4341ms
+
+![friends-mobile](visuals/friends-mobile-2026-04-16T23-35-11-907Z.png)
+
+> No UI components are visible; the screen is entirely black, indicating a rendering error (content not displayed).
+
+---
+
+## 2026-04-16T23:35:20.445Z -- Task `task_1776382149770_ph6219` -- `#leaderboard` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#leaderboard  **Verdict:** FAILED  **Latency:** 4196ms
+
+![leaderboard-desktop](visuals/leaderboard-desktop-2026-04-16T23-35-16-249Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI failed to render (no content displayed).
+
+---
+
+## 2026-04-16T23:35:25.380Z -- Task `task_1776382149770_ph6219` -- `#leaderboard` (mobile 375x812)
+
+**URL:** http://localhost:3000/#leaderboard  **Verdict:** OK  **Latency:** 4933ms
+
+![leaderboard-mobile](visuals/leaderboard-mobile-2026-04-16T23-35-20-446Z.png)
+
+> No visible components; UI not rendered (all-black screen indicates failure to display content).
+
+---
+
+## 2026-04-16T23:35:29.768Z -- Task `task_1776382149770_ph6219` -- `#game` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#game  **Verdict:** FAILED  **Latency:** 4388ms
+
+![game-desktop](visuals/game-desktop-2026-04-16T23-35-25-380Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI failed to render (no content displayed).
+
+---
+
+## 2026-04-16T23:35:34.027Z -- Task `task_1776382149770_ph6219` -- `#game` (mobile 375x812)
+
+**URL:** http://localhost:3000/#game  **Verdict:** FAILED  **Latency:** 4258ms
+
+![game-mobile](visuals/game-mobile-2026-04-16T23-35-29-769Z.png)
+
+> No UI components are rendered; the screen is entirely black. This indicates a rendering error or missing content for the "#game" route.
+
+---
