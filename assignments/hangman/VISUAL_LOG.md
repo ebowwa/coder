@@ -22190,3 +22190,163 @@ src/
 > No UI components are visible; the screen is entirely black, indicating a rendering error or missing content.
 
 ---
+
+## 2026-04-16T16:21:59.503Z -- Task `task_1776356468828_h5ab09` -- `/` (desktop 1280x720)
+
+**URL:** http://localhost:3000  **Verdict:** OK  **Latency:** 4682ms
+
+![home-desktop](visuals/home-desktop-2026-04-16T16-21-54-821Z.png)
+
+> No visible components; UI not rendered (black screen). Error: No content displayed.
+
+---
+
+## 2026-04-16T16:22:04.151Z -- Task `task_1776356468828_h5ab09` -- `/` (mobile 375x812)
+
+**URL:** http://localhost:3000  **Verdict:** FAILED  **Latency:** 4647ms
+
+![home-mobile](visuals/home-mobile-2026-04-16T16-21-59-504Z.png)
+
+> No UI elements are visible; the screen is entirely black, indicating a rendering issue or missing content.
+
+---
+
+## 2026-04-16T16:22:14.297Z -- Task `task_1776356468828_h5ab09` -- `#auth` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** FAILED  **Latency:** 10145ms
+
+![auth-desktop](visuals/auth-desktop-2026-04-16T16-22-04-152Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI failed to render (no content displayed).
+
+---
+
+## 2026-04-16T16:22:19.843Z -- Task `task_1776356468828_h5ab09` -- `#auth` (mobile 375x812)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** FAILED  **Latency:** 5545ms
+
+![auth-mobile](visuals/auth-mobile-2026-04-16T16-22-14-298Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: The authentication page failed to render any content.
+
+---
+
+## 2026-04-16T16:22:24.479Z -- Task `task_1776356468828_h5ab09` -- `#dashboard` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** FAILED  **Latency:** 4635ms
+
+![dashboard-desktop](visuals/dashboard-desktop-2026-04-16T16-22-19-844Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI failed to render (no content displayed).
+
+---
+
+## 2026-04-16T16:22:29.379Z -- Task `task_1776356468828_h5ab09` -- `#dashboard` (mobile 375x812)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** FAILED  **Latency:** 4900ms
+
+![dashboard-mobile](visuals/dashboard-mobile-2026-04-16T16-22-24-479Z.png)
+
+> No, the UI is not rendered. No visible components; the screen is entirely black with no content or interactive elements.
+
+---
+
+## 2026-04-16T16:22:33.828Z -- Task `task_1776356468828_h5ab09` -- `#lobby` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** FAILED  **Latency:** 4448ms
+
+![lobby-desktop](visuals/lobby-desktop-2026-04-16T16-22-29-380Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI failed to render (no content displayed).
+
+---
+
+## 2026-04-16T16:22:38.511Z -- Task `task_1776356468828_h5ab09` -- `#lobby` (mobile 375x812)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** FAILED  **Latency:** 4683ms
+
+![lobby-mobile](visuals/lobby-mobile-2026-04-16T16-22-33-828Z.png)
+
+> No visible components are rendered; the screen is entirely black. Error: No UI elements displayed on the route "#lobby".
+
+---
+
+## 2026-04-16T16:22:43.249Z -- Task `task_1776356468828_h5ab09` -- `#profile` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** FAILED  **Latency:** 4738ms
+
+![profile-desktop](visuals/profile-desktop-2026-04-16T16-22-38-511Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI failed to render (no content displayed).
+
+---
+
+## 2026-04-16T16:22:48.082Z -- Task `task_1776356468828_h5ab09` -- `#profile` (mobile 375x812)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** FAILED  **Latency:** 4832ms
+
+![profile-mobile](visuals/profile-mobile-2026-04-16T16-22-43-250Z.png)
+
+> The UI is not rendered; the screen is entirely black. No visible components are present, indicating a rendering issue.
+
+---
+
+## 2026-04-16T16:22:53.745Z -- Task `task_1776356468828_h5ab09` -- `#friends` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** OK  **Latency:** 5662ms
+
+![friends-desktop](visuals/friends-desktop-2026-04-16T16-22-48-083Z.png)
+
+> No, the UI is not rendered—no visible components present. Error: Complete black screen indicates failed rendering or missing content.
+
+---
+
+## 2026-04-16T16:22:57.913Z -- Task `task_1776356468828_h5ab09` -- `#friends` (mobile 375x812)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** OK  **Latency:** 4168ms
+
+![friends-mobile](visuals/friends-mobile-2026-04-16T16-22-53-745Z.png)
+
+> No visible components; UI not rendered (blank screen).
+
+---
+
+## 2026-04-16T16:23:02.701Z -- Task `task_1776356468828_h5ab09` -- `#leaderboard` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#leaderboard  **Verdict:** FAILED  **Latency:** 4787ms
+
+![leaderboard-desktop](visuals/leaderboard-desktop-2026-04-16T16-22-57-914Z.png)
+
+> No UI components are rendered; the screen is entirely black. Error: No visible elements or content for the leaderboard route.
+
+---
+
+## 2026-04-16T16:23:07.753Z -- Task `task_1776356468828_h5ab09` -- `#leaderboard` (mobile 375x812)
+
+**URL:** http://localhost:3000/#leaderboard  **Verdict:** FAILED  **Latency:** 5051ms
+
+![leaderboard-mobile](visuals/leaderboard-mobile-2026-04-16T16-23-02-702Z.png)
+
+> No visible components; screen is entirely black. Error—UI not rendered (no content displayed).
+
+---
+
+## 2026-04-16T16:23:12.639Z -- Task `task_1776356468828_h5ab09` -- `#game` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#game  **Verdict:** FAILED  **Latency:** 4885ms
+
+![game-desktop](visuals/game-desktop-2026-04-16T16-23-07-753Z.png)
+
+> No UI components are visible; the screen is entirely black, indicating a rendering error or failed load.
+
+---
+
+## 2026-04-16T16:23:19.493Z -- Task `task_1776356468828_h5ab09` -- `#game` (mobile 375x812)
+
+**URL:** http://localhost:3000/#game  **Verdict:** OK  **Latency:** 6854ms
+
+![game-mobile](visuals/game-mobile-2026-04-16T16-23-12-639Z.png)
+
+> No, the UI is not rendered—only a black screen is visible. No components are displayed, indicating a rendering issue.
+
+---
