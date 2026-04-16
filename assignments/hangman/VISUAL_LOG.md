@@ -17250,3 +17250,113 @@ src/
 > No UI components are visible; the screen is entirely black. Error: UI failed to render (no content displayed).
 
 ---
+
+## 2026-04-16T01:04:14.856Z -- Task `task_1776301265822_3c7wxg` -- `#lobby` (mobile 375x812)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** FAILED  **Latency:** 25549ms
+
+![lobby-mobile](visuals/lobby-mobile-2026-04-16T01-03-49-289Z.png)
+
+> No visible components; UI not rendered (entirely black screen).
+
+---
+
+## 2026-04-16T01:04:26.223Z -- Task `task_1776301265822_3c7wxg` -- `#profile` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** FAILED  **Latency:** 11356ms
+
+![profile-desktop](visuals/profile-desktop-2026-04-16T01-04-14-864Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI failed to render (no content displayed).
+
+---
+
+## 2026-04-16T01:04:35.642Z -- Task `task_1776301265822_3c7wxg` -- `#profile` (mobile 375x812)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** OK  **Latency:** 9415ms
+
+![profile-mobile](visuals/profile-mobile-2026-04-16T01-04-26-227Z.png)
+
+> No visible components; UI not rendered (all-black screen). Error: Content failed to load or render.
+
+---
+
+## 2026-04-16T01:04:43.380Z -- Task `task_1776301265822_3c7wxg` -- `#friends` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** FAILED  **Latency:** 7715ms
+
+![friends-desktop](visuals/friends-desktop-2026-04-16T01-04-35-664Z.png)
+
+> No UI components are visible; the screen is entirely black. The UI failed to render, showing no content for the "#friends" route.
+
+---
+
+## 2026-04-16T01:04:47.748Z -- Task `task_1776301265822_3c7wxg` -- `#friends` (mobile 375x812)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** OK  **Latency:** 4361ms
+
+![friends-mobile](visuals/friends-mobile-2026-04-16T01-04-43-387Z.png)
+
+> No visible components; UI not rendered (black screen). Errors: No content displayed.
+
+---
+
+## 2026-04-16T01:04:54.012Z -- Task `task_1776301265822_3c7wxg` -- `#leaderboard` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#leaderboard  **Verdict:** FAILED  **Latency:** 6263ms
+
+![leaderboard-desktop](visuals/leaderboard-desktop-2026-04-16T01-04-47-748Z.png)
+
+> No UI elements are rendered; the screen is entirely black. Missing leaderboard-specific components (headers, rankings, scores) expected for this route.
+
+---
+
+## 2026-04-16T01:04:58.735Z -- Task `task_1776301265822_3c7wxg` -- `#leaderboard` (mobile 375x812)
+
+**URL:** http://localhost:3000/#leaderboard  **Verdict:** OK  **Latency:** 4718ms
+
+![leaderboard-mobile](visuals/leaderboard-mobile-2026-04-16T01-04-54-017Z.png)
+
+> No visible components; UI not rendered (black screen). Errors: No content displayed.
+
+---
+
+## 2026-04-16T01:05:04.162Z -- Task `task_1776301265822_3c7wxg` -- `#game` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#game  **Verdict:** FAILED  **Latency:** 5426ms
+
+![game-desktop](visuals/game-desktop-2026-04-16T01-04-58-736Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI failed to render (no content displayed).
+
+---
+
+## 2026-04-16T01:05:09.922Z -- Task `task_1776301265822_3c7wxg` -- `#game` (mobile 375x812)
+
+**URL:** http://localhost:3000/#game  **Verdict:** OK  **Latency:** 5760ms
+
+![game-mobile](visuals/game-mobile-2026-04-16T01-05-04-162Z.png)
+
+> No visible components; UI not rendered (blank screen).
+
+---
+
+## 2026-04-16T01:06:00.704Z -- Task `task_1776301461630_13cxla` -- `/` (desktop 1280x720)
+
+**URL:** http://localhost:3000  **Verdict:** OK  **Latency:** 49757ms
+
+![home-desktop](visuals/home-desktop-2026-04-16T01-05-10-921Z.png)
+
+> The UI is rendered as a browser error page. Visible components include an error icon, “This site can’t be reached” title, “localhost refused to connect.” message, “Try:” section with bullet points, “ERR_CONNECTION_REFUSED” code, and “Details”/“Reload” buttons. Error: Connection refused (ERR_CONNECTION_REFUSED) preventing site access.
+
+---
+
+## 2026-04-16T01:06:35.505Z -- Task `task_1776301461630_13cxla` -- `/` (mobile 375x812)
+
+**URL:** http://localhost:3000  **Verdict:** OK  **Latency:** 34639ms
+
+![home-mobile](visuals/home-mobile-2026-04-16T01-06-00-739Z.png)
+
+> Yes, the UI is rendered as an error page. Visible components: error icon, “This site can’t be reached” title, “localhost refused to connect” message, “Try:” section with bullet points, “ERR_CONNECTION_REFUSED” code, and “Details” button. Error: Connection refused by localhost.
+
+---
