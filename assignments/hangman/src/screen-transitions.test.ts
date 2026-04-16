@@ -217,12 +217,14 @@ describe('screen-transitions', () => {
       expect(element.style.pointerEvents).toBe('none');
     });
 
-    it('should call callback after duration', async () => {
+    it('should call callback after duration', () => {
+      vi.useFakeTimers();
       const callback = vi.fn();
       transitionIn(element, { type: 'fade', duration: 50 }, callback);
-      // Wait for rAF (setTimeout 0) + duration (setTimeout 50)
-      await new Promise((r) => setTimeout(r, 100));
+      // Advance past rAF (setTimeout 0) + duration (setTimeout 50)
+      vi.advanceTimersByTime(100);
       expect(callback).toHaveBeenCalled();
+      vi.useRealTimers();
     });
   });
 
