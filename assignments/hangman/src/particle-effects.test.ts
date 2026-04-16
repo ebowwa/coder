@@ -246,9 +246,8 @@ describe('ParticleEffects System', () => {
         gravity: -1,
       };
 
-      particleEffects.emit(position, config);
-
       vi.useFakeTimers();
+      particleEffects.emit(position, config);
       vi.advanceTimersByTime(250); // Half lifetime
       particleEffects.update(0.016);
 
