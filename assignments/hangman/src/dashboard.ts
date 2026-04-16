@@ -131,7 +131,8 @@ async function loadDashboard(container: HTMLDivElement, token: string | null): P
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!res.ok) {
-      container.querySelector("#dash-stats-line")!.textContent = "Could not load stats";
+      const errLine = container.querySelector("#dash-stats-line");
+      if (errLine) errLine.textContent = "Could not load stats";
       return;
     }
 
