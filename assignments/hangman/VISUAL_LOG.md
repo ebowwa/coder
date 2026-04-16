@@ -27730,3 +27730,63 @@ src/
 > No visible components; the screen is entirely black, indicating a rendering issue or missing content.
 
 ---
+
+## 2026-04-16T21:52:44.981Z -- Task `task_1776375782784_9ub0tl` -- `#friends` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** FAILED  **Latency:** 69231ms
+
+![friends-desktop](visuals/friends-desktop-2026-04-16T21-51-35-747Z.png)
+
+> No UI components are visible; the screen is entirely black. The UI failed to render, showing no content or elements.
+
+---
+
+## 2026-04-16T21:53:03.952Z -- Task `task_1776375782784_9ub0tl` -- `#friends` (mobile 375x812)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** FAILED  **Latency:** 18892ms
+
+![friends-mobile](visuals/friends-mobile-2026-04-16T21-52-45-058Z.png)
+
+> No visible components; UI not rendered (entirely black screen). Error: Content failed to load or render.
+
+---
+
+## 2026-04-16T21:57:14.288Z -- Task `task_1776375782784_9ub0tl` -- `#leaderboard` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#leaderboard  **Verdict:** FAILED  **Latency:** 250251ms
+
+![leaderboard-desktop](visuals/leaderboard-desktop-2026-04-16T21-53-04-012Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI failed to render (no content displayed).
+
+---
+
+## 2026-04-16T22:01:23.088Z -- Task `task_1776375782784_9ub0tl` -- `#leaderboard` (mobile 375x812)
+
+**URL:** http://localhost:3000/#leaderboard  **Verdict:** FAILED  **Latency:** 248738ms
+
+![leaderboard-mobile](visuals/leaderboard-mobile-2026-04-16T21-57-14-350Z.png)
+
+> No visible components are rendered; the screen is entirely black. Error: No UI elements or content are displayed for the leaderboard route.
+
+---
+
+## 2026-04-16T22:03:25.779Z -- Task `task_1776375782784_9ub0tl` -- `#game` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#game  **Verdict:** FAILED  **Latency:** 122675ms
+
+![game-desktop](visuals/game-desktop-2026-04-16T22-01-23-104Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI failed to render (no content displayed).
+
+---
+
+## 2026-04-16T22:06:29.026Z -- Task `task_1776375782784_9ub0tl` -- `#game` (mobile 375x812)
+
+**URL:** http://localhost:3000/#game  **Verdict:** FAILED  **Latency:** 183246ms
+
+![game-mobile](visuals/game-mobile-2026-04-16T22-03-25-780Z.png)
+
+> No visible components; entire screen is black, indicating rendering error or empty state.
+
+---
