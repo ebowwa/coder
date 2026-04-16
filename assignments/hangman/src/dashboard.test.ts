@@ -252,10 +252,14 @@ describe('dashboard', () => {
 
     it('handles fetch error gracefully without crashing', async () => {
       seedLocalStorage();
+      const consoleErrSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       fetchSpy.mockRejectedValue(new Error('Network failure'));
 
       const { renderDashboard } = await import('./dashboard');
       expect(() => renderDashboard(container)).not.toThrow();
+
+      await flushAsync();
+      consoleErrSpy.mockRestore();
     });
 
     it('sends Authorization header with token from localStorage', async () => {
