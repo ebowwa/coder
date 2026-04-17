@@ -35790,3 +35790,163 @@ src/
 > No visible components are rendered; the screen is entirely black. Error: No UI elements or content are displayed, indicating a rendering failure.
 
 ---
+
+## 2026-04-17T19:40:10.114Z -- Task `task_1776454319320_mgbnff` -- `/` (desktop 1280x720)
+
+**URL:** http://localhost:3000  **Verdict:** FAILED  **Latency:** 4886ms
+
+![home-desktop](visuals/home-desktop-2026-04-17T19-40-05-228Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI failed to render (no content displayed).
+
+---
+
+## 2026-04-17T19:40:14.447Z -- Task `task_1776454319320_mgbnff` -- `/` (mobile 375x812)
+
+**URL:** http://localhost:3000  **Verdict:** FAILED  **Latency:** 4332ms
+
+![home-mobile](visuals/home-mobile-2026-04-17T19-40-10-115Z.png)
+
+> No, the UI is not rendered—screen is entirely black with no visible components. Error: No content displayed on the route.
+
+---
+
+## 2026-04-17T19:40:18.753Z -- Task `task_1776454319320_mgbnff` -- `#auth` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** FAILED  **Latency:** 4306ms
+
+![auth-desktop](visuals/auth-desktop-2026-04-17T19-40-14-447Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI failed to render for route "#auth".
+
+---
+
+## 2026-04-17T19:40:23.041Z -- Task `task_1776454319320_mgbnff` -- `#auth` (mobile 375x812)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** FAILED  **Latency:** 4287ms
+
+![auth-mobile](visuals/auth-mobile-2026-04-17T19-40-18-754Z.png)
+
+> No visible components are rendered; the screen is entirely black, indicating a rendering error or missing content for the "#auth" route.
+
+---
+
+## 2026-04-17T19:40:27.573Z -- Task `task_1776454319320_mgbnff` -- `#dashboard` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** FAILED  **Latency:** 4531ms
+
+![dashboard-desktop](visuals/dashboard-desktop-2026-04-17T19-40-23-042Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI failed to render (no content displayed).
+
+---
+
+## 2026-04-17T19:40:31.769Z -- Task `task_1776454319320_mgbnff` -- `#dashboard` (mobile 375x812)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** FAILED  **Latency:** 4196ms
+
+![dashboard-mobile](visuals/dashboard-mobile-2026-04-17T19-40-27-573Z.png)
+
+> No UI components are visible; the screen is entirely black, indicating a rendering error where the dashboard content failed to load or display.
+
+---
+
+## 2026-04-17T19:40:36.308Z -- Task `task_1776454319320_mgbnff` -- `#lobby` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** FAILED  **Latency:** 4538ms
+
+![lobby-desktop](visuals/lobby-desktop-2026-04-17T19-40-31-770Z.png)
+
+> No UI components are visible; the screen is entirely black. The UI failed to render for the "#lobby" route at 1280x720 desktop resolution.
+
+---
+
+## 2026-04-17T19:40:40.870Z -- Task `task_1776454319320_mgbnff` -- `#lobby` (mobile 375x812)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** FAILED  **Latency:** 4560ms
+
+![lobby-mobile](visuals/lobby-mobile-2026-04-17T19-40-36-309Z.png)
+
+> No visible components; the screen is entirely black, indicating the UI is not rendered or has rendering issues.
+
+---
+
+## 2026-04-17T19:40:45.308Z -- Task `task_1776454319320_mgbnff` -- `#profile` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** OK  **Latency:** 4438ms
+
+![profile-desktop](visuals/profile-desktop-2026-04-17T19-40-40-870Z.png)
+
+> No visible components; UI not rendered (black screen). Error: Content failed to load or render.
+
+---
+
+## 2026-04-17T19:40:49.781Z -- Task `task_1776454319320_mgbnff` -- `#profile` (mobile 375x812)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** FAILED  **Latency:** 4472ms
+
+![profile-mobile](visuals/profile-mobile-2026-04-17T19-40-45-309Z.png)
+
+> No UI components are visible; the screen is entirely black. The UI failed to render, showing a blank (black) state instead of expected profile elements.
+
+---
+
+## 2026-04-17T19:40:54.047Z -- Task `task_1776454319320_mgbnff` -- `#friends` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** FAILED  **Latency:** 4266ms
+
+![friends-desktop](visuals/friends-desktop-2026-04-17T19-40-49-781Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI failed to render (no content displayed).
+
+---
+
+## 2026-04-17T19:40:58.227Z -- Task `task_1776454319320_mgbnff` -- `#friends` (mobile 375x812)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** FAILED  **Latency:** 4179ms
+
+![friends-mobile](visuals/friends-mobile-2026-04-17T19-40-54-047Z.png)
+
+> No visible components; UI is not rendered (entirely black screen). Error: Content fails to load/display for "#friends" route.
+
+---
+
+## 2026-04-17T19:41:04.009Z -- Task `task_1776454319320_mgbnff` -- `#leaderboard` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#leaderboard  **Verdict:** FAILED  **Latency:** 5781ms
+
+![leaderboard-desktop](visuals/leaderboard-desktop-2026-04-17T19-40-58-228Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: Content failed to render (blank/black screen).
+
+---
+
+## 2026-04-17T19:41:07.920Z -- Task `task_1776454319320_mgbnff` -- `#leaderboard` (mobile 375x812)
+
+**URL:** http://localhost:3000/#leaderboard  **Verdict:** OK  **Latency:** 3910ms
+
+![leaderboard-mobile](visuals/leaderboard-mobile-2026-04-17T19-41-04-010Z.png)
+
+> No visible components; UI not rendered (black screen).
+
+---
+
+## 2026-04-17T19:41:12.161Z -- Task `task_1776454319320_mgbnff` -- `#game` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#game  **Verdict:** FAILED  **Latency:** 4240ms
+
+![game-desktop](visuals/game-desktop-2026-04-17T19-41-07-921Z.png)
+
+> No UI components are rendered; the screen is entirely black, indicating a rendering error.
+
+---
+
+## 2026-04-17T19:41:16.584Z -- Task `task_1776454319320_mgbnff` -- `#game` (mobile 375x812)
+
+**URL:** http://localhost:3000/#game  **Verdict:** FAILED  **Latency:** 4422ms
+
+![game-mobile](visuals/game-mobile-2026-04-17T19-41-12-162Z.png)
+
+> No UI components are rendered; the screen is entirely black. Error: No visible elements indicate the route failed to load or render content.
+
+---
