@@ -31310,3 +31310,163 @@ src/
 > No UI components are rendered; the screen is entirely black, indicating a rendering error or missing content.
 
 ---
+
+## 2026-04-17T03:41:11.456Z -- Task `task_1776395501476_vi8as7` -- `/` (desktop 1280x720)
+
+**URL:** http://localhost:3000  **Verdict:** FAILED  **Latency:** 2575ms
+
+![home-desktop](visuals/home-desktop-2026-04-17T03-41-08-881Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-17T03:41:13.503Z -- Task `task_1776395501476_vi8as7` -- `/` (mobile 375x812)
+
+**URL:** http://localhost:3000  **Verdict:** FAILED  **Latency:** 2046ms
+
+![home-mobile](visuals/home-mobile-2026-04-17T03-41-11-457Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-17T03:41:15.547Z -- Task `task_1776395501476_vi8as7` -- `#auth` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** FAILED  **Latency:** 2044ms
+
+![auth-desktop](visuals/auth-desktop-2026-04-17T03-41-13-503Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-17T03:41:17.555Z -- Task `task_1776395501476_vi8as7` -- `#auth` (mobile 375x812)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** FAILED  **Latency:** 2008ms
+
+![auth-mobile](visuals/auth-mobile-2026-04-17T03-41-15-547Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-17T03:41:19.589Z -- Task `task_1776395501476_vi8as7` -- `#dashboard` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** FAILED  **Latency:** 2034ms
+
+![dashboard-desktop](visuals/dashboard-desktop-2026-04-17T03-41-17-555Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-17T03:41:21.592Z -- Task `task_1776395501476_vi8as7` -- `#dashboard` (mobile 375x812)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** FAILED  **Latency:** 2003ms
+
+![dashboard-mobile](visuals/dashboard-mobile-2026-04-17T03-41-19-589Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-17T03:41:23.630Z -- Task `task_1776395501476_vi8as7` -- `#lobby` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** FAILED  **Latency:** 2037ms
+
+![lobby-desktop](visuals/lobby-desktop-2026-04-17T03-41-21-593Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-17T03:41:25.654Z -- Task `task_1776395501476_vi8as7` -- `#lobby` (mobile 375x812)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** FAILED  **Latency:** 2023ms
+
+![lobby-mobile](visuals/lobby-mobile-2026-04-17T03-41-23-631Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-17T03:41:27.630Z -- Task `task_1776395501476_vi8as7` -- `#profile` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** FAILED  **Latency:** 1976ms
+
+![profile-desktop](visuals/profile-desktop-2026-04-17T03-41-25-654Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-17T03:41:29.658Z -- Task `task_1776395501476_vi8as7` -- `#profile` (mobile 375x812)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** FAILED  **Latency:** 2028ms
+
+![profile-mobile](visuals/profile-mobile-2026-04-17T03-41-27-630Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-17T03:41:31.690Z -- Task `task_1776395501476_vi8as7` -- `#friends` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** FAILED  **Latency:** 2032ms
+
+![friends-desktop](visuals/friends-desktop-2026-04-17T03-41-29-658Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-17T03:41:33.625Z -- Task `task_1776395501476_vi8as7` -- `#friends` (mobile 375x812)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** FAILED  **Latency:** 1935ms
+
+![friends-mobile](visuals/friends-mobile-2026-04-17T03-41-31-690Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-17T03:41:35.657Z -- Task `task_1776395501476_vi8as7` -- `#leaderboard` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#leaderboard  **Verdict:** FAILED  **Latency:** 2032ms
+
+![leaderboard-desktop](visuals/leaderboard-desktop-2026-04-17T03-41-33-625Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-17T03:41:37.687Z -- Task `task_1776395501476_vi8as7` -- `#leaderboard` (mobile 375x812)
+
+**URL:** http://localhost:3000/#leaderboard  **Verdict:** FAILED  **Latency:** 2030ms
+
+![leaderboard-mobile](visuals/leaderboard-mobile-2026-04-17T03-41-35-657Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-17T03:41:39.708Z -- Task `task_1776395501476_vi8as7` -- `#game` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#game  **Verdict:** FAILED  **Latency:** 2021ms
+
+![game-desktop](visuals/game-desktop-2026-04-17T03-41-37-687Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-17T03:41:41.736Z -- Task `task_1776395501476_vi8as7` -- `#game` (mobile 375x812)
+
+**URL:** http://localhost:3000/#game  **Verdict:** FAILED  **Latency:** 2028ms
+
+![game-mobile](visuals/game-mobile-2026-04-17T03-41-39-708Z.png)
+
+> (no analysis)
+
+---
