@@ -32110,3 +32110,73 @@ src/
 > No visible components are rendered. Error: The UI is not displayed (entirely black screen).
 
 ---
+
+## 2026-04-17T04:32:44.194Z -- Task `task_1776399715467_dara78` -- `/` (desktop 1280x720)
+
+**URL:** http://localhost:3000  **Verdict:** FAILED  **Latency:** 32618ms
+
+![home-desktop](visuals/home-desktop-2026-04-17T04-32-11-576Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-17T04:32:46.341Z -- Task `task_1776399715467_dara78` -- `/` (mobile 375x812)
+
+**URL:** http://localhost:3000  **Verdict:** FAILED  **Latency:** 2145ms
+
+![home-mobile](visuals/home-mobile-2026-04-17T04-32-44-196Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-17T04:32:48.374Z -- Task `task_1776399715467_dara78` -- `#auth` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** FAILED  **Latency:** 2033ms
+
+![auth-desktop](visuals/auth-desktop-2026-04-17T04-32-46-341Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-17T04:32:50.356Z -- Task `task_1776399715467_dara78` -- `#auth` (mobile 375x812)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** FAILED  **Latency:** 1982ms
+
+![auth-mobile](visuals/auth-mobile-2026-04-17T04-32-48-374Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-17T04:32:52.394Z -- Task `task_1776399715467_dara78` -- `#dashboard` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** FAILED  **Latency:** 2038ms
+
+![dashboard-desktop](visuals/dashboard-desktop-2026-04-17T04-32-50-356Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-17T04:32:54.386Z -- Task `task_1776399715467_dara78` -- `#dashboard` (mobile 375x812)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** FAILED  **Latency:** 1992ms
+
+![dashboard-mobile](visuals/dashboard-mobile-2026-04-17T04-32-52-394Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-17T04:33:19.713Z -- Task `task_1776399715467_dara78` -- `#lobby` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** FAILED  **Latency:** 25326ms
+
+![lobby-desktop](visuals/lobby-desktop-2026-04-17T04-32-54-387Z.png)
+
+> (no analysis)
+
+---
