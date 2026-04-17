@@ -33390,3 +33390,13 @@ src/
 > No UI components are rendered (screen is entirely black). Error: No visible elements displayed on the screen.
 
 ---
+
+## 2026-04-17T17:10:01.649Z -- Task `task_1776445405491_j3l6s8` -- `/` (desktop 1280x720)
+
+**URL:** http://localhost:3000  **Verdict:** FAILED  **Latency:** 62526ms
+
+![home-desktop](visuals/home-desktop-2026-04-17T17-08-59-122Z.png)
+
+> (no analysis)
+
+---
