@@ -36080,3 +36080,63 @@ src/
 > The UI is not rendered; no visible components are present. Error: Complete lack of displayed content indicates a rendering failure or missing assets.
 
 ---
+
+## 2026-04-17T19:50:09.197Z -- Task `task_1776454946262_uvf47b` -- `#leaderboard` (mobile 375x812)
+
+**URL:** http://localhost:3000/#leaderboard  **Verdict:** FAILED  **Latency:** 62566ms
+
+![leaderboard-mobile](visuals/leaderboard-mobile-2026-04-17T19-49-06-631Z.png)
+
+> No UI elements are visible; the screen is entirely black. Error: The leaderboard route fails to render any content.
+
+---
+
+## 2026-04-17T19:51:02.957Z -- Task `task_1776454946262_uvf47b` -- `#game` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#game  **Verdict:** FAILED  **Latency:** 53759ms
+
+![game-desktop](visuals/game-desktop-2026-04-17T19-50-09-198Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI failed to render (no content displayed).
+
+---
+
+## 2026-04-17T19:51:06.876Z -- Task `task_1776454946262_uvf47b` -- `#game` (mobile 375x812)
+
+**URL:** http://localhost:3000/#game  **Verdict:** OK  **Latency:** 3918ms
+
+![game-mobile](visuals/game-mobile-2026-04-17T19-51-02-958Z.png)
+
+> No visible components; the UI is not rendered (black screen with no content).
+
+---
+
+## 2026-04-17T19:56:41.921Z -- Task `task_1776455466435_18x95t` -- `/` (desktop 1280x720)
+
+**URL:** http://localhost:3000  **Verdict:** FAILED  **Latency:** 17975ms
+
+![home-desktop](visuals/home-desktop-2026-04-17T19-56-23-946Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-17T19:57:43.993Z -- Task `task_1776455466435_18x95t` -- `/` (mobile 375x812)
+
+**URL:** http://localhost:3000  **Verdict:** FAILED  **Latency:** 62070ms
+
+![home-mobile](visuals/home-mobile-2026-04-17T19-56-41-922Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-17T19:57:49.555Z -- Task `task_1776455466435_18x95t` -- `#auth` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** OK  **Latency:** 5561ms
+
+![auth-desktop](visuals/auth-desktop-2026-04-17T19-57-43-994Z.png)
+
+> No, the UI is not rendered—only a blank black screen is visible with no components. Error: No content or interactive elements are displayed for the auth route.
+
+---
