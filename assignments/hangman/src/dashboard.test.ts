@@ -142,21 +142,25 @@ describe('dashboard', () => {
       }
     });
 
-    it('stat cards start with placeholder "--"', async () => {
+    it('stat cards start with skeleton placeholder', async () => {
       const { renderDashboard } = await import('./dashboard');
       renderDashboard(container);
 
       const gamesEl = container.querySelector('#stat-games');
-      expect(gamesEl!.textContent).toBe('--');
+      expect(gamesEl).toBeTruthy();
+      // Initially a skeleton element — either empty or has shimmer class
+      expect(gamesEl!.classList.contains('dash-skeleton')).toBe(true);
     });
 
-    it('renders the stats line element', async () => {
+    it('renders the stats line element with skeleton', async () => {
       const { renderDashboard } = await import('./dashboard');
       renderDashboard(container);
 
       const line = container.querySelector('#dash-stats-line');
       expect(line).toBeTruthy();
-      expect(line!.textContent).toContain('Loading');
+      // Stats line initially contains a skeleton shimmer placeholder
+      const skeleton = line!.querySelector('.dash-skeleton');
+      expect(skeleton).toBeTruthy();
     });
 
     it('renders active games container', async () => {
