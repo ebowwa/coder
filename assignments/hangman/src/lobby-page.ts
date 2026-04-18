@@ -159,14 +159,21 @@ export function renderLobbyPage(container: HTMLDivElement): void {
     </div>
   `;
 
+  // Track loaded rooms for client-side filtering
+  let allRooms: any[] = [];
+
   // Load rooms
-  loadRooms(container, token);
+  loadRooms(container, token, (rooms) => { allRooms = rooms; });
 
   // Wire events
-  wireLobbyEvents(container, user, token);
+  wireLobbyEvents(container, user, token, allRooms);
 }
 
-async function loadRooms(container: HTMLDivElement, token: string | null): Promise<void> {
+async function loadRooms(
+  container: HTMLDivElement,
+  token: string | null,
+  onRoomsLoaded?: (rooms: any[]) => void,
+): Promise<void> {
   const listEl = container.querySelector("#rooms-list");
   if (!listEl) return;
 
@@ -184,78 +191,87 @@ async function loadRooms(container: HTMLDivElement, token: string | null): Promi
     loader.hide();
 
     if (!res.ok) {
-      loader.showError('Failed to load rooms. Check your connection.', () => loadRooms(container, token));
+      loader.showError('Failed to load rooms. Check your connection.', () => loadRooms(container, token, onRoomsLoaded));
       return;
     }
     const rooms = await res.json();
+    const safeRooms = Array.isArray(rooms) ? rooms : [];
+    onRoomsLoaded?.(safeRooms);
 
-    if (!rooms || rooms.length === 0) {
-      listEl.innerHTML = `
-        <div style="text-align: center; padding: 40px;">
-          <div style="font-size: 2em; margin-bottom: 10px;">🏠</div>
-          <div style="color: #666;">No public rooms available.</div>
-          <div style="color: #888; font-size: 0.9em; margin-top: 4px;">Create one to get started!</div>
-        </div>
-      `;
-      return;
-    }
-
-    listEl.innerHTML = rooms.map((room: any) => `
-      <div style="
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-        border-radius: 12px; padding: 18px;
-        border: 1px solid rgba(255,255,255,0.08);
-        display: flex; justify-content: space-between; align-items: center;
-      ">
-        <div style="flex: 1;">
-          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-            <span style="color: #fff; font-weight: bold; font-size: 1em;">${escapeHtml(room.name)}</span>
-            <span style="
-              padding: 2px 8px; border-radius: 4px; font-size: 0.7em;
-              background: ${room.visibility === "private" ? "rgba(170,150,218,0.2)" : "rgba(78,205,196,0.2)"};
-              color: ${room.visibility === "private" ? "#aa96da" : "#4ecdc4"};
-            ">${escapeHtml(room.visibility)}</span>
-          </div>
-          <div style="display: flex; gap: 12px; color: #666; font-size: 0.8em;">
-            <span>Host: ${escapeHtml(room.hostName)}</span>
-            <span>Category: ${escapeHtml(room.category)}</span>
-            <span>Difficulty: ${escapeHtml(room.difficulty)}</span>
-          </div>
-        </div>
-        <div style="text-align: center; margin: 0 16px;">
-          <div style="color: #4ecdc4; font-size: 1.2em; font-weight: bold;">${room.players.length}/${room.maxPlayers}</div>
-          <div style="color: #666; font-size: 0.75em;">Players</div>
-        </div>
-        <button data-code="${room.code.replace(/["'<>]/g, '')}" class="join-room-btn" style="
-          padding: 10px 20px; border: none; border-radius: 8px;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          color: #fff; font-weight: bold; cursor: pointer; font-size: 0.9em;
-        ">Join</button>
-      </div>
-    `).join("");
-
-    // Wire join buttons
-    listEl.querySelectorAll(".join-room-btn").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        const code = (btn as HTMLElement).dataset.code;
-        try {
-          const res = await fetch(`${API}/api/lobby/rooms/${code}/join`, {
-            method: "POST",
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (res.ok) {
-            router.navigate("game");
-          }
-        } catch {}
-      });
-    });
+    renderRoomList(container, safeRooms, token);
   } catch {
     loader.hide();
-    loader.showError('Connection error. Please try again.', () => loadRooms(container, token));
+    loader.showError('Connection error. Please try again.', () => loadRooms(container, token, onRoomsLoaded));
   }
 }
 
-function wireLobbyEvents(container: HTMLDivElement, user: any, token: string | null): void {
+function renderRoomList(container: HTMLDivElement, rooms: any[], token: string | null): void {
+  const listEl = container.querySelector("#rooms-list");
+  if (!listEl) return;
+
+  if (!rooms || rooms.length === 0) {
+    listEl.innerHTML = `
+      <div style="text-align: center; padding: 40px;">
+        <div style="font-size: 2em; margin-bottom: 10px;">🏠</div>
+        <div style="color: #666;">No public rooms available.</div>
+        <div style="color: #888; font-size: 0.9em; margin-top: 4px;">Create one to get started!</div>
+      </div>
+    `;
+    return;
+  }
+
+  listEl.innerHTML = rooms.map((room: any) => `
+    <div style="
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      border-radius: 12px; padding: 18px;
+      border: 1px solid rgba(255,255,255,0.08);
+      display: flex; justify-content: space-between; align-items: center;
+    ">
+      <div style="flex: 1;">
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+          <span style="color: #fff; font-weight: bold; font-size: 1em;">${escapeHtml(room.name)}</span>
+          <span style="
+            padding: 2px 8px; border-radius: 4px; font-size: 0.7em;
+            background: ${room.visibility === "private" ? "rgba(170,150,218,0.2)" : "rgba(78,205,196,0.2)"};
+            color: ${room.visibility === "private" ? "#aa96da" : "#4ecdc4"};
+          ">${escapeHtml(room.visibility)}</span>
+        </div>
+        <div style="display: flex; gap: 12px; color: #666; font-size: 0.8em;">
+          <span>Host: ${escapeHtml(room.hostName)}</span>
+          <span>Category: ${escapeHtml(room.category)}</span>
+          <span>Difficulty: ${escapeHtml(room.difficulty)}</span>
+        </div>
+      </div>
+      <div style="text-align: center; margin: 0 16px;">
+        <div style="color: #4ecdc4; font-size: 1.2em; font-weight: bold;">${room.players.length}/${room.maxPlayers}</div>
+        <div style="color: #666; font-size: 0.75em;">Players</div>
+      </div>
+      <button data-code="${room.code.replace(/["'<>]/g, '')}" class="join-room-btn" style="
+        padding: 10px 20px; border: none; border-radius: 8px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: #fff; font-weight: bold; cursor: pointer; font-size: 0.9em;
+      ">Join</button>
+    </div>
+  `).join("");
+
+  // Wire join buttons
+  listEl.querySelectorAll(".join-room-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const code = (btn as HTMLElement).dataset.code;
+      try {
+        const res = await fetch(`${API}/api/lobby/rooms/${code}/join`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          router.navigate("game");
+        }
+      } catch {}
+    });
+  });
+}
+
+function wireLobbyEvents(container: HTMLDivElement, user: any, token: string | null, allRooms: any[]): void {
   const modal = container.querySelector("#create-modal") as HTMLDivElement;
 
   container.querySelector("#create-room-btn")?.addEventListener("click", () => {
@@ -285,8 +301,25 @@ function wireLobbyEvents(container: HTMLDivElement, user: any, token: string | n
       });
       if (res.ok) {
         if (modal) modal.style.display = "none";
-        loadRooms(container, token);
+        loadRooms(container, token, (rooms) => { allRooms = rooms; });
       }
     } catch {}
   });
+
+  // Client-side filtering by category and difficulty
+  const applyFilters = () => {
+    const categoryFilter = (container.querySelector("#filter-category") as HTMLSelectElement)?.value || "any";
+    const difficultyFilter = (container.querySelector("#filter-difficulty") as HTMLSelectElement)?.value || "any";
+
+    const filtered = allRooms.filter((room: any) => {
+      const matchCategory = categoryFilter === "any" || room.category === categoryFilter;
+      const matchDifficulty = difficultyFilter === "any" || room.difficulty === difficultyFilter;
+      return matchCategory && matchDifficulty;
+    });
+
+    renderRoomList(container, filtered, token);
+  };
+
+  container.querySelector("#filter-category")?.addEventListener("change", applyFilters);
+  container.querySelector("#filter-difficulty")?.addEventListener("change", applyFilters);
 }
