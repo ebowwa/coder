@@ -44101,3 +44101,173 @@ src/
 > No UI components are visible; the screen is entirely black. Error: UI failed to render (no content displayed).
 
 ---
+
+## 2026-04-18T18:30:51.818Z -- Task `task_1776536024662_vp5sry` -- `#game` (mobile 375x812)
+
+**URL:** http://localhost:3000/#game  **Verdict:** OK  **Latency:** 66635ms
+
+![game-mobile](visuals/game-mobile-2026-04-18T18-29-45-177Z.png)
+
+> No visible components; UI not rendered (blank screen).
+
+---
+
+## 2026-04-18T18:39:07.023Z -- Task `task_1776537058136_ndve3d` -- `/` (desktop 1280x720)
+
+**URL:** http://localhost:3000  **Verdict:** FAILED  **Latency:** 5725ms
+
+![home-desktop](visuals/home-desktop-2026-04-18T18-39-01-297Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI failed to render (no content displayed).
+
+---
+
+## 2026-04-18T18:39:11.828Z -- Task `task_1776537058136_ndve3d` -- `/` (mobile 375x812)
+
+**URL:** http://localhost:3000  **Verdict:** FAILED  **Latency:** 4800ms
+
+![home-mobile](visuals/home-mobile-2026-04-18T18-39-07-024Z.png)
+
+> No UI elements are visible; the screen is entirely black, indicating a rendering issue or missing content.
+
+---
+
+## 2026-04-18T18:39:16.376Z -- Task `task_1776537058136_ndve3d` -- `#auth` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** FAILED  **Latency:** 4546ms
+
+![auth-desktop](visuals/auth-desktop-2026-04-18T18-39-11-830Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI not rendered (blank/black screen).
+
+---
+
+## 2026-04-18T18:39:22.223Z -- Task `task_1776537058136_ndve3d` -- `#auth` (mobile 375x812)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** FAILED  **Latency:** 5845ms
+
+![auth-mobile](visuals/auth-mobile-2026-04-18T18-39-16-377Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI not rendered (blank/black screen).
+
+---
+
+## 2026-04-18T18:39:26.794Z -- Task `task_1776537058136_ndve3d` -- `#dashboard` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** FAILED  **Latency:** 4571ms
+
+![dashboard-desktop](visuals/dashboard-desktop-2026-04-18T18-39-22-223Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI failed to render (no content displayed).
+
+---
+
+## 2026-04-18T18:39:31.576Z -- Task `task_1776537058136_ndve3d` -- `#dashboard` (mobile 375x812)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** FAILED  **Latency:** 4781ms
+
+![dashboard-mobile](visuals/dashboard-mobile-2026-04-18T18-39-26-795Z.png)
+
+> The UI is not rendered; the screen is entirely black with no visible components. Error: Blank/black screen indicates failed rendering or missing content.
+
+---
+
+## 2026-04-18T18:39:35.939Z -- Task `task_1776537058136_ndve3d` -- `#lobby` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** FAILED  **Latency:** 4361ms
+
+![lobby-desktop](visuals/lobby-desktop-2026-04-18T18-39-31-577Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI not rendered (blank/black screen).
+
+---
+
+## 2026-04-18T18:39:41.209Z -- Task `task_1776537058136_ndve3d` -- `#lobby` (mobile 375x812)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** FAILED  **Latency:** 5270ms
+
+![lobby-mobile](visuals/lobby-mobile-2026-04-18T18-39-35-939Z.png)
+
+> No visible components; screen is entirely black. Error—UI not rendered (blank display).
+
+---
+
+## 2026-04-18T18:39:46.478Z -- Task `task_1776537058136_ndve3d` -- `#profile` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** FAILED  **Latency:** 5268ms
+
+![profile-desktop](visuals/profile-desktop-2026-04-18T18-39-41-210Z.png)
+
+> No, the UI is not rendered. No visible components are present; the screen is entirely black, indicating a rendering issue or missing content.
+
+---
+
+## 2026-04-18T18:39:51.695Z -- Task `task_1776537058136_ndve3d` -- `#profile` (mobile 375x812)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** FAILED  **Latency:** 5216ms
+
+![profile-mobile](visuals/profile-mobile-2026-04-18T18-39-46-479Z.png)
+
+> No, the UI is not rendered as the screen is entirely black. No visible components are present; this indicates a potential rendering error or blank state.
+
+---
+
+## 2026-04-18T18:39:56.415Z -- Task `task_1776537058136_ndve3d` -- `#friends` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** FAILED  **Latency:** 4719ms
+
+![friends-desktop](visuals/friends-desktop-2026-04-18T18-39-51-696Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI failed to render (blank/black screen).
+
+---
+
+## 2026-04-18T18:40:00.566Z -- Task `task_1776537058136_ndve3d` -- `#friends` (mobile 375x812)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** FAILED  **Latency:** 4149ms
+
+![friends-mobile](visuals/friends-mobile-2026-04-18T18-39-56-416Z.png)
+
+> No visible components; the screen is entirely black, indicating a rendering error or missing content.
+
+---
+
+## 2026-04-18T18:40:05.199Z -- Task `task_1776537058136_ndve3d` -- `#leaderboard` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#leaderboard  **Verdict:** FAILED  **Latency:** 4632ms
+
+![leaderboard-desktop](visuals/leaderboard-desktop-2026-04-18T18-40-00-567Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI failed to render for the "#leaderboard" route.
+
+---
+
+## 2026-04-18T18:40:09.229Z -- Task `task_1776537058136_ndve3d` -- `#leaderboard` (mobile 375x812)
+
+**URL:** http://localhost:3000/#leaderboard  **Verdict:** OK  **Latency:** 4030ms
+
+![leaderboard-mobile](visuals/leaderboard-mobile-2026-04-18T18-40-05-199Z.png)
+
+> No, the UI is not rendered—only a black screen is visible. No components are displayed, indicating a rendering issue.
+
+---
+
+## 2026-04-18T18:40:13.777Z -- Task `task_1776537058136_ndve3d` -- `#game` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#game  **Verdict:** FAILED  **Latency:** 4548ms
+
+![game-desktop](visuals/game-desktop-2026-04-18T18-40-09-229Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI failed to render (no content displayed).
+
+---
+
+## 2026-04-18T18:40:18.096Z -- Task `task_1776537058136_ndve3d` -- `#game` (mobile 375x812)
+
+**URL:** http://localhost:3000/#game  **Verdict:** FAILED  **Latency:** 4317ms
+
+![game-mobile](visuals/game-mobile-2026-04-18T18-40-13-778Z.png)
+
+> No UI components are visible; the screen is entirely black, indicating a rendering error or missing content.
+
+---
