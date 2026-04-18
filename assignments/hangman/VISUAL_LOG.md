@@ -42671,3 +42671,33 @@ src/
 > No UI components are visible; the screen is entirely black, indicating a rendering error or missing content.
 
 ---
+
+## 2026-04-18T11:17:42.922Z -- Task `task_1776500239991_dklcy5` -- `/` (desktop 1280x720)
+
+**URL:** http://localhost:3000  **Verdict:** FAILED  **Latency:** 13499ms
+
+![home-desktop](visuals/home-desktop-2026-04-18T11-17-29-422Z.png)
+
+> No UI elements are visible; the screen is entirely black. This indicates a rendering issue or missing content.
+
+---
+
+## 2026-04-18T11:17:47.832Z -- Task `task_1776500239991_dklcy5` -- `/` (mobile 375x812)
+
+**URL:** http://localhost:3000  **Verdict:** FAILED  **Latency:** 4909ms
+
+![home-mobile](visuals/home-mobile-2026-04-18T11-17-42-923Z.png)
+
+> No visible components; the screen is entirely black, indicating a rendering issue or empty state.
+
+---
+
+## 2026-04-18T11:18:00.906Z -- Task `task_1776500239991_dklcy5` -- `#auth` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** FAILED  **Latency:** 13073ms
+
+![auth-desktop](visuals/auth-desktop-2026-04-18T11-17-47-833Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI failed to render (no content displayed).
+
+---
