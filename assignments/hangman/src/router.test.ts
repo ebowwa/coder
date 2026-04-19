@@ -2,7 +2,7 @@
  * Tests for Router - Client-side SPA Router
  */
 
-import { describe, it, expect, beforeEach, jest } from 'bun:test';
+// Vitest provides globals via vitest.config.ts globals: true
 
 // Import the router singleton - it creates a div#app-pages in the constructor
 // Since we can't re-instantiate, we'll work with the singleton and reset DOM state
@@ -86,14 +86,14 @@ describe('Router', () => {
 
   describe('registerPage', () => {
     it('should register a page with a render function', () => {
-      const render = jest.fn();
+      const render = vi.fn();
       router.registerPage('dashboard', { render });
       router.navigate('dashboard');
       expect(render).toHaveBeenCalled();
     });
 
     it('should pass the container to the render function', () => {
-      const render = jest.fn();
+      const render = vi.fn();
       router.registerPage('dashboard', { render });
       router.navigate('dashboard');
       expect(render).toHaveBeenCalledTimes(1);
@@ -102,7 +102,7 @@ describe('Router', () => {
     it('should register pages for all known page types', () => {
       const pages = ['auth', 'dashboard', 'lobby', 'profile', 'friends', 'game'];
       pages.forEach(page => {
-        const render = jest.fn();
+        const render = vi.fn();
         expect(() => router.registerPage(page as any, { render })).not.toThrow();
       });
     });
@@ -110,28 +110,28 @@ describe('Router', () => {
 
   describe('navigate', () => {
     it('should change the current page', () => {
-      router.registerPage('dashboard', { render: jest.fn() });
+      router.registerPage('dashboard', { render: vi.fn() });
       router.navigate('dashboard');
       expect(router.getCurrentPage()).toBe('dashboard');
     });
 
     it('should show the container for non-game pages', () => {
-      router.registerPage('dashboard', { render: jest.fn() });
+      router.registerPage('dashboard', { render: vi.fn() });
       router.navigate('dashboard');
       const container = document.getElementById('app-pages') as HTMLDivElement;
       expect(container.style.display).toBe('block');
     });
 
     it('should hide the container for the game page', () => {
-      router.registerPage('game', { render: jest.fn() });
+      router.registerPage('game', { render: vi.fn() });
       router.navigate('game');
       const container = document.getElementById('app-pages') as HTMLDivElement;
       expect(container.style.display).toBe('none');
     });
 
     it('should clear innerHTML before rendering new page', () => {
-      const render1 = jest.fn();
-      const render2 = jest.fn();
+      const render1 = vi.fn();
+      const render2 = vi.fn();
       router.registerPage('dashboard', { render: render1 });
       router.registerPage('lobby', { render: render2 });
 
@@ -142,9 +142,9 @@ describe('Router', () => {
     });
 
     it('should call cleanup on previous page when navigating away', () => {
-      const cleanup = jest.fn();
-      router.registerPage('dashboard', { render: jest.fn(), cleanup });
-      router.registerPage('lobby', { render: jest.fn() });
+      const cleanup = vi.fn();
+      router.registerPage('dashboard', { render: vi.fn(), cleanup });
+      router.registerPage('lobby', { render: vi.fn() });
 
       router.navigate('dashboard');
       router.navigate('lobby');
@@ -160,7 +160,7 @@ describe('Router', () => {
       localStorage.setItem('hm_token', 'test-token');
       localStorage.setItem('hm_user', JSON.stringify({ username: 'testuser' }));
 
-      router.registerPage('dashboard', { render: jest.fn() });
+      router.registerPage('dashboard', { render: vi.fn() });
       router.navigate('dashboard');
 
       const container = document.getElementById('app-pages') as HTMLDivElement;
@@ -171,7 +171,7 @@ describe('Router', () => {
       localStorage.setItem('hm_token', 'test-token');
       localStorage.setItem('hm_user', JSON.stringify({ username: 'testuser' }));
 
-      router.registerPage('game', { render: jest.fn() });
+      router.registerPage('game', { render: vi.fn() });
       router.navigate('game');
 
       const container = document.getElementById('app-pages') as HTMLDivElement;
@@ -181,7 +181,7 @@ describe('Router', () => {
     it('should not render the nav bar when no token is present', () => {
       localStorage.removeItem('hm_token');
 
-      router.registerPage('auth', { render: jest.fn() });
+      router.registerPage('auth', { render: vi.fn() });
       router.navigate('auth');
 
       const container = document.getElementById('app-pages') as HTMLDivElement;
@@ -201,7 +201,7 @@ describe('Router', () => {
     });
 
     it('should display "Hangman Pro" brand text', () => {
-      router.registerPage('dashboard', { render: jest.fn() });
+      router.registerPage('dashboard', { render: vi.fn() });
       router.navigate('dashboard');
 
       const container = document.getElementById('app-pages') as HTMLDivElement;
@@ -209,7 +209,7 @@ describe('Router', () => {
     });
 
     it('should show navigation buttons for all pages', () => {
-      router.registerPage('dashboard', { render: jest.fn() });
+      router.registerPage('dashboard', { render: vi.fn() });
       router.navigate('dashboard');
 
       const container = document.getElementById('app-pages') as HTMLDivElement;
@@ -218,7 +218,7 @@ describe('Router', () => {
     });
 
     it('should highlight the current page button', () => {
-      router.registerPage('dashboard', { render: jest.fn() });
+      router.registerPage('dashboard', { render: vi.fn() });
       router.navigate('dashboard');
 
       const container = document.getElementById('app-pages') as HTMLDivElement;
@@ -228,7 +228,7 @@ describe('Router', () => {
     });
 
     it('should show user avatar initial', () => {
-      router.registerPage('dashboard', { render: jest.fn() });
+      router.registerPage('dashboard', { render: vi.fn() });
       router.navigate('dashboard');
 
       const avatar = document.getElementById('nav-avatar') as HTMLDivElement;
@@ -242,7 +242,7 @@ describe('Router', () => {
         tier: 'pro',
       }));
 
-      router.registerPage('dashboard', { render: jest.fn() });
+      router.registerPage('dashboard', { render: vi.fn() });
       router.navigate('dashboard');
 
       const container = document.getElementById('app-pages') as HTMLDivElement;
@@ -250,7 +250,7 @@ describe('Router', () => {
     });
 
     it('should not show PRO badge for free users', () => {
-      router.registerPage('dashboard', { render: jest.fn() });
+      router.registerPage('dashboard', { render: vi.fn() });
       router.navigate('dashboard');
 
       const container = document.getElementById('app-pages') as HTMLDivElement;
@@ -259,8 +259,8 @@ describe('Router', () => {
     });
 
     it('should navigate when clicking nav buttons', () => {
-      router.registerPage('dashboard', { render: jest.fn() });
-      router.registerPage('lobby', { render: jest.fn() });
+      router.registerPage('dashboard', { render: vi.fn() });
+      router.registerPage('lobby', { render: vi.fn() });
       router.navigate('dashboard');
 
       const container = document.getElementById('app-pages') as HTMLDivElement;
@@ -271,8 +271,8 @@ describe('Router', () => {
     });
 
     it('should navigate to dashboard when clicking logo', () => {
-      router.registerPage('dashboard', { render: jest.fn() });
-      router.registerPage('lobby', { render: jest.fn() });
+      router.registerPage('dashboard', { render: vi.fn() });
+      router.registerPage('lobby', { render: vi.fn() });
       router.navigate('lobby');
 
       const logo = document.getElementById('nav-logo') as HTMLDivElement;
@@ -282,8 +282,8 @@ describe('Router', () => {
     });
 
     it('should navigate to profile when clicking avatar', () => {
-      router.registerPage('dashboard', { render: jest.fn() });
-      router.registerPage('profile', { render: jest.fn() });
+      router.registerPage('dashboard', { render: vi.fn() });
+      router.registerPage('profile', { render: vi.fn() });
       router.navigate('dashboard');
 
       const avatar = document.getElementById('nav-avatar') as HTMLDivElement;
@@ -293,8 +293,8 @@ describe('Router', () => {
     });
 
     it('should clear auth data and navigate to auth on logout', () => {
-      router.registerPage('dashboard', { render: jest.fn() });
-      router.registerPage('auth', { render: jest.fn() });
+      router.registerPage('dashboard', { render: vi.fn() });
+      router.registerPage('auth', { render: vi.fn() });
       router.navigate('dashboard');
 
       const logoutBtn = document.getElementById('nav-logout') as HTMLButtonElement;
@@ -306,7 +306,7 @@ describe('Router', () => {
     });
 
     it('should create page-content div', () => {
-      router.registerPage('dashboard', { render: jest.fn() });
+      router.registerPage('dashboard', { render: vi.fn() });
       router.navigate('dashboard');
 
       const pageContent = document.getElementById('page-content');
@@ -324,7 +324,7 @@ describe('Router', () => {
       localStorage.setItem('hm_token', 'test-token');
       localStorage.setItem('hm_user', JSON.stringify({ username: 'testuser' }));
 
-      router.registerPage('dashboard', { render: jest.fn() });
+      router.registerPage('dashboard', { render: vi.fn() });
       router.navigate('dashboard');
 
       const pageContent = router.getPageContainer();
@@ -342,7 +342,7 @@ describe('Router', () => {
       localStorage.setItem('hm_token', 'test-token');
       localStorage.setItem('hm_user', JSON.stringify({ username: 'testuser' }));
 
-      router.registerPage('dashboard', { render: jest.fn() });
+      router.registerPage('dashboard', { render: vi.fn() });
       router.navigate('dashboard');
 
       expect(canvas.style.display).toBe('none');
@@ -353,7 +353,7 @@ describe('Router', () => {
       canvas.style.display = 'none';
       document.body.appendChild(canvas);
 
-      router.registerPage('game', { render: jest.fn() });
+      router.registerPage('game', { render: vi.fn() });
       router.navigate('game');
 
       expect(canvas.style.display).toBe('block');
@@ -368,7 +368,7 @@ describe('Router', () => {
       localStorage.setItem('hm_token', 'test-token');
       localStorage.setItem('hm_user', JSON.stringify({ username: 'testuser' }));
 
-      router.registerPage('dashboard', { render: jest.fn() });
+      router.registerPage('dashboard', { render: vi.fn() });
       router.navigate('dashboard');
 
       expect(hintBtn.style.display).toBe('none');
@@ -379,7 +379,7 @@ describe('Router', () => {
     it('should accept all valid page names', () => {
       const validPages = ['auth', 'dashboard', 'lobby', 'profile', 'friends', 'game'];
       validPages.forEach(page => {
-        expect(() => router.registerPage(page as any, { render: jest.fn() })).not.toThrow();
+        expect(() => router.registerPage(page as any, { render: vi.fn() })).not.toThrow();
       });
     });
   });
@@ -389,7 +389,7 @@ describe('Router', () => {
       localStorage.setItem('hm_token', 'test-token');
       localStorage.setItem('hm_user', JSON.stringify({}));
 
-      router.registerPage('dashboard', { render: jest.fn() });
+      router.registerPage('dashboard', { render: vi.fn() });
       router.navigate('dashboard');
 
       const avatar = document.getElementById('nav-avatar') as HTMLDivElement;
@@ -400,7 +400,7 @@ describe('Router', () => {
       localStorage.setItem('hm_token', 'test-token');
       localStorage.setItem('hm_user', JSON.stringify({ displayName: 'Alice' }));
 
-      router.registerPage('dashboard', { render: jest.fn() });
+      router.registerPage('dashboard', { render: vi.fn() });
       router.navigate('dashboard');
 
       const avatar = document.getElementById('nav-avatar') as HTMLDivElement;
@@ -411,7 +411,7 @@ describe('Router', () => {
       localStorage.setItem('hm_token', 'test-token');
       localStorage.setItem('hm_user', JSON.stringify({ username: 'bob123' }));
 
-      router.registerPage('dashboard', { render: jest.fn() });
+      router.registerPage('dashboard', { render: vi.fn() });
       router.navigate('dashboard');
 
       const avatar = document.getElementById('nav-avatar') as HTMLDivElement;

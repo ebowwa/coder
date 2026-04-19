@@ -4,7 +4,7 @@
  *        all sound types, error handling, autoplay policy handling
  */
 
-import { describe, it, expect, beforeEach, afterEach, spyOn, jest } from 'bun:test';
+// Vitest provides globals via vitest.config.ts globals: true
 
 // We need to mock AudioContext BEFORE importing the module, because the module
 // creates a singleton at load time and getContext() lazily creates AudioContext.
@@ -14,24 +14,24 @@ function createMockOscillator() {
   return {
     type: '',
     frequency: {
-      setValueAtTime: jest.fn(),
-      exponentialRampToValueAtTime: jest.fn(),
-      linearRampToValueAtTime: jest.fn(),
+      setValueAtTime: vi.fn(),
+      exponentialRampToValueAtTime: vi.fn(),
+      linearRampToValueAtTime: vi.fn(),
     },
-    connect: jest.fn(),
-    start: jest.fn(),
-    stop: jest.fn(),
+    connect: vi.fn(),
+    start: vi.fn(),
+    stop: vi.fn(),
   };
 }
 
 function createMockGainNode() {
   return {
     gain: {
-      setValueAtTime: jest.fn(),
-      linearRampToValueAtTime: jest.fn(),
-      exponentialRampToValueAtTime: jest.fn(),
+      setValueAtTime: vi.fn(),
+      linearRampToValueAtTime: vi.fn(),
+      exponentialRampToValueAtTime: vi.fn(),
     },
-    connect: jest.fn(),
+    connect: vi.fn(),
   };
 }
 
@@ -39,9 +39,9 @@ function createMockAudioContext(overrides: Record<string, any> = {}) {
   return {
     currentTime: 1.0,
     state: 'running' as string,
-    resume: jest.fn(() => Promise.resolve()),
-    createOscillator: jest.fn(() => createMockOscillator()),
-    createGain: jest.fn(() => createMockGainNode()),
+    resume: vi.fn(() => Promise.resolve()),
+    createOscillator: vi.fn(() => createMockOscillator()),
+    createGain: vi.fn(() => createMockGainNode()),
     destination: {},
     ...overrides,
   };
@@ -59,7 +59,7 @@ let soundEffects: any;
 beforeAll(async () => {
   // Set up mocks BEFORE first import
   latestCtx = createMockAudioContext();
-  MockAudioContextFn = jest.fn(() => {
+  MockAudioContextFn = vi.fn(() => {
     latestCtx = createMockAudioContext();
     return latestCtx;
   });
@@ -85,8 +85,6 @@ afterAll(() => {
   (globalThis as any).AudioContext = _origAudioContext;
   (globalThis as any).webkitAudioContext = _origWebkitAudioContext;
 });
-
-import { beforeAll, afterAll } from 'bun:test';
 
 describe('SoundEffects', () => {
   beforeEach(() => {
@@ -183,7 +181,7 @@ describe('SoundEffects', () => {
       (globalThis as any).AudioContext = undefined;
 
       const ctx = createMockAudioContext();
-      MockAudioContextFn = jest.fn(() => ctx);
+      MockAudioContextFn = vi.fn(() => ctx);
       (globalThis as any).webkitAudioContext = MockAudioContextFn;
 
       soundEffects.play('click');
@@ -198,14 +196,14 @@ describe('SoundEffects', () => {
   describe('play - autoplay policy', () => {
     it('should resume suspended AudioContext', () => {
       const suspendedCtx = createMockAudioContext({ state: 'suspended' });
-      MockAudioContextFn = jest.fn(() => suspendedCtx);
+      MockAudioContextFn = vi.fn(() => suspendedCtx);
       (globalThis as any).AudioContext = MockAudioContextFn;
 
       soundEffects.play('click');
       expect(suspendedCtx.resume.mock.calls.length).toBe(1);
 
       // Restore
-      MockAudioContextFn = jest.fn(() => {
+      MockAudioContextFn = vi.fn(() => {
         latestCtx = createMockAudioContext();
         return latestCtx;
       });
@@ -215,14 +213,14 @@ describe('SoundEffects', () => {
 
     it('should not call resume when context is already running', () => {
       const runningCtx = createMockAudioContext({ state: 'running' });
-      MockAudioContextFn = jest.fn(() => runningCtx);
+      MockAudioContextFn = vi.fn(() => runningCtx);
       (globalThis as any).AudioContext = MockAudioContextFn;
 
       soundEffects.play('click');
       expect(runningCtx.resume.mock.calls.length).toBe(0);
 
       // Restore
-      MockAudioContextFn = jest.fn(() => {
+      MockAudioContextFn = vi.fn(() => {
         latestCtx = createMockAudioContext();
         return latestCtx;
       });
@@ -302,9 +300,9 @@ describe('SoundEffects', () => {
 
   describe('play - error handling', () => {
     it('should catch errors when AudioContext creation fails', () => {
-      (globalThis as any).AudioContext = jest.fn(() => { throw new Error('AudioContext not supported'); });
+      (globalThis as any).AudioContext = vi.fn(() => { throw new Error('AudioContext not supported'); });
 
-      const warnSpy = spyOn(console, 'warn');
+      const warnSpy = vi.spyOn(console, 'warn');
 
       expect(() => soundEffects.play('correct')).not.toThrow();
       expect(warnSpy).toHaveBeenCalledWith('Failed to play sound:', expect.any(Error));
@@ -317,17 +315,17 @@ describe('SoundEffects', () => {
       const brokenCtx = {
         currentTime: 1.0,
         state: 'running',
-        resume: jest.fn(),
-        createOscillator: jest.fn(() => {
+        resume: vi.fn(),
+        createOscillator: vi.fn(() => {
           throw new Error('Oscillator creation failed');
         }),
-        createGain: jest.fn(),
+        createGain: vi.fn(),
         destination: {},
       };
 
-      (globalThis as any).AudioContext = jest.fn(() => brokenCtx);
+      (globalThis as any).AudioContext = vi.fn(() => brokenCtx);
 
-      const warnSpy = spyOn(console, 'warn');
+      const warnSpy = vi.spyOn(console, 'warn');
 
       expect(() => soundEffects.play('correct')).not.toThrow();
       expect(warnSpy).toHaveBeenCalledWith('Failed to play sound:', expect.any(Error));
