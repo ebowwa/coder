@@ -48751,3 +48751,163 @@ src/
 > No UI components are rendered (screen is entirely black). Error: No visible elements, indicating a potential rendering failure or missing content.
 
 ---
+
+## 2026-04-19T18:27:15.996Z -- Task `task_1776621701760_ocdc8a` -- `/` (desktop 1280x720)
+
+**URL:** http://localhost:3000  **Verdict:** FAILED  **Latency:** 5770ms
+
+![home-desktop](visuals/home-desktop-2026-04-19T18-27-10-226Z.png)
+
+> No UI elements are visible; the screen is entirely black. This indicates a rendering issue (e.g., missing content or failed load).
+
+---
+
+## 2026-04-19T18:27:20.930Z -- Task `task_1776621701760_ocdc8a` -- `/` (mobile 375x812)
+
+**URL:** http://localhost:3000  **Verdict:** OK  **Latency:** 4933ms
+
+![home-mobile](visuals/home-mobile-2026-04-19T18-27-15-997Z.png)
+
+> No, the UI is not rendered—only a solid black screen is visible. No components are displayed, indicating a rendering issue.
+
+---
+
+## 2026-04-19T18:27:25.952Z -- Task `task_1776621701760_ocdc8a` -- `#auth` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** FAILED  **Latency:** 5022ms
+
+![auth-desktop](visuals/auth-desktop-2026-04-19T18-27-20-930Z.png)
+
+> No visible components are rendered; the screen is entirely black, indicating a failure to display the auth UI.
+
+---
+
+## 2026-04-19T18:27:30.023Z -- Task `task_1776621701760_ocdc8a` -- `#auth` (mobile 375x812)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** OK  **Latency:** 4070ms
+
+![auth-mobile](visuals/auth-mobile-2026-04-19T18-27-25-953Z.png)
+
+> No visible components; UI not rendered (black screen indicates rendering issue).
+
+---
+
+## 2026-04-19T18:27:34.538Z -- Task `task_1776621701760_ocdc8a` -- `#dashboard` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** FAILED  **Latency:** 4515ms
+
+![dashboard-desktop](visuals/dashboard-desktop-2026-04-19T18-27-30-023Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI failed to render (no content displayed).
+
+---
+
+## 2026-04-19T18:27:39.853Z -- Task `task_1776621701760_ocdc8a` -- `#dashboard` (mobile 375x812)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** FAILED  **Latency:** 5314ms
+
+![dashboard-mobile](visuals/dashboard-mobile-2026-04-19T18-27-34-539Z.png)
+
+> No visible components; the screen is entirely black. Error—UI did not render/load content correctly.
+
+---
+
+## 2026-04-19T18:27:44.387Z -- Task `task_1776621701760_ocdc8a` -- `#lobby` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** FAILED  **Latency:** 4533ms
+
+![lobby-desktop](visuals/lobby-desktop-2026-04-19T18-27-39-854Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI not rendered (blank/black screen).
+
+---
+
+## 2026-04-19T18:27:49.195Z -- Task `task_1776621701760_ocdc8a` -- `#lobby` (mobile 375x812)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** FAILED  **Latency:** 4808ms
+
+![lobby-mobile](visuals/lobby-mobile-2026-04-19T18-27-44-387Z.png)
+
+> No visible components; screen is entirely black. Error—UI not rendered (blank display).
+
+---
+
+## 2026-04-19T18:27:53.676Z -- Task `task_1776621701760_ocdc8a` -- `#profile` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** FAILED  **Latency:** 4480ms
+
+![profile-desktop](visuals/profile-desktop-2026-04-19T18-27-49-196Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI failed to render (no content displayed).
+
+---
+
+## 2026-04-19T18:27:58.694Z -- Task `task_1776621701760_ocdc8a` -- `#profile` (mobile 375x812)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** OK  **Latency:** 5017ms
+
+![profile-mobile](visuals/profile-mobile-2026-04-19T18-27-53-677Z.png)
+
+> The UI is not rendered; no visible components are present. Error: Screen appears blank, indicating failed rendering or missing content.
+
+---
+
+## 2026-04-19T18:28:03.920Z -- Task `task_1776621701760_ocdc8a` -- `#friends` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** FAILED  **Latency:** 5224ms
+
+![friends-desktop](visuals/friends-desktop-2026-04-19T18-27-58-695Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: Content failed to render (blank/black screen).
+
+---
+
+## 2026-04-19T18:28:07.743Z -- Task `task_1776621701760_ocdc8a` -- `#friends` (mobile 375x812)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** OK  **Latency:** 3822ms
+
+![friends-mobile](visuals/friends-mobile-2026-04-19T18-28-03-921Z.png)
+
+> No visible components; UI not rendered (blank screen).
+
+---
+
+## 2026-04-19T18:28:12.714Z -- Task `task_1776621701760_ocdc8a` -- `#leaderboard` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#leaderboard  **Verdict:** FAILED  **Latency:** 4970ms
+
+![leaderboard-desktop](visuals/leaderboard-desktop-2026-04-19T18-28-07-744Z.png)
+
+> No visible components are rendered; the UI appears entirely black, indicating a rendering issue or missing content.
+
+---
+
+## 2026-04-19T18:28:17.946Z -- Task `task_1776621701760_ocdc8a` -- `#leaderboard` (mobile 375x812)
+
+**URL:** http://localhost:3000/#leaderboard  **Verdict:** FAILED  **Latency:** 5232ms
+
+![leaderboard-mobile](visuals/leaderboard-mobile-2026-04-19T18-28-12-714Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: No content renders for the #leaderboard route.
+
+---
+
+## 2026-04-19T18:28:22.143Z -- Task `task_1776621701760_ocdc8a` -- `#game` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#game  **Verdict:** FAILED  **Latency:** 4197ms
+
+![game-desktop](visuals/game-desktop-2026-04-19T18-28-17-946Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI not rendered (blank display).
+
+---
+
+## 2026-04-19T18:28:26.342Z -- Task `task_1776621701760_ocdc8a` -- `#game` (mobile 375x812)
+
+**URL:** http://localhost:3000/#game  **Verdict:** FAILED  **Latency:** 4199ms
+
+![game-mobile](visuals/game-mobile-2026-04-19T18-28-22-143Z.png)
+
+> No UI components are rendered; the screen is entirely black. This indicates a rendering error or missing content for the "#game" route.
+
+---
