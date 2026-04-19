@@ -49871,3 +49871,163 @@ src/
 > No UI components are rendered; the screen is entirely black, indicating a rendering error or missing content.
 
 ---
+
+## 2026-04-19T21:22:06.598Z -- Task `task_1776633408859_97f3ui` -- `/` (desktop 1280x720)
+
+**URL:** http://localhost:3000  **Verdict:** FAILED  **Latency:** 5644ms
+
+![home-desktop](visuals/home-desktop-2026-04-19T21-22-00-954Z.png)
+
+> No UI elements are visible; the screen is entirely black. This indicates a rendering issue (e.g., missing content or failed load).
+
+---
+
+## 2026-04-19T21:22:10.843Z -- Task `task_1776633408859_97f3ui` -- `/` (mobile 375x812)
+
+**URL:** http://localhost:3000  **Verdict:** OK  **Latency:** 4241ms
+
+![home-mobile](visuals/home-mobile-2026-04-19T21-22-06-601Z.png)
+
+> No, the UI is not rendered—no visible components appear. Error: Complete black screen with no content displayed.
+
+---
+
+## 2026-04-19T21:22:15.350Z -- Task `task_1776633408859_97f3ui` -- `#auth` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** FAILED  **Latency:** 4506ms
+
+![auth-desktop](visuals/auth-desktop-2026-04-19T21-22-10-844Z.png)
+
+> No UI elements are visible; the screen is entirely black, indicating a rendering issue or incomplete load.
+
+---
+
+## 2026-04-19T21:22:19.344Z -- Task `task_1776633408859_97f3ui` -- `#auth` (mobile 375x812)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** FAILED  **Latency:** 3993ms
+
+![auth-mobile](visuals/auth-mobile-2026-04-19T21-22-15-351Z.png)
+
+> No visible components are rendered; the screen is entirely black, indicating a rendering error or missing content.
+
+---
+
+## 2026-04-19T21:22:23.745Z -- Task `task_1776633408859_97f3ui` -- `#dashboard` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** FAILED  **Latency:** 4401ms
+
+![dashboard-desktop](visuals/dashboard-desktop-2026-04-19T21-22-19-344Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI failed to render (no content displayed).
+
+---
+
+## 2026-04-19T21:22:28.345Z -- Task `task_1776633408859_97f3ui` -- `#dashboard` (mobile 375x812)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** FAILED  **Latency:** 4599ms
+
+![dashboard-mobile](visuals/dashboard-mobile-2026-04-19T21-22-23-746Z.png)
+
+> No UI elements are visible; the screen is entirely black. This indicates a rendering issue or missing content for the dashboard route.
+
+---
+
+## 2026-04-19T21:22:32.458Z -- Task `task_1776633408859_97f3ui` -- `#lobby` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** FAILED  **Latency:** 4112ms
+
+![lobby-desktop](visuals/lobby-desktop-2026-04-19T21-22-28-346Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI not rendered (blank/black screen).
+
+---
+
+## 2026-04-19T21:22:37.675Z -- Task `task_1776633408859_97f3ui` -- `#lobby` (mobile 375x812)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** FAILED  **Latency:** 5216ms
+
+![lobby-mobile](visuals/lobby-mobile-2026-04-19T21-22-32-459Z.png)
+
+> No UI elements are visible; the screen is entirely black. Error: UI failed to render (no content displayed).
+
+---
+
+## 2026-04-19T21:22:42.900Z -- Task `task_1776633408859_97f3ui` -- `#profile` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** FAILED  **Latency:** 5224ms
+
+![profile-desktop](visuals/profile-desktop-2026-04-19T21-22-37-676Z.png)
+
+> No UI components are visible; the screen is entirely black. Possible rendering error or missing content for the profile route.
+
+---
+
+## 2026-04-19T21:22:47.095Z -- Task `task_1776633408859_97f3ui` -- `#profile` (mobile 375x812)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** FAILED  **Latency:** 4195ms
+
+![profile-mobile](visuals/profile-mobile-2026-04-19T21-22-42-900Z.png)
+
+> No UI components are visible; the screen is entirely black, indicating a rendering error for the "#profile" route.
+
+---
+
+## 2026-04-19T21:22:51.705Z -- Task `task_1776633408859_97f3ui` -- `#friends` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** FAILED  **Latency:** 4609ms
+
+![friends-desktop](visuals/friends-desktop-2026-04-19T21-22-47-096Z.png)
+
+> No UI elements are visible; the screen is entirely black. This indicates a rendering issue or missing content for the "#friends" route.
+
+---
+
+## 2026-04-19T21:22:56.590Z -- Task `task_1776633408859_97f3ui` -- `#friends` (mobile 375x812)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** FAILED  **Latency:** 4884ms
+
+![friends-mobile](visuals/friends-mobile-2026-04-19T21-22-51-706Z.png)
+
+> The UI is not rendered; no visible components are present. Error: Screen displays as entirely black/blank.
+
+---
+
+## 2026-04-19T21:23:02.865Z -- Task `task_1776633408859_97f3ui` -- `#leaderboard` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#leaderboard  **Verdict:** OK  **Latency:** 6274ms
+
+![leaderboard-desktop](visuals/leaderboard-desktop-2026-04-19T21-22-56-591Z.png)
+
+> Visible components: None. Errors: UI not rendered (entire screen is blank).
+
+---
+
+## 2026-04-19T21:23:06.749Z -- Task `task_1776633408859_97f3ui` -- `#leaderboard` (mobile 375x812)
+
+**URL:** http://localhost:3000/#leaderboard  **Verdict:** OK  **Latency:** 3884ms
+
+![leaderboard-mobile](visuals/leaderboard-mobile-2026-04-19T21-23-02-865Z.png)
+
+> No visible components; UI not rendered (black screen).
+
+---
+
+## 2026-04-19T21:23:10.888Z -- Task `task_1776633408859_97f3ui` -- `#game` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#game  **Verdict:** FAILED  **Latency:** 4138ms
+
+![game-desktop](visuals/game-desktop-2026-04-19T21-23-06-750Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI failed to render (no content displayed).
+
+---
+
+## 2026-04-19T21:23:15.360Z -- Task `task_1776633408859_97f3ui` -- `#game` (mobile 375x812)
+
+**URL:** http://localhost:3000/#game  **Verdict:** FAILED  **Latency:** 4471ms
+
+![game-mobile](visuals/game-mobile-2026-04-19T21-23-10-889Z.png)
+
+> No UI components are rendered; the screen is entirely black. This indicates a rendering error where expected elements (e.g., game interface) are missing.
+
+---
