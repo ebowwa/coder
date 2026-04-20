@@ -6,6 +6,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { leaderboard } from './leaderboard';
 
 const mockNavigate = vi.fn();
 
@@ -35,15 +36,12 @@ describe('leaderboard-page', () => {
     container = createContainer();
     document.body.appendChild(container);
     localStorage.clear();
-    localStorage.setItem('hm_leaderboard', JSON.stringify([
-      { playerName: 'Alice', score: 500, category: 'animals', timestamp: Date.now() - 1000 },
-      { playerName: 'Bob', score: 300, category: 'food', timestamp: Date.now() - 2000 },
-      { playerName: 'Carol', score: 400, category: 'animals', timestamp: Date.now() - 500 },
-      { playerName: 'Dave', score: 200, category: 'general', timestamp: Date.now() },
-    ]));
-    // Reset modules so leaderboard-page.ts re-imports and creates
-    // a fresh Leaderboard instance that reads current localStorage data.
-    vi.resetModules();
+    // Clear and re-populate the shared leaderboard singleton
+    leaderboard.clear();
+    leaderboard.addScore('Alice', 500, 'animals');
+    leaderboard.addScore('Bob', 300, 'food');
+    leaderboard.addScore('Carol', 400, 'animals');
+    leaderboard.addScore('Dave', 200, 'general');
   });
 
   afterEach(() => {
@@ -231,7 +229,7 @@ describe('leaderboard-page', () => {
 
     it('shows empty state when no entries exist', async () => {
       seedLocalStorage();
-      localStorage.setItem('hm_leaderboard', '[]');
+      leaderboard.clear();
       const { renderLeaderboardPage } = await import('./leaderboard-page');
       renderLeaderboardPage(container);
 
@@ -456,7 +454,7 @@ describe('leaderboard-page', () => {
 
     it('shows empty message when no categories', async () => {
       seedLocalStorage();
-      localStorage.setItem('hm_leaderboard', '[]');
+      leaderboard.clear();
       const { renderLeaderboardPage } = await import('./leaderboard-page');
       renderLeaderboardPage(container);
 
@@ -481,7 +479,7 @@ describe('leaderboard-page', () => {
 
     it('shows "No recent games" when empty', async () => {
       seedLocalStorage();
-      localStorage.setItem('hm_leaderboard', '[]');
+      leaderboard.clear();
       const { renderLeaderboardPage } = await import('./leaderboard-page');
       renderLeaderboardPage(container);
 

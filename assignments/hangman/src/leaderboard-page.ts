@@ -5,13 +5,11 @@
  * personal stats, and category filter tabs.
  */
 
-import { Leaderboard } from './leaderboard';
+import { Leaderboard, leaderboard as lb } from './leaderboard';
 import { router } from './router';
 import { escapeHtml } from './escape-html';
 
 const API = '';
-
-const lb = new Leaderboard();
 
 export function renderLeaderboardPage(container: HTMLDivElement): void {
   const user = JSON.parse(localStorage.getItem('hm_user') || '{}');
