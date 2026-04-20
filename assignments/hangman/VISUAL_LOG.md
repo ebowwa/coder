@@ -50521,3 +50521,313 @@ src/
 > No UI components are rendered; the screen is entirely black, indicating a rendering failure.
 
 ---
+
+## 2026-04-20T03:40:24.896Z -- Task `task_1776635387432_7g76zm` -- `/` (mobile 375x812)
+
+**URL:** http://localhost:3000  **Verdict:** OK  **Latency:** 2690617ms
+
+![home-mobile](visuals/home-mobile-2026-04-20T02-55-34-279Z.png)
+
+> Yes, UI is rendered. Visible components: Hangman title, Multiplayer Mode subtitle, name input, color options, “Create New Room” button, “OR” text, room code input, “Join as Player,” “Join as Spectator,” “Play Single Player” buttons, “Not connected” status. No errors.
+
+---
+
+## 2026-04-20T03:40:32.368Z -- Task `task_1776635387432_7g76zm` -- `#auth` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** FAILED  **Latency:** 7470ms
+
+![auth-desktop](visuals/auth-desktop-2026-04-20T03-40-24-898Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI failed to render (no content displayed).
+
+---
+
+## 2026-04-20T03:40:38.464Z -- Task `task_1776635387432_7g76zm` -- `#auth` (mobile 375x812)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** FAILED  **Latency:** 6095ms
+
+![auth-mobile](visuals/auth-mobile-2026-04-20T03-40-32-369Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: No content renders for the #auth route.
+
+---
+
+## 2026-04-20T03:40:43.047Z -- Task `task_1776635387432_7g76zm` -- `#dashboard` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** OK  **Latency:** 4583ms
+
+![dashboard-desktop](visuals/dashboard-desktop-2026-04-20T03-40-38-464Z.png)
+
+> No, the UI is not rendered. No visible components; error: blank/black screen (no content displayed).
+
+---
+
+## 2026-04-20T03:40:49.599Z -- Task `task_1776635387432_7g76zm` -- `#dashboard` (mobile 375x812)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** FAILED  **Latency:** 6552ms
+
+![dashboard-mobile](visuals/dashboard-mobile-2026-04-20T03-40-43-047Z.png)
+
+> No, the UI is not rendered—screen is entirely black with no visible components. Error: Dashboard content missing (no elements displayed).
+
+---
+
+## 2026-04-20T03:40:54.147Z -- Task `task_1776635387432_7g76zm` -- `#lobby` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** FAILED  **Latency:** 4548ms
+
+![lobby-desktop](visuals/lobby-desktop-2026-04-20T03-40-49-599Z.png)
+
+> No visible components; UI not rendered (entirely black screen).
+
+---
+
+## 2026-04-20T03:56:23.928Z -- Task `task_1776635387432_7g76zm` -- `#lobby` (mobile 375x812)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** FAILED  **Latency:** 929781ms
+
+![lobby-mobile](visuals/lobby-mobile-2026-04-20T03-40-54-147Z.png)
+
+> No visible components are rendered; the screen is entirely black. Error: UI not rendered (blank screen).
+
+---
+
+## 2026-04-20T03:56:29.159Z -- Task `task_1776635387432_7g76zm` -- `#profile` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** FAILED  **Latency:** 5229ms
+
+![profile-desktop](visuals/profile-desktop-2026-04-20T03-56-23-930Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI failed to render (no content displayed).
+
+---
+
+## 2026-04-20T03:56:33.560Z -- Task `task_1776635387432_7g76zm` -- `#profile` (mobile 375x812)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** FAILED  **Latency:** 4400ms
+
+![profile-mobile](visuals/profile-mobile-2026-04-20T03-56-29-160Z.png)
+
+> No visible components; the screen is entirely black, indicating a rendering issue or missing content.
+
+---
+
+## 2026-04-20T03:56:38.116Z -- Task `task_1776635387432_7g76zm` -- `#friends` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** FAILED  **Latency:** 4556ms
+
+![friends-desktop](visuals/friends-desktop-2026-04-20T03-56-33-560Z.png)
+
+> No UI components are visible; the screen is entirely black. The UI failed to render, showing no content or elements.
+
+---
+
+## 2026-04-20T03:56:42.636Z -- Task `task_1776635387432_7g76zm` -- `#friends` (mobile 375x812)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** OK  **Latency:** 4520ms
+
+![friends-mobile](visuals/friends-mobile-2026-04-20T03-56-38-116Z.png)
+
+> No visible components; UI not rendered (entire screen is black). Error: No content displayed for "#friends" route.
+
+---
+
+## 2026-04-20T03:56:49.426Z -- Task `task_1776635387432_7g76zm` -- `#leaderboard` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#leaderboard  **Verdict:** FAILED  **Latency:** 6790ms
+
+![leaderboard-desktop](visuals/leaderboard-desktop-2026-04-20T03-56-42-636Z.png)
+
+> No visible components are rendered; the screen is entirely black, indicating a potential rendering error or missing content.
+
+---
+
+## 2026-04-20T04:45:36.555Z -- Task `task_1776635387432_7g76zm` -- `#leaderboard` (mobile 375x812)
+
+**URL:** http://localhost:3000/#leaderboard  **Verdict:** FAILED  **Latency:** 2927127ms
+
+![leaderboard-mobile](visuals/leaderboard-mobile-2026-04-20T03-56-49-427Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-20T04:57:32.370Z -- Task `task_1776635387432_7g76zm` -- `#game` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#game  **Verdict:** FAILED  **Latency:** 715812ms
+
+![game-desktop](visuals/game-desktop-2026-04-20T04-45-36-558Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-20T04:57:34.487Z -- Task `task_1776635387432_7g76zm` -- `#game` (mobile 375x812)
+
+**URL:** http://localhost:3000/#game  **Verdict:** FAILED  **Latency:** 2117ms
+
+![game-mobile](visuals/game-mobile-2026-04-20T04-57-32-370Z.png)
+
+> (no analysis)
+
+---
+
+## 2026-04-20T18:35:39.347Z -- Task `task_1776656441086_bbc5z2` -- `/` (desktop 1280x720)
+
+**URL:** http://localhost:3000  **Verdict:** FAILED  **Latency:** 6842ms
+
+![home-desktop](visuals/home-desktop-2026-04-20T18-35-32-504Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI failed to render (no content displayed).
+
+---
+
+## 2026-04-20T18:35:45.037Z -- Task `task_1776656441086_bbc5z2` -- `/` (mobile 375x812)
+
+**URL:** http://localhost:3000  **Verdict:** OK  **Latency:** 5689ms
+
+![home-mobile](visuals/home-mobile-2026-04-20T18-35-39-348Z.png)
+
+> No visible components; UI appears unrendered (all black screen). Error: No content displayed.
+
+---
+
+## 2026-04-20T18:35:50.588Z -- Task `task_1776656441086_bbc5z2` -- `#auth` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** FAILED  **Latency:** 5550ms
+
+![auth-desktop](visuals/auth-desktop-2026-04-20T18-35-45-038Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI failed to render (blank/black screen).
+
+---
+
+## 2026-04-20T18:35:54.922Z -- Task `task_1776656441086_bbc5z2` -- `#auth` (mobile 375x812)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** OK  **Latency:** 4334ms
+
+![auth-mobile](visuals/auth-mobile-2026-04-20T18-35-50-588Z.png)
+
+> No visible components; UI not rendered (blank screen).
+
+---
+
+## 2026-04-20T18:35:59.531Z -- Task `task_1776656441086_bbc5z2` -- `#dashboard` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** FAILED  **Latency:** 4608ms
+
+![dashboard-desktop](visuals/dashboard-desktop-2026-04-20T18-35-54-923Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI failed to render (no content displayed).
+
+---
+
+## 2026-04-20T18:36:04.971Z -- Task `task_1776656441086_bbc5z2` -- `#dashboard` (mobile 375x812)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** FAILED  **Latency:** 5440ms
+
+![dashboard-mobile](visuals/dashboard-mobile-2026-04-20T18-35-59-531Z.png)
+
+> No visible components; the screen is entirely black, indicating a rendering issue or empty state.
+
+---
+
+## 2026-04-20T18:36:11.266Z -- Task `task_1776656441086_bbc5z2` -- `#lobby` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** FAILED  **Latency:** 6294ms
+
+![lobby-desktop](visuals/lobby-desktop-2026-04-20T18-36-04-972Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI not rendered (blank/black screen).
+
+---
+
+## 2026-04-20T18:36:16.203Z -- Task `task_1776656441086_bbc5z2` -- `#lobby` (mobile 375x812)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** OK  **Latency:** 4936ms
+
+![lobby-mobile](visuals/lobby-mobile-2026-04-20T18-36-11-267Z.png)
+
+> No visible components; UI not rendered (black screen). Error: No content displayed.
+
+---
+
+## 2026-04-20T18:36:21.728Z -- Task `task_1776656441086_bbc5z2` -- `#profile` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** FAILED  **Latency:** 5524ms
+
+![profile-desktop](visuals/profile-desktop-2026-04-20T18-36-16-204Z.png)
+
+> No UI elements are visible; the screen is entirely black. Error: No content rendered for the #profile route.
+
+---
+
+## 2026-04-20T18:36:27.009Z -- Task `task_1776656441086_bbc5z2` -- `#profile` (mobile 375x812)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** FAILED  **Latency:** 5280ms
+
+![profile-mobile](visuals/profile-mobile-2026-04-20T18-36-21-729Z.png)
+
+> No UI components are visible; the screen is entirely black. The UI fails to render, indicating a potential loading issue or blank state error.
+
+---
+
+## 2026-04-20T18:36:32.167Z -- Task `task_1776656441086_bbc5z2` -- `#friends` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** FAILED  **Latency:** 5158ms
+
+![friends-desktop](visuals/friends-desktop-2026-04-20T18-36-27-009Z.png)
+
+> No UI components are visible; the screen is entirely black, indicating a rendering error.
+
+---
+
+## 2026-04-20T18:36:37.969Z -- Task `task_1776656441086_bbc5z2` -- `#friends` (mobile 375x812)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** FAILED  **Latency:** 5801ms
+
+![friends-mobile](visuals/friends-mobile-2026-04-20T18-36-32-168Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: No content renders for the "#friends" route.
+
+---
+
+## 2026-04-20T18:36:44.781Z -- Task `task_1776656441086_bbc5z2` -- `#leaderboard` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#leaderboard  **Verdict:** OK  **Latency:** 6812ms
+
+![leaderboard-desktop](visuals/leaderboard-desktop-2026-04-20T18-36-37-969Z.png)
+
+> No visible UI components are present. The UI fails to render, displaying a blank screen.
+
+---
+
+## 2026-04-20T18:36:50.058Z -- Task `task_1776656441086_bbc5z2` -- `#leaderboard` (mobile 375x812)
+
+**URL:** http://localhost:3000/#leaderboard  **Verdict:** FAILED  **Latency:** 5276ms
+
+![leaderboard-mobile](visuals/leaderboard-mobile-2026-04-20T18-36-44-782Z.png)
+
+> No visible components are rendered; the screen is entirely black. Error: UI not displayed on the "#leaderboard" route for mobile 375x812.
+
+---
+
+## 2026-04-20T18:36:55.853Z -- Task `task_1776656441086_bbc5z2` -- `#game` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#game  **Verdict:** FAILED  **Latency:** 5794ms
+
+![game-desktop](visuals/game-desktop-2026-04-20T18-36-50-059Z.png)
+
+> No, the UI is not rendered; the screen is entirely black with no visible components. Error: No content displayed, indicating a potential rendering failure or missing assets.
+
+---
+
+## 2026-04-20T18:37:00.399Z -- Task `task_1776656441086_bbc5z2` -- `#game` (mobile 375x812)
+
+**URL:** http://localhost:3000/#game  **Verdict:** FAILED  **Latency:** 4546ms
+
+![game-mobile](visuals/game-mobile-2026-04-20T18-36-55-853Z.png)
+
+> No visible components are rendered; the screen is entirely black. Error: UI fails to display any content on the specified route.
+
+---
