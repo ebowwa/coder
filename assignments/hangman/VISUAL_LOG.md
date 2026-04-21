@@ -54351,3 +54351,163 @@ src/
 > No UI components are visible; the screen is entirely black, indicating a rendering error or missing content.
 
 ---
+
+## 2026-04-21T03:53:19.354Z -- Task `task_1776743196926_g2klo9` -- `/` (desktop 1280x720)
+
+**URL:** http://localhost:3000  **Verdict:** OK  **Latency:** 5690ms
+
+![home-desktop](visuals/home-desktop-2026-04-21T03-53-13-663Z.png)
+
+> No visible components; UI not rendered (black screen). Error: No content displayed.
+
+---
+
+## 2026-04-21T03:53:24.775Z -- Task `task_1776743196926_g2klo9` -- `/` (mobile 375x812)
+
+**URL:** http://localhost:3000  **Verdict:** OK  **Latency:** 5420ms
+
+![home-mobile](visuals/home-mobile-2026-04-21T03-53-19-355Z.png)
+
+> No visible components; UI appears unrendered (black screen). Errors: No content displayed.
+
+---
+
+## 2026-04-21T03:53:29.997Z -- Task `task_1776743196926_g2klo9` -- `#auth` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** FAILED  **Latency:** 5222ms
+
+![auth-desktop](visuals/auth-desktop-2026-04-21T03-53-24-775Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI not rendered (blank/black screen).
+
+---
+
+## 2026-04-21T03:53:34.866Z -- Task `task_1776743196926_g2klo9` -- `#auth` (mobile 375x812)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** OK  **Latency:** 4869ms
+
+![auth-mobile](visuals/auth-mobile-2026-04-21T03-53-29-997Z.png)
+
+> No visible components are rendered. Error: The UI for route "#auth" is not displaying any content (completely black screen).
+
+---
+
+## 2026-04-21T03:53:39.434Z -- Task `task_1776743196926_g2klo9` -- `#dashboard` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** FAILED  **Latency:** 4567ms
+
+![dashboard-desktop](visuals/dashboard-desktop-2026-04-21T03-53-34-867Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI failed to render (no content displayed).
+
+---
+
+## 2026-04-21T03:53:45.545Z -- Task `task_1776743196926_g2klo9` -- `#dashboard` (mobile 375x812)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** OK  **Latency:** 6110ms
+
+![dashboard-mobile](visuals/dashboard-mobile-2026-04-21T03-53-39-435Z.png)
+
+> No, the UI is not rendered—only a black screen is visible. No components are displayed; this indicates a rendering issue or missing content.
+
+---
+
+## 2026-04-21T03:53:50.099Z -- Task `task_1776743196926_g2klo9` -- `#lobby` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** FAILED  **Latency:** 4553ms
+
+![lobby-desktop](visuals/lobby-desktop-2026-04-21T03-53-45-546Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI not rendered (blank/black screen).
+
+---
+
+## 2026-04-21T03:53:53.995Z -- Task `task_1776743196926_g2klo9` -- `#lobby` (mobile 375x812)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** FAILED  **Latency:** 3895ms
+
+![lobby-mobile](visuals/lobby-mobile-2026-04-21T03-53-50-100Z.png)
+
+> No visible components; UI not rendered (entirely black screen).
+
+---
+
+## 2026-04-21T03:53:59.384Z -- Task `task_1776743196926_g2klo9` -- `#profile` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** FAILED  **Latency:** 5389ms
+
+![profile-desktop](visuals/profile-desktop-2026-04-21T03-53-53-995Z.png)
+
+> No UI elements are visible; the screen is entirely black. This indicates a rendering issue or missing content for the #profile route.
+
+---
+
+## 2026-04-21T03:54:04.798Z -- Task `task_1776743196926_g2klo9` -- `#profile` (mobile 375x812)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** OK  **Latency:** 5413ms
+
+![profile-mobile](visuals/profile-mobile-2026-04-21T03-53-59-385Z.png)
+
+> The UI is not rendered; no visible components are present. Error: The screen displays a solid black background, indicating failed rendering or missing content.
+
+---
+
+## 2026-04-21T03:54:09.406Z -- Task `task_1776743196926_g2klo9` -- `#friends` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** FAILED  **Latency:** 4608ms
+
+![friends-desktop](visuals/friends-desktop-2026-04-21T03-54-04-798Z.png)
+
+> No UI components are visible; the screen is entirely black, indicating a rendering error or missing content.
+
+---
+
+## 2026-04-21T03:54:14.613Z -- Task `task_1776743196926_g2klo9` -- `#friends` (mobile 375x812)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** FAILED  **Latency:** 5207ms
+
+![friends-mobile](visuals/friends-mobile-2026-04-21T03-54-09-406Z.png)
+
+> No visible components; entire screen is black, indicating a rendering error (blank/empty state).
+
+---
+
+## 2026-04-21T03:54:20.276Z -- Task `task_1776743196926_g2klo9` -- `#leaderboard` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#leaderboard  **Verdict:** OK  **Latency:** 5662ms
+
+![leaderboard-desktop](visuals/leaderboard-desktop-2026-04-21T03-54-14-614Z.png)
+
+> UI not rendered; no visible components. Error: Blank/black screen (no content displayed).
+
+---
+
+## 2026-04-21T03:54:25.337Z -- Task `task_1776743196926_g2klo9` -- `#leaderboard` (mobile 375x812)
+
+**URL:** http://localhost:3000/#leaderboard  **Verdict:** FAILED  **Latency:** 5060ms
+
+![leaderboard-mobile](visuals/leaderboard-mobile-2026-04-21T03-54-20-276Z.png)
+
+> No visible components; the screen is entirely black, indicating a rendering error or missing content.
+
+---
+
+## 2026-04-21T03:54:37.170Z -- Task `task_1776743196926_g2klo9` -- `#game` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#game  **Verdict:** FAILED  **Latency:** 11833ms
+
+![game-desktop](visuals/game-desktop-2026-04-21T03-54-25-337Z.png)
+
+> No UI elements are rendered; the screen is entirely black. Visible components: none. Error: Blank display, indicating a rendering issue.
+
+---
+
+## 2026-04-21T03:54:41.776Z -- Task `task_1776743196926_g2klo9` -- `#game` (mobile 375x812)
+
+**URL:** http://localhost:3000/#game  **Verdict:** FAILED  **Latency:** 4605ms
+
+![game-mobile](visuals/game-mobile-2026-04-21T03-54-37-171Z.png)
+
+> No UI components are visible; the screen is entirely black, indicating a rendering error or missing content.
+
+---
