@@ -35,25 +35,15 @@ jobs:
 
             cd /root/packages
 
-            # Fetch latest
-            git fetch origin
-            CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
             TARGET_BRANCH="${{ github.ref_name }}"
 
-            if [ "$CURRENT_BRANCH" != "$TARGET_BRANCH" ]; then
-              echo "Switching from $CURRENT_BRANCH to $TARGET_BRANCH"
-              git checkout "$TARGET_BRANCH"
-            fi
+            # Fetch latest from origin
+            git fetch origin
 
-            # Check for uncommitted changes (daemon auto-commits)
-            if ! git diff --quiet; then
-              echo "Dirty working tree - committing pending changes first"
-              git add -A
-              git commit -m "chore(daemon): auto-commit before deploy" || true
-            fi
-
-            # Pull latest
-            git pull origin "$TARGET_BRANCH"
+            # Force-sync to remote branch (VPS is a deployment target, not a dev machine)
+            # bun install modifies bun.lock/package.json so plain git pull fails
+            git checkout "$TARGET_BRANCH" 2>/dev/null || true
+            git reset --hard "origin/$TARGET_BRANCH"
 
             # Install dependencies
             bun install
