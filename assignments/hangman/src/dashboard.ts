@@ -186,118 +186,104 @@ function renderError(el: Element | null, message: string, retry: () => void): vo
 
 async function loadDashboard(container: HTMLDivElement, token: string | null): Promise<void> {
   const retry = () => loadDashboard(container, token);
+  const headers = { Authorization: `Bearer ${token}` };
 
-  // --- Fetch data first; all three sections share one response ---
-  let data: any;
-  try {
-    const res = await fetch(`${API}/api/dashboard`, {
-      headers: { Authorization: `Bearer ${token}` },
+  const fetchDashboard = () =>
+    fetch(`${API}/api/dashboard`, { headers }).then((res) => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
     });
-    if (!res.ok) {
+
+  return Promise.allSettled([
+    fetchDashboard(), // stats
+    fetchDashboard(), // active games
+    fetchDashboard(), // leaderboard
+  ]).then(([statsResult, gamesResult, lbResult]) => {
+    // --- Section 1: Stats ---
+    if (statsResult.status === "fulfilled") {
+      const data = statsResult.value;
+      const stats = data.stats || {};
+      const line = container.querySelector("#dash-stats-line");
+      if (line) {
+        line.textContent = `Rank #${stats.rank || "?"} | ${stats.totalGames || 0} games played | ${stats.wins || 0} wins`;
+      }
+      const setStat = (id: string, val: string) => {
+        const el = container.querySelector(`#${id}`);
+        if (el) {
+          el.classList.remove("dash-skeleton", "dash-skeleton-inline");
+          el.textContent = val;
+        }
+      };
+      setStat("stat-games", String(stats.totalGames || 0));
+      setStat("stat-wins", String(stats.wins || 0));
+      setStat("stat-winrate", `${Math.round((stats.winRate || 0) * 100)}%`);
+      setStat("stat-streak", String(stats.bestStreak || 0));
+      setStat("stat-rank", stats.rank ? `#${stats.rank}` : "--");
+    } else {
       const errLine = container.querySelector("#dash-stats-line");
       if (errLine) errLine.textContent = "Could not load stats";
-      renderError(container.querySelector("#active-games"), "Failed to load games.", retry);
-      renderError(container.querySelector("#leaderboard-list"), "Failed to load leaderboard.", retry);
-      return;
-    }
-    data = await res.json();
-  } catch (err) {
-    console.error("Dashboard load error:", err);
-    const errLine = container.querySelector("#dash-stats-line");
-    if (errLine) errLine.textContent = "Could not load stats";
-    renderError(container.querySelector("#active-games"), "Unable to reach server.", retry);
-    renderError(container.querySelector("#leaderboard-list"), "Unable to reach server.", retry);
-    return;
-  }
-
-  // --- Section 1: Stats ---
-  try {
-    const stats = data.stats || {};
-
-    // Update stats line
-    const line = container.querySelector("#dash-stats-line");
-    if (line) {
-      line.textContent = `Rank #${stats.rank || "?"} | ${stats.totalGames || 0} games played | ${stats.wins || 0} wins`;
     }
 
-    // Update stat cards — replace skeleton with actual values
-    const setStat = (id: string, val: string) => {
-      const el = container.querySelector(`#${id}`);
-      if (el) {
-        el.classList.remove("dash-skeleton", "dash-skeleton-inline");
-        el.textContent = val;
-      }
-    };
-    setStat("stat-games", String(stats.totalGames || 0));
-    setStat("stat-wins", String(stats.wins || 0));
-    setStat("stat-winrate", `${Math.round((stats.winRate || 0) * 100)}%`);
-    setStat("stat-streak", String(stats.bestStreak || 0));
-    setStat("stat-rank", stats.rank ? `#${stats.rank}` : "--");
-  } catch (err) {
-    console.error("Stats section error:", err);
-    const errLine = container.querySelector("#dash-stats-line");
-    if (errLine) errLine.textContent = "Could not load stats";
-  }
-
-  // --- Section 2: Active Games ---
-  try {
-    const activeEl = container.querySelector("#active-games");
-    if (activeEl) {
-      const games = data.activeGames || [];
-      if (games.length === 0) {
-        activeEl.innerHTML = '<div style="color: #666;">No active games. Hit Quick Play to start!</div>';
-      } else {
-        activeEl.innerHTML = games.map((g: any) => `
-          <div style="
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 10px; margin-bottom: 8px;
-            background: rgba(255,255,255,0.03); border-radius: 8px;
-            cursor: pointer;
-          " data-room="${escapeHtml(g.code)}">
-            <div>
-              <div style="color: #fff; font-size: 0.9em;">${escapeHtml(g.name)}</div>
-              <div style="color: #666; font-size: 0.8em;">${g.players?.length || 0}/${g.maxPlayers} players</div>
+    // --- Section 2: Active Games ---
+    if (gamesResult.status === "fulfilled") {
+      const data = gamesResult.value;
+      const activeEl = container.querySelector("#active-games");
+      if (activeEl) {
+        const games = data.activeGames || [];
+        if (games.length === 0) {
+          activeEl.innerHTML = '<div style="color: #666;">No active games. Hit Quick Play to start!</div>';
+        } else {
+          activeEl.innerHTML = games.map((g: any) => `
+            <div style="
+              display: flex; justify-content: space-between; align-items: center;
+              padding: 10px; margin-bottom: 8px;
+              background: rgba(255,255,255,0.03); border-radius: 8px;
+              cursor: pointer;
+            " data-room="${escapeHtml(g.code)}">
+              <div>
+                <div style="color: #fff; font-size: 0.9em;">${escapeHtml(g.name)}</div>
+                <div style="color: #666; font-size: 0.8em;">${g.players?.length || 0}/${g.maxPlayers} players</div>
+              </div>
+              <span style="
+                padding: 4px 10px; border-radius: 6px; font-size: 0.8em;
+                background: ${g.status === "playing" ? "rgba(78,205,196,0.2)" : "rgba(255,230,109,0.2)"};
+                color: ${g.status === "playing" ? "#4ecdc4" : "#ffe66d"};
+              ">${escapeHtml(g.status)}</span>
             </div>
-            <span style="
-              padding: 4px 10px; border-radius: 6px; font-size: 0.8em;
-              background: ${g.status === "playing" ? "rgba(78,205,196,0.2)" : "rgba(255,230,109,0.2)"};
-              color: ${g.status === "playing" ? "#4ecdc4" : "#ffe66d"};
-            ">${escapeHtml(g.status)}</span>
-          </div>
-        `).join("");
+          `).join("");
+        }
       }
+    } else {
+      renderError(container.querySelector("#active-games"), "Failed to load games.", retry);
     }
-  } catch (err) {
-    console.error("Active games section error:", err);
-    renderError(container.querySelector("#active-games"), "Failed to load games.", retry);
-  }
 
-  // --- Section 3: Leaderboard ---
-  try {
-    const lbEl = container.querySelector("#leaderboard-list");
-    if (lbEl) {
-      const entries = data.leaderboard || [];
-      if (entries.length === 0) {
-        lbEl.innerHTML = '<div style="color: #666;">No entries yet. Be the first!</div>';
-      } else {
-        lbEl.innerHTML = entries.map((e: any, i: number) => `
-          <div style="
-            display: flex; align-items: center; padding: 8px 10px; margin-bottom: 4px;
-            background: ${i < 3 ? "rgba(78,205,196,0.05)" : "transparent"};
-            border-radius: 6px;
-          ">
-            <span style="
-              width: 24px; color: ${i === 0 ? "#ffd700" : i === 1 ? "#c0c0c0" : i === 2 ? "#cd7f32" : "#666"};
-              font-weight: bold; font-size: 0.9em;
-            ">${i + 1}</span>
-            <span style="flex: 1; color: #fff; font-size: 0.9em;">${escapeHtml(e.playerName)}</span>
-            <span style="color: #4ecdc4; font-size: 0.85em; font-weight: bold;">${e.score}</span>
-          </div>
-        `).join("");
+    // --- Section 3: Leaderboard ---
+    if (lbResult.status === "fulfilled") {
+      const data = lbResult.value;
+      const lbEl = container.querySelector("#leaderboard-list");
+      if (lbEl) {
+        const entries = data.leaderboard || [];
+        if (entries.length === 0) {
+          lbEl.innerHTML = '<div style="color: #666;">No entries yet. Be the first!</div>';
+        } else {
+          lbEl.innerHTML = entries.map((e: any, i: number) => `
+            <div style="
+              display: flex; align-items: center; padding: 8px 10px; margin-bottom: 4px;
+              background: ${i < 3 ? "rgba(78,205,196,0.05)" : "transparent"};
+              border-radius: 6px;
+            ">
+              <span style="
+                width: 24px; color: ${i === 0 ? "#ffd700" : i === 1 ? "#c0c0c0" : i === 2 ? "#cd7f32" : "#666"};
+                font-weight: bold; font-size: 0.9em;
+              ">${i + 1}</span>
+              <span style="flex: 1; color: #fff; font-size: 0.9em;">${escapeHtml(e.playerName)}</span>
+              <span style="color: #4ecdc4; font-size: 0.85em; font-weight: bold;">${e.score}</span>
+            </div>
+          `).join("");
+        }
       }
+    } else {
+      renderError(container.querySelector("#leaderboard-list"), "Failed to load leaderboard.", retry);
     }
-  } catch (err) {
-    console.error("Leaderboard section error:", err);
-    renderError(container.querySelector("#leaderboard-list"), "Failed to load leaderboard.", retry);
-  }
+  });
 }
