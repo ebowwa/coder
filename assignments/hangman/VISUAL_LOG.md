@@ -60752,3 +60752,163 @@ src/
 > No UI components are rendered; the screen is entirely black, indicating a rendering error or missing content.
 
 ---
+
+## 2026-04-21T19:03:48.729Z -- Task `task_1776797873978_pa5m6n` -- `/` (desktop 1280x720)
+
+**URL:** http://localhost:3000  **Verdict:** FAILED  **Latency:** 4754ms
+
+![home-desktop](visuals/home-desktop-2026-04-21T19-03-43-974Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI failed to render (no content displayed).
+
+---
+
+## 2026-04-21T19:03:52.915Z -- Task `task_1776797873978_pa5m6n` -- `/` (mobile 375x812)
+
+**URL:** http://localhost:3000  **Verdict:** FAILED  **Latency:** 4185ms
+
+![home-mobile](visuals/home-mobile-2026-04-21T19-03-48-730Z.png)
+
+> No visible components; the screen is entirely black, indicating a rendering issue or missing content.
+
+---
+
+## 2026-04-21T19:03:57.014Z -- Task `task_1776797873978_pa5m6n` -- `#auth` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** FAILED  **Latency:** 4098ms
+
+![auth-desktop](visuals/auth-desktop-2026-04-21T19-03-52-916Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI not rendered (blank/black screen).
+
+---
+
+## 2026-04-21T19:04:02.131Z -- Task `task_1776797873978_pa5m6n` -- `#auth` (mobile 375x812)
+
+**URL:** http://localhost:3000/#auth  **Verdict:** FAILED  **Latency:** 5117ms
+
+![auth-mobile](visuals/auth-mobile-2026-04-21T19-03-57-014Z.png)
+
+> No visible components; screen is entirely black. Error—UI not rendered (no content displayed).
+
+---
+
+## 2026-04-21T19:04:06.427Z -- Task `task_1776797873978_pa5m6n` -- `#dashboard` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** FAILED  **Latency:** 4295ms
+
+![dashboard-desktop](visuals/dashboard-desktop-2026-04-21T19-04-02-132Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI failed to render (no content displayed).
+
+---
+
+## 2026-04-21T19:04:10.527Z -- Task `task_1776797873978_pa5m6n` -- `#dashboard` (mobile 375x812)
+
+**URL:** http://localhost:3000/#dashboard  **Verdict:** FAILED  **Latency:** 4099ms
+
+![dashboard-mobile](visuals/dashboard-mobile-2026-04-21T19-04-06-428Z.png)
+
+> No UI components are visible; the screen is entirely black. The UI failed to render, showing a blank/black screen instead of dashboard elements.
+
+---
+
+## 2026-04-21T19:04:14.522Z -- Task `task_1776797873978_pa5m6n` -- `#lobby` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** FAILED  **Latency:** 3994ms
+
+![lobby-desktop](visuals/lobby-desktop-2026-04-21T19-04-10-528Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI failed to render (no content displayed).
+
+---
+
+## 2026-04-21T19:04:18.318Z -- Task `task_1776797873978_pa5m6n` -- `#lobby` (mobile 375x812)
+
+**URL:** http://localhost:3000/#lobby  **Verdict:** OK  **Latency:** 3794ms
+
+![lobby-mobile](visuals/lobby-mobile-2026-04-21T19-04-14-523Z.png)
+
+> No visible components are rendered. Error: UI not displayed (all-black screen).
+
+---
+
+## 2026-04-21T19:04:22.408Z -- Task `task_1776797873978_pa5m6n` -- `#profile` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** FAILED  **Latency:** 4090ms
+
+![profile-desktop](visuals/profile-desktop-2026-04-21T19-04-18-318Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI failed to render on the "#profile" route.
+
+---
+
+## 2026-04-21T19:04:26.810Z -- Task `task_1776797873978_pa5m6n` -- `#profile` (mobile 375x812)
+
+**URL:** http://localhost:3000/#profile  **Verdict:** FAILED  **Latency:** 4401ms
+
+![profile-mobile](visuals/profile-mobile-2026-04-21T19-04-22-409Z.png)
+
+> No UI elements are visible; the screen is entirely black. This indicates a rendering issue or missing content for the profile route.
+
+---
+
+## 2026-04-21T19:04:32.699Z -- Task `task_1776797873978_pa5m6n` -- `#friends` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** OK  **Latency:** 5888ms
+
+![friends-desktop](visuals/friends-desktop-2026-04-21T19-04-26-811Z.png)
+
+> No visible components; UI is unrendered (blank screen). Error: Content failed to load/display.
+
+---
+
+## 2026-04-21T19:04:37.030Z -- Task `task_1776797873978_pa5m6n` -- `#friends` (mobile 375x812)
+
+**URL:** http://localhost:3000/#friends  **Verdict:** FAILED  **Latency:** 4331ms
+
+![friends-mobile](visuals/friends-mobile-2026-04-21T19-04-32-699Z.png)
+
+> No visible components; UI not rendered (entirely black screen). Error: No content displayed for "#friends" route.
+
+---
+
+## 2026-04-21T19:04:42.177Z -- Task `task_1776797873978_pa5m6n` -- `#leaderboard` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#leaderboard  **Verdict:** FAILED  **Latency:** 5145ms
+
+![leaderboard-desktop](visuals/leaderboard-desktop-2026-04-21T19-04-37-031Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: Leaderboard content did not render or load.
+
+---
+
+## 2026-04-21T19:04:45.857Z -- Task `task_1776797873978_pa5m6n` -- `#leaderboard` (mobile 375x812)
+
+**URL:** http://localhost:3000/#leaderboard  **Verdict:** OK  **Latency:** 3680ms
+
+![leaderboard-mobile](visuals/leaderboard-mobile-2026-04-21T19-04-42-177Z.png)
+
+> No visible components; UI not rendered (black screen).
+
+---
+
+## 2026-04-21T19:04:49.953Z -- Task `task_1776797873978_pa5m6n` -- `#game` (desktop 1280x720)
+
+**URL:** http://localhost:3000/#game  **Verdict:** FAILED  **Latency:** 4095ms
+
+![game-desktop](visuals/game-desktop-2026-04-21T19-04-45-858Z.png)
+
+> No UI components are visible; the screen is entirely black. Error: UI failed to render (no content displayed).
+
+---
+
+## 2026-04-21T19:04:54.152Z -- Task `task_1776797873978_pa5m6n` -- `#game` (mobile 375x812)
+
+**URL:** http://localhost:3000/#game  **Verdict:** FAILED  **Latency:** 4198ms
+
+![game-mobile](visuals/game-mobile-2026-04-21T19-04-49-954Z.png)
+
+> No visible components are rendered; the screen is entirely black. This indicates a potential rendering error or missing content for the "#game" route on mobile (375x812).
+
+---
