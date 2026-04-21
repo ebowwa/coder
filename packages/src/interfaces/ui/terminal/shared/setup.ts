@@ -20,7 +20,13 @@ import {
   type LoadedConfig,
   type SettingsConfig,
 } from "../../../../core/config-loader.js";
-import { createSecurityHookHandlers } from "../../../../core/cognitive-security/hooks.js";
+import {
+  PluginRegistry,
+  getPluginErrorMessage,
+  createCognitiveSecurityPlugin,
+  createPromptsPlugin,
+  createDaemonPlugin,
+} from "../../../../ecosystem/plugins/index.js";
 import type { CLIArgs } from "./args.js";
 
 // ============================================
@@ -33,6 +39,7 @@ export interface SessionSetup {
   hookManager: HookManager;
   skillManager: SkillManager;
   teammateManager: TeammateManager;
+  pluginRegistry: PluginRegistry;
   mcpClients: Map<string, MCPClientImpl>;
   tools: ToolDefinition[];
   permissionMode: PermissionMode;
@@ -88,10 +95,24 @@ export function mcpToolsToToolDefinitions(mcpClients: Map<string, MCPClientImpl>
 
   for (const [serverName, client] of mcpClients) {
     for (const mcpTool of client.tools) {
+      // Map MCP protocol capabilities onto ToolDefinition.annotations.capabilities
+      // Priority: tool-level _meta.capabilities > tool annotations.capabilities
+      const metaCaps = (mcpTool._meta?.["capabilities"] as string[] | undefined) ?? [];
+      const annotationCaps = (mcpTool.annotations as { capabilities?: string[] } | undefined)?.capabilities ?? [];
+      const resolvedCaps = metaCaps.length > 0 ? metaCaps : annotationCaps;
+
       tools.push({
         name: `mcp__${serverName}__${mcpTool.name}`,
         description: mcpTool.description,
         input_schema: mcpTool.inputSchema,
+        isMcp: true,
+        mcpInfo: { serverName, toolName: mcpTool.name },
+        annotations: {
+          readOnlyHint: mcpTool.annotations?.readOnlyHint,
+          destructiveHint: mcpTool.annotations?.destructiveHint,
+          openWorldHint: mcpTool.annotations?.openWorldHint,
+          capabilities: resolvedCaps.length > 0 ? resolvedCaps : undefined,
+        },
         handler: async (args: Record<string, unknown>, context: ToolContext) => {
           if (!client.connected) {
             return {
@@ -194,27 +215,6 @@ export async function setupSession(options: SetupOptions): Promise<SessionSetup>
     log(`  Hooks registered: ${Object.keys(hookDefinitions).length} events`);
   }
 
-  // Register cognitive security hooks (in-process handlers)
-  // When bypassPermissions is set, disable all security checks
-  const isBypassMode = permissionMode === "bypassPermissions";
-  const securityHandlers = createSecurityHookHandlers({
-    enabled: !isBypassMode, // Disable entirely in bypass mode
-    checkIntentAlignment: !isBypassMode,
-    enforceFlowPolicies: !isBypassMode,
-    preventLeaks: !isBypassMode,
-    trackTaints: !isBypassMode,
-    logEvents: true, // Always log for audit trail
-    blockOnViolation: false, // Never block - log only
-    minAlignmentScore: 0.3,
-    approvalRequiredSensitivities: ["secret", "top_secret"],
-  });
-
-  hookManager.registerHandler("SessionStart", securityHandlers.SessionStart);
-  hookManager.registerHandler("PreToolUse", securityHandlers.PreToolUse);
-  hookManager.registerHandler("PostToolUse", securityHandlers.PostToolUse);
-  hookManager.registerHandler("UserPromptSubmit", securityHandlers.UserPromptSubmit);
-  hookManager.registerHandler("SessionEnd", securityHandlers.SessionEnd);
-
   // Load skills from project
   const skillsDir = workingDirectory + "/.claude/skills";
   skillManager.loadFromDirectory(skillsDir, "project");
@@ -289,12 +289,50 @@ export async function setupSession(options: SetupOptions): Promise<SessionSetup>
     ...mcpToolsToToolDefinitions(mcpClients),
   ];
 
+  // ============================================
+  // ECOSYSTEM PLUGINS
+  // ============================================
+
+  const isBypassMode = permissionMode === "bypassPermissions";
+
+  const pluginRegistry = new PluginRegistry(
+    workingDirectory + "/.coder/plugin-settings.json",
+  );
+  pluginRegistry.add(
+    createCognitiveSecurityPlugin({
+      enabled: !isBypassMode,
+      checkIntentAlignment: !isBypassMode,
+      enforceFlowPolicies: !isBypassMode,
+      preventLeaks: !isBypassMode,
+      trackTaints: !isBypassMode,
+      logEvents: true,
+      blockOnViolation: false,
+      minAlignmentScore: 0.3,
+      approvalRequiredSensitivities: ["secret", "top_secret"],
+    }),
+  );
+  pluginRegistry.add(createPromptsPlugin());
+  pluginRegistry.add(createDaemonPlugin());
+
+  const pluginCtx = { hookManager, skillManager, tools, config: {} };
+  const pluginResult = await pluginRegistry.loadAll(pluginCtx);
+  for (const p of pluginResult.enabled) {
+    log(`  Plugin loaded: ${p.name} (${p.version})`);
+  }
+  for (const p of pluginResult.disabled) {
+    log(`  Plugin disabled: ${p.name}`);
+  }
+  for (const e of pluginResult.errors) {
+    log(`  Plugin error: ${getPluginErrorMessage(e)}`);
+  }
+
   return {
     loadedConfig,
     mergedSettings,
     hookManager,
     skillManager,
     teammateManager,
+    pluginRegistry,
     mcpClients,
     tools,
     permissionMode,

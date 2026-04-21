@@ -66,7 +66,7 @@ export const CombinedReminderOptionsSchema = z.object({
     input_tokens: z.number().int().nonnegative(),
     output_tokens: z.number().int().nonnegative(),
   }),
-  maxTokens: z.number().int().positive(),
+  contextWindow: z.number().int().positive(),
   totalCost: z.number().nonnegative(),
   previousCost: z.number().nonnegative().optional(),
   toolsUsed: z.array(z.string()).optional(),

@@ -1,0 +1,25 @@
+{
+  "name": "hangman",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "bun build src/main.ts --outdir dist --target browser --minify",
+    "dev": "bun run server/index.ts",
+    "typecheck": "bunx tsc --noEmit",
+    "test": "bunx vitest run --environment jsdom",
+    "test:watch": "bunx vitest --environment jsdom"
+  },
+  "dependencies": {
+    "three": "^0.172.0",
+    "ws": "^8.20.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/three": "^0.172.0",
+    "@types/ws": "^8.18.1",
+    "happy-dom": "^20.9.0",
+    "jsdom": "^29.0.1",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}

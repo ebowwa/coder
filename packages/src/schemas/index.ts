@@ -1949,3 +1949,22 @@ export type TurnOptions = z.infer<typeof TurnOptionsSchema>;
 export type TurnResult = z.infer<typeof TurnResultSchema>;
 export type ToolExecutionOptions = z.infer<typeof ToolExecutionOptionsSchema>;
 
+// Supervisor types (task phases, quality gate, lifecycle)
+export {
+  TaskPhaseSchema,
+  TaskPhaseStatusSchema,
+  PhaseResultSchema,
+  SupervisorResultSchema,
+  QualityGateResultSchema,
+  TaskLifecycleStateSchema,
+  isTaskPhase,
+  isPhaseResult,
+  isSupervisorResult,
+  type TaskPhaseStatus,
+  type TaskPhase,
+  type PhaseResult,
+  type SupervisorResult,
+  type QualityGateResult,
+  type TaskLifecycleState,
+} from "./supervisor.zod.js";
+

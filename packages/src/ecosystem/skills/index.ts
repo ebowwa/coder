@@ -142,6 +142,13 @@ export class SkillManager {
   }
 
   /**
+   * Register a skill programmatically (used by ecosystem plugins)
+   */
+  register(skill: SkillFile): void {
+    this.skills.set(skill.name, skill);
+  }
+
+  /**
    * Load skills from a directory
    */
   loadFromDirectory(dir: string, source: "built-in" | "project" | "user" = "project"): number {

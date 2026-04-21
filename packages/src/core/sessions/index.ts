@@ -586,6 +586,19 @@ export class SessionStore {
   }
 
   /**
+   * Save an API payload record for telemetry/debugging.
+   */
+  async saveApiPayload(payload: Record<string, unknown>): Promise<void> {
+    if (!this.currentSessionId) return;
+    await this.persistence.append(this.currentSessionId, {
+      type: "event",
+      event: "api_payload",
+      data: payload,
+      timestamp: Date.now(),
+    } as any);
+  }
+
+  /**
    * Get session statistics
    */
   async getStats(): Promise<{

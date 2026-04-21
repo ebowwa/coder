@@ -28,6 +28,7 @@ import {
   setupSession,
   buildCompleteSystemPrompt,
   runSingleQuery,
+  runDaemonLoop,
 } from "../shared/index.js";
 
 // ============================================
@@ -70,7 +71,7 @@ async function main(): Promise<void> {
   // Get git status for system prompt
   const gitStatus = await getGitStatus(process.cwd());
 
-  // Build system prompt
+  // Build system prompt — MCP server instructions from InitializeResult (CC pattern)
   const systemPrompt = await buildCompleteSystemPrompt(process.cwd(), {
     systemPrompt: args.systemPrompt,
     appendSystemPrompt: args.appendSystemPrompt,
@@ -78,6 +79,7 @@ async function main(): Promise<void> {
     agentId: args.agentId,
     agentName: args.agentName,
     teamName: args.teamName,
+    mcpClients: setup.mcpClients,
   });
 
   // Handle session resume
@@ -118,6 +120,25 @@ async function main(): Promise<void> {
   const firstArg = process.argv[2];
   if (!query && process.argv.length > 2 && firstArg && !firstArg.startsWith("-")) {
     query = process.argv.slice(2).join(" ");
+  }
+
+  // Daemon mode -- 24/7 task loop
+  if (args.daemon) {
+    const resolvedArgs = { ...args, permissionMode: setup.permissionMode };
+    await runDaemonLoop({
+      apiKey,
+      args: resolvedArgs,
+      systemPrompt,
+      tools: setup.tools,
+      sessionStore,
+      sessionId,
+      hookManager: setup.hookManager,
+      workingDirectory: process.cwd(),
+      gitStatus,
+      initialTask: args.daemonTask || query || undefined,
+      mcpClients: setup.mcpClients,
+    });
+    return;
   }
 
   if (!query) {

@@ -138,12 +138,34 @@ export const ToolHandlerSchema = z.function()
   .args(z.record(z.string(), z.unknown()), z.any())
   .returns(z.promise(z.unknown()));
 
+/**
+ * Tool annotations — mirrors MCP protocol annotations + our capability tags.
+ * MCP servers declare these in their tools/list response.
+ * Built-in and plugin tools declare them directly on the ToolDefinition.
+ */
+export const ToolAnnotationsSchema = z.object({
+  /** Capability tags — what this tool does (e.g. "browser", "vision", "quality", "search") */
+  capabilities: z.array(z.string()).optional(),
+  /** MCP readOnlyHint — tool does not modify state */
+  readOnlyHint: z.boolean().optional(),
+  /** MCP destructiveHint — tool may irreversibly modify state */
+  destructiveHint: z.boolean().optional(),
+  /** MCP openWorldHint — tool may contact external services */
+  openWorldHint: z.boolean().optional(),
+}).optional();
+
 export const ToolDefinitionSchema = z.object({
   name: z.string().min(1),
   description: z.string(),
   input_schema: ToolInputSchemaDefinitionSchema,
   // Handler is a function - typed as any but cannot be fully validated by Zod
   handler: z.any().optional(),
+  /** True when this tool was loaded from an external MCP server */
+  isMcp: z.boolean().optional(),
+  /** Server name + original tool name for MCP tools */
+  mcpInfo: z.object({ serverName: z.string(), toolName: z.string() }).optional(),
+  /** Declared capability metadata — used for routing, not inferred from name */
+  annotations: ToolAnnotationsSchema,
 });
 
 /**

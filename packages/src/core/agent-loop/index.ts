@@ -20,15 +20,153 @@ import { PermissionManager } from "../permissions.js";
 import { DEFAULT_REMINDER_CONFIG } from "../system-reminders.js";
 import { DEFAULT_MODEL } from "../models.js";
 import type { HookManager } from "../../ecosystem/hooks/index.js";
+import { buildToolCapabilities } from "../tool-capabilities.js";
 
 import type { AgentLoopOptions, AgentLoopResult, LoopPersistenceConfig } from "./types.js";
 import { LoopState, type LoopStateOptions } from "./loop-state.js";
 import { executeTurn, type TurnExecutorOptions } from "./turn-executor.js";
+import { handleProactiveCompaction, DEFAULT_PROACTIVE_OPTIONS } from "./compaction.js";
+import { getContextWindow, getMaxOutput } from "../models.js";
 import {
   LoopPersistence,
   DEFAULT_PERSISTENCE_CONFIG,
   type PersistedLoopState,
 } from "./loop-persistence.js";
+
+// Degeneration detection: tracks patterns of unproductive model output
+const DEGENERATION_NO_TOOL_THRESHOLD = 2;
+const DEGENERATION_SIMILARITY_THRESHOLD = 0.7;
+const DEGENERATION_WINDOW = 5;
+
+interface DegenerationTracker {
+  consecutiveNoToolTurns: number;
+  consecutiveErrorOnlyTurns: number;
+  recentOutputs: string[];
+  lastThinkingContent: string;
+}
+
+function extractLastAssistantText(state: LoopState): string {
+  const last = state.messages[state.messages.length - 1];
+  if (!last || last.role !== "assistant") return "";
+  if (typeof last.content === "string") return last.content;
+  if (Array.isArray(last.content)) {
+    const parts: string[] = [];
+    for (const b of last.content) {
+      if (b.type === "text" && typeof (b as { text?: string }).text === "string") {
+        parts.push((b as { text: string }).text);
+      }
+      if (b.type === "thinking" && typeof (b as { thinking?: string }).thinking === "string") {
+        parts.push((b as { thinking: string }).thinking);
+      }
+    }
+    return parts.join(" ").slice(0, 1000);
+  }
+  return "";
+}
+
+/**
+ * Detect intra-turn thinking loops: the same phrase repeated many times
+ * within a single model response. This catches glm-5's common failure mode
+ * where reasoning tokens loop on "Let me read X" endlessly.
+ */
+function hasIntraTurnRepetition(text: string): boolean {
+  if (!text || text.length < 200) return false;
+  const sentences = text.split(/[.!?\n]/).map((s) => s.trim().toLowerCase()).filter((s) => s.length > 15);
+  if (sentences.length < 6) return false;
+  const counts = new Map<string, number>();
+  for (const s of sentences) {
+    const key = s.slice(0, 60);
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  for (const [, count] of counts) {
+    if (count >= 4) return true;
+  }
+  return false;
+}
+
+function textSimilarity(a: string, b: string): number {
+  if (!a || !b) return 0;
+  const wordsA = new Set(a.toLowerCase().split(/\s+/));
+  const wordsB = new Set(b.toLowerCase().split(/\s+/));
+  const intersection = [...wordsA].filter((w) => wordsB.has(w)).length;
+  const union = new Set([...wordsA, ...wordsB]).size;
+  return union > 0 ? intersection / union : 0;
+}
+
+function isGibberish(text: string): boolean {
+  if (!text || text.length < 50) return false;
+
+  const lines = text.split("\n").filter((l) => l.trim().length > 0);
+  if (lines.length === 0) return false;
+
+  let brokenLines = 0;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    const words = trimmed.split(/\s+/);
+    const avgWordLen = words.reduce((s, w) => s + w.length, 0) / words.length;
+    const hasBalancedBraces =
+      (trimmed.match(/\{/g)?.length ?? 0) === (trimmed.match(/\}/g)?.length ?? 0);
+    const hasBalancedParens =
+      (trimmed.match(/\(/g)?.length ?? 0) === (trimmed.match(/\)/g)?.length ?? 0);
+
+    if (
+      (avgWordLen < 2 && words.length > 5) ||
+      (!hasBalancedBraces && !hasBalancedParens && words.length > 3) ||
+      (trimmed.length > 100 && !/[.;{})\]>]$/.test(trimmed))
+    ) {
+      brokenLines++;
+    }
+  }
+
+  return brokenLines / lines.length > 0.5;
+}
+
+function checkDegeneration(tracker: DegenerationTracker): "ok" | "compact" | "stuck" {
+  // Intra-turn thinking loop: model repeats the same phrase within one response.
+  // This is the most common glm-5 failure mode -- catches it immediately.
+  if (tracker.lastThinkingContent && hasIntraTurnRepetition(tracker.lastThinkingContent)) {
+    return "stuck";
+  }
+
+  if (tracker.consecutiveNoToolTurns >= DEGENERATION_NO_TOOL_THRESHOLD) {
+    return "stuck";
+  }
+
+  if (tracker.consecutiveErrorOnlyTurns >= 3) {
+    return "stuck";
+  }
+
+  // Extended repetition (5+ similar outputs) is "stuck" even if tools are used.
+  if (tracker.recentOutputs.length >= 5) {
+    const last5 = tracker.recentOutputs.slice(-5);
+    const allSimilar = last5.slice(1).every(
+      (t, i) => textSimilarity(last5[i]!, t) > DEGENERATION_SIMILARITY_THRESHOLD,
+    );
+    if (allSimilar) {
+      return "stuck";
+    }
+  }
+
+  if (tracker.recentOutputs.length >= 3) {
+    const last3 = tracker.recentOutputs.slice(-3);
+    const similarities = [
+      textSimilarity(last3[0]!, last3[1]!),
+      textSimilarity(last3[1]!, last3[2]!),
+    ];
+    if (similarities.every((s) => s > DEGENERATION_SIMILARITY_THRESHOLD)) {
+      return "compact";
+    }
+  }
+
+  if (tracker.recentOutputs.length >= 2) {
+    const lastTwo = tracker.recentOutputs.slice(-2);
+    if (lastTwo.every((t) => isGibberish(t))) {
+      return "stuck";
+    }
+  }
+
+  return "ok";
+}
 import {
   LongRunningIntegration,
   DEFAULT_LONG_RUNNING_INTEGRATION_CONFIG,
@@ -37,7 +175,7 @@ import {
 import { LongRunningMemoryManager } from "./long-running-memory.js";
 
 // Re-export types and utilities
-export type { AgentLoopOptions, AgentLoopResult, LoopPersistenceConfig } from "./types.js";
+export type { AgentLoopOptions, AgentLoopResult, LoopPersistenceConfig, LoopEndReason } from "./types.js";
 export type { LoopStateOptions } from "./loop-state.js";
 export { formatCost, formatMetrics, formatCostBrief, formatCacheMetrics } from "./formatters.js";
 export { LoopState } from "./loop-state.js";
@@ -252,7 +390,13 @@ export async function agentLoop(
   const {
     apiKey,
     model = DEFAULT_MODEL,
-    maxTokens = 4096,
+    // CC pattern: II6(model) = Math.min(env.MAX_OUTPUT_TOKENS, iYA(model))
+    // iYA defaults to 32000 for unknown models; sonnet-4/haiku-4 = 64000
+    // We use model's declared maxOutput, capped at a practical per-turn limit
+    maxTokens = Math.min(
+      getMaxOutput(model),
+      parseInt(process.env.CODER_MAX_OUTPUT_TOKENS || "0") || 32_000
+    ),
     systemPrompt,
     tools,
     permissionMode,
@@ -362,14 +506,28 @@ export async function agentLoop(
 
   let shouldContinue = true;
   let lastError: Error | null = null;
+  let consecutiveApiFailures = 0;
+  const MAX_CONSECUTIVE_API_FAILURES = 5;
+  const API_FAILURE_COOLDOWN_BASE_MS = 15_000;
+
+  const degenTracker: DegenerationTracker = {
+    consecutiveNoToolTurns: 0,
+    consecutiveErrorOnlyTurns: 0,
+    recentOutputs: [],
+    lastThinkingContent: "",
+  };
+  let degenerationCompactions = 0;
+  const MAX_DEGENERATION_COMPACTIONS = 2;
 
   try {
     while (shouldContinue) {
       if (signal?.aborted) {
+        state.endReason = "aborted";
         break;
       }
 
-      // Build turn executor options
+      const toolCapabilities = buildToolCapabilities(tools);
+
       const turnOptions: TurnExecutorOptions = {
         apiKey,
         model,
@@ -382,6 +540,7 @@ export async function agentLoop(
         workingDirectory,
         gitStatus,
         reminderConfig: mergedReminderConfig,
+        toolCapabilities,
         hookManager,
         sessionId,
         signal,
@@ -400,17 +559,100 @@ export async function agentLoop(
         longRunning: longRunningIntegration ?? undefined,
       };
 
-      // Execute a single turn
-      const turnResult = await executeTurn(state, turnOptions);
+      try {
+        // Capture per-turn thinking for intra-turn repetition detection
+        let turnThinking = "";
+        const wrappedOptions = {
+          ...turnOptions,
+          onThinking: (chunk: string) => {
+            turnThinking += chunk;
+            if (onThinking) onThinking(chunk);
+          },
+        };
 
-      shouldContinue = turnResult.shouldContinue;
+        const toolCountBefore = state.allToolsUsed.length;
+        const turnResult = await executeTurn(state, wrappedOptions);
+        consecutiveApiFailures = 0;
 
-      // Call onMetrics callback with the latest metrics
-      if (turnResult.metrics && onMetrics) {
-        onMetrics(turnResult.metrics);
+        shouldContinue = turnResult.shouldContinue;
+
+        if (turnResult.metrics && onMetrics) {
+          onMetrics(turnResult.metrics);
+        }
+
+        // Degeneration tracking
+        const toolsThisTurn = state.allToolsUsed.length - toolCountBefore;
+        if (toolsThisTurn > 0) {
+          degenTracker.consecutiveNoToolTurns = 0;
+          const lastMsg = state.messages[state.messages.length - 1];
+          const hasErrors = Array.isArray(lastMsg?.content)
+            && lastMsg.content.some((b: Record<string, unknown>) => b.type === "tool_result" && b.is_error);
+          const allErrors = Array.isArray(lastMsg?.content)
+            && lastMsg.content.filter((b: Record<string, unknown>) => b.type === "tool_result").length > 0
+            && lastMsg.content
+                .filter((b: Record<string, unknown>) => b.type === "tool_result")
+                .every((b: Record<string, unknown>) => b.is_error);
+          if (allErrors) {
+            degenTracker.consecutiveErrorOnlyTurns++;
+          } else {
+            degenTracker.consecutiveErrorOnlyTurns = 0;
+          }
+        } else {
+          degenTracker.consecutiveNoToolTurns++;
+        }
+
+        const lastText = extractLastAssistantText(state);
+        degenTracker.recentOutputs.push(lastText);
+        if (degenTracker.recentOutputs.length > DEGENERATION_WINDOW) {
+          degenTracker.recentOutputs.shift();
+        }
+        degenTracker.lastThinkingContent = turnThinking;
+
+        const degenStatus = checkDegeneration(degenTracker);
+        if (degenStatus === "stuck" || degenStatus === "compact") {
+          degenerationCompactions++;
+          const isThinkingLoop = turnThinking.length > 200 && hasIntraTurnRepetition(turnThinking);
+          const reason = isThinkingLoop
+            ? "thinking token loop (repeated phrase in reasoning)"
+            : degenStatus === "stuck"
+              ? `${degenTracker.consecutiveNoToolTurns} turns without tool calls`
+              : "repetitive output";
+
+          if (degenerationCompactions > MAX_DEGENERATION_COMPACTIONS) {
+            console.log(
+              `\x1b[31m[AgentLoop] Degeneration persists after ${MAX_DEGENERATION_COMPACTIONS} compactions (${reason}). Ending session for handoff.\x1b[0m`
+            );
+            state.endReason = "degeneration";
+            shouldContinue = false;
+          } else {
+            console.log(
+              `\x1b[33m[AgentLoop] Degeneration detected (${reason}), compaction ${degenerationCompactions}/${MAX_DEGENERATION_COMPACTIONS}.\x1b[0m`
+            );
+            const contextWindow = getContextWindow(model);
+            await handleProactiveCompaction(state, contextWindow, { ...DEFAULT_PROACTIVE_OPTIONS, keepLast: 2 });
+            degenTracker.consecutiveNoToolTurns = 0;
+            degenTracker.consecutiveErrorOnlyTurns = 0;
+            degenTracker.recentOutputs = [];
+          }
+        }
+      } catch (turnError) {
+        consecutiveApiFailures++;
+        const errMsg = turnError instanceof Error ? turnError.message : String(turnError);
+        console.error(
+          `\x1b[33m[AgentLoop] Turn ${state.turnNumber} failed (${consecutiveApiFailures}/${MAX_CONSECUTIVE_API_FAILURES}): ${errMsg}\x1b[0m`
+        );
+
+        if (consecutiveApiFailures >= MAX_CONSECUTIVE_API_FAILURES) {
+          lastError = turnError as Error;
+          throw turnError;
+        }
+
+        const cooldownMs = API_FAILURE_COOLDOWN_BASE_MS * Math.min(consecutiveApiFailures, 4);
+        console.log(`\x1b[33m[AgentLoop] Cooling down ${cooldownMs / 1000}s before retry...\x1b[0m`);
+        await new Promise((resolve) => setTimeout(resolve, cooldownMs));
+        continue;
       }
 
-      // Auto-save check after each turn if persistence is enabled
       if (persistence && persistence.shouldAutoSave(sessionId)) {
         await persistence.save(sessionId, state.serialize(sessionId));
         if (onPersist) {
@@ -421,7 +663,6 @@ export async function agentLoop(
   } catch (error) {
     lastError = error as Error;
 
-    // Save state on error (mark as interrupted) if persistence is enabled
     if (persistence) {
       const interruptedState = state.serialize(sessionId, {
         interrupted: true,
@@ -432,7 +673,6 @@ export async function agentLoop(
 
     throw error;
   } finally {
-    // Stop auto-save timer
     if (persistence) {
       persistence.stopAutoSaveTimer(sessionId);
     }

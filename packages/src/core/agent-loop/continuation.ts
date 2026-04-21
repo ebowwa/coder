@@ -118,6 +118,8 @@ export interface ContinuationContext {
   wasCompacted?: boolean;
   /** Persistent goal from original task */
   persistentGoal?: string;
+  /** Pattern detected by stuck-loop analysis */
+  stuckPattern?: string;
 }
 
 /**
@@ -153,24 +155,27 @@ interface CompiledCondition extends ContinuationCondition {
 /**
  * Default continuation prompt - nudges model to keep working
  */
-export const DEFAULT_CONTINUATION_PROMPT = `Continue working on the task. Check your progress:
-- What have you completed?
-- What remains to be done?
-- Are there any tests to run or verify?
-- Do you need to commit your changes?
-
-Take the next logical step.`;
+export const DEFAULT_CONTINUATION_PROMPT = `Continue working on the task. Follow this checklist:
+1. What have you completed vs what remains?
+2. cd into the project directory, then run the build (tsc --noEmit, bun build, etc.) to verify changes compile.
+3. Run ONLY project-scoped tests (cd into the project dir first). NEVER run bare \`bun test\` from the repo root.
+4. Pipe large outputs through \`head -50\` or \`tail -30\` to avoid context bloat.
+5. For web projects: take a screenshot with vision tools (mcp__4_5v_mcp__analyze_image or tempglmvision), save to visuals/, and append to VISUAL_LOG.md with ![desc](visuals/file.png) + analysis.
+6. If build passes, commit the working changes with a conventional commit message.
+7. If build fails, fix the errors first.
+8. Take the next logical step -- prefer writing/editing files over reasoning about them.`;
 
 /**
  * Stuck prompt - when model seems to be looping without progress
  */
-export const DEFAULT_STUCK_PROMPT = `You seem to be stuck. Let's reassess:
+export const DEFAULT_STUCK_PROMPT = `You seem to be stuck. Reset your approach:
 
-1. What is the actual goal you're trying to achieve?
-2. What approaches have you tried?
-3. Is there a different way to approach this?
-
-If you're truly done, use a tool to verify (run tests, check build, etc.) and explain what was accomplished.`;
+1. What is the actual goal? State it in one sentence.
+2. cd into the project directory. Run the build to see current errors. Pipe through \`head -50\`.
+3. Focus on ONE error at a time. Fix it, rebuild, verify.
+4. Do NOT reason about code -- WRITE the fix. Prefer Edit/Write tools over Bash for code changes.
+5. Once clean, commit what works and move on.
+6. If truly done, prove it: run build + tests (scoped to project dir), show passing output, then commit.`;
 
 /**
  * Work needed patterns - suggest more work is required
@@ -205,16 +210,21 @@ export const WORK_NEEDED_PATTERNS = [
  * - Server running (with proof)
  */
 export const COMPLETION_PATTERNS = [
-  // Verified test success (requires evidence)
-  /\b(?:all\s+)?tests?\s+(?:passed|succeeded|are\s+passing)\s*[\(\[]?/i,
+  // Verified test success (multiple formats models use)
+  /\b(?:all\s+)?tests?\s+(?:passed|succeeded|are\s+passing|pass)\s*[\(\[]?/i,
   /\btest\s+results?\s*:\s*(?:\d+\s+passed|all\s+passed)/i,
+  /\b\d+\s+pass(?:ed|ing)?,?\s*0\s+fail/i,
 
   // Verified build success
-  /\bbuild\s+(?:succeeded|completed\s+successfully|passed)\s*[\(\[]?/i,
+  /\bbuild\s+(?:succeeded|completed\s+successfully|passed|is\s+successful)\s*[\(\[]?/i,
 
   // Verified server running
   /\bserver\s+(?:running|started|listening)\s+(?:on|at)\s+port\s+\d+/i,
   /\b(?:listening|running)\s+on\s+(?:http:\/\/)?localhost:\d+/i,
+
+  // Explicit task completion with evidence (model says "Task complete" after commits/tests)
+  /\btask\s+complete\b/i,
+  /\bno\s+remaining\s+uncommitted\s+changes\b/i,
 
   // Promise tags (Ralph pattern) - explicit completion marker
   /<promise>.*?(?:verified|tested|confirmed).*?<\/promise>/is,
@@ -257,7 +267,7 @@ export const RALPH_CONTINUATION_CONFIG: ContinuationConfig = {
       id: "goal_reminder",
       description: "Remind of original goal after context compaction",
       action: "inject_prompt",
-      continuationPrompt: "Your context was compacted. Remember your original task and continue working toward it. Verify your progress with actual tests/builds, not just words.",
+      continuationPrompt: "Your context was compacted. Remember your original task and continue. cd into the project directory, run the build to see current state. Fix any errors, then commit. For web projects: use vision/screenshot tools to verify UI renders correctly after every significant change. Save screenshots to visuals/ and append each to VISUAL_LOG.md with ![desc](visuals/file.png) + analysis. Verify with tool output, not words. Prefer writing code over reasoning.",
       priority: 300,
     },
     // === HIGH PRIORITY: Stuck detection ===
@@ -291,13 +301,32 @@ export const RALPH_CONTINUATION_CONFIG: ContinuationConfig = {
       action: "inject_prompt",
       priority: 100,
     },
-    // === LOWEST PRIORITY: Uncommitted changes (only if nothing else triggers) ===
+    // === VISION GATE: Use browser MCP to capture visuals for web projects ===
+    {
+      id: "vision_documentation",
+      description: "Use browser MCP to capture and document visuals after UI changes",
+      action: "inject_prompt",
+      continuationPrompt: [
+        "VISION CHECK: You made UI changes. Before moving on:",
+        "1) Start the dev server if not running.",
+        "2) Use mcp__browser__browser_navigate to load the page.",
+        "3) Use mcp__browser__browser_screenshot to capture the current state.",
+        "4) For interactive flows: use mcp__browser__browser_click / browser_fill to reach different UI states, screenshot each one.",
+        "5) Use mcp__browser__browser_snapshot for AI-readable DOM structure.",
+        "6) Analyze screenshots with mcp__4_5v_mcp__analyze_image.",
+        "7) Save screenshots to visuals/ (project root) with descriptive names.",
+        "8) Append to VISUAL_LOG.md: ## [timestamp] - Description, ![desc](visuals/file.png), **Analysis:** vision result.",
+        "The visuals/ directory + VISUAL_LOG.md are your visual audit trail. Capture EVERY UI state.",
+      ].join(" "),
+      priority: 50,
+    },
+    // === LOWEST PRIORITY: Uncommitted changes -- build gate before commit ===
     {
       id: "uncommitted_changes",
-      description: "Check for uncommitted changes at the end",
+      description: "Build-verify-commit gate for pending changes",
       checkPendingState: true,
       action: "inject_prompt",
-      continuationPrompt: "You have uncommitted changes. Review them and commit if appropriate, or explain why they shouldn't be committed.",
+      continuationPrompt: "You have uncommitted changes. Before committing: 1) cd into the project directory, run build/typecheck. 2) Run project-scoped tests (never bare `bun test` from root). 3) For web projects: take a screenshot with vision tools, save to visuals/, and append to VISUAL_LOG.md with ![desc](visuals/file.png) + analysis. 4) If clean, commit with a conventional message. If not clean, fix errors first.",
       priority: 10,
     },
   ],
@@ -312,7 +341,7 @@ export const RALPH_CONTINUATION_CONFIG: ContinuationConfig = {
   activeWorkTools: ["Edit", "Write", "Bash", "Read", "Grep", "Glob"],
   activeWorkWindow: 3,
   requireVerification: true,
-  verificationTools: ["Bash"], // Running tests/builds counts as verification
+  verificationTools: ["Bash", "mcp__4_5v_mcp__analyze_image", "tempglmvision", "mcp__browser__browser_screenshot", "mcp__browser__browser_navigate", "mcp__browser__browser_snapshot"],
 };
 
 // ============================================

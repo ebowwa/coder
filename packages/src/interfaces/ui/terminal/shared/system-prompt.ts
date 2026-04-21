@@ -7,7 +7,8 @@
 
 import { loadClaudeMd, buildClaudeMdPrompt } from "../../../../core/claude-md.js";
 import { getGitStatus } from "../../../../core/git-status.js";
-import { buildBaseSystemPrompt } from "../../../../core/prompts/index.js";
+import { buildBaseSystemPrompt } from "../../../../ecosystem/plugins/prompts/index.js";
+import type { MCPClientImpl } from "../../../mcp/client.js";
 
 // ============================================
 // GIT STATUS TYPE
@@ -108,6 +109,8 @@ export async function buildCompleteSystemPrompt(
     agentName?: string;
     teamName?: string;
     presetClaudeMd?: string;
+    /** Connected MCP clients — surfaces server-declared instructions (CC pattern) */
+    mcpClients?: Map<string, MCPClientImpl>;
   }
 ): Promise<string> {
   // Use custom system prompt if provided
@@ -132,10 +135,37 @@ export async function buildCompleteSystemPrompt(
     presetClaudeMd: options?.presetClaudeMd,
   });
 
+  // Surface MCP server instructions (server-declared in InitializeResult, CC pattern)
+  if (options?.mcpClients) {
+    const mcpSection = buildMcpInstructionsSection(options.mcpClients);
+    if (mcpSection) prompt += `\n\n${mcpSection}`;
+  }
+
   // Append additional prompt if provided
   if (options?.appendSystemPrompt) {
     prompt += `\n\n${options.appendSystemPrompt}`;
   }
 
   return prompt;
+}
+
+/**
+ * Build MCP server instructions section — mirrors CC's getMcpInstructions().
+ *
+ * Each MCP server declares its own instructions in InitializeResult.instructions
+ * during the handshake. We surface them verbatim. No manual tool listing.
+ * The tool schemas are already passed to the model via the API tools parameter.
+ */
+function buildMcpInstructionsSection(mcpClients: Map<string, MCPClientImpl>): string | null {
+  const blocks: string[] = [];
+
+  for (const [serverName, client] of mcpClients) {
+    if (client.connected && client.instructions) {
+      blocks.push(`## ${serverName}\n${client.instructions}`);
+    }
+  }
+
+  if (blocks.length === 0) return null;
+
+  return `# MCP Server Instructions\n\nThe following MCP servers have provided instructions for how to use their tools:\n\n${blocks.join("\n\n")}`;
 }

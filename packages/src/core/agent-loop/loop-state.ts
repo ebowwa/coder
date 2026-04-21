@@ -138,7 +138,9 @@ export class LoopState {
   // Continuation tracking (for autonomous loops)
   consecutiveContinuations = 0;
 
-  // NEW: Smart continuation fields
+  /** Why the loop ended */
+  endReason: import("./types.js").LoopEndReason = "completed";
+
   /** Whether the context was just compacted this turn */
   wasCompacted = false;
   /** Names of tools used in recent turns (for cooldown check) */
@@ -524,6 +526,7 @@ export class LoopState {
       totalCacheMetrics: this.cacheMetrics,
       compactionCount: this.compactionCount,
       totalTokensCompacted: this.totalTokensCompacted,
+      endReason: this.endReason,
     };
   }
 

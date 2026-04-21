@@ -411,7 +411,7 @@ describe("buildCombinedReminder", () => {
     // Turn 2: not first turn (no env), not on intervals (cost=5, tool=3)
     const result = buildCombinedReminder({
       usage: baseUsage,
-      maxTokens: 200000,
+      contextWindow: 200000,
       totalCost: 0.05,
       toolsUsed: [],
       workingDirectory: "/test",
@@ -425,7 +425,7 @@ describe("buildCombinedReminder", () => {
   it("should include env info on first turn", () => {
     const result = buildCombinedReminder({
       usage: baseUsage,
-      maxTokens: 200000,
+      contextWindow: 200000,
       totalCost: 0.05,
       toolsUsed: [],
       workingDirectory: "/test",
@@ -443,11 +443,14 @@ describe("buildCombinedReminder", () => {
         cache_creation_input_tokens: 0,
         cache_read_input_tokens: 0,
       },
-      maxTokens: 200000,
+      contextWindow: 200000,
       totalCost: 0.05,
       toolsUsed: [],
       workingDirectory: "/test",
       turnNumber: 2,
+      config: {
+        tokenWarningThreshold: 0.8, // Enable token warnings at 80%
+      },
     });
 
     expect(result).toContain("Token Usage");
@@ -456,7 +459,7 @@ describe("buildCombinedReminder", () => {
   it("should include cost update on interval (every 5 turns)", () => {
     const result = buildCombinedReminder({
       usage: baseUsage,
-      maxTokens: 200000,
+      contextWindow: 200000,
       totalCost: 0.05,
       toolsUsed: [],
       workingDirectory: "/test",
@@ -469,7 +472,7 @@ describe("buildCombinedReminder", () => {
   it("should include tool summary on interval with tools (every 3 turns)", () => {
     const result = buildCombinedReminder({
       usage: baseUsage,
-      maxTokens: 200000,
+      contextWindow: 200000,
       totalCost: 0.05,
       toolsUsed: [createTool("read")],
       workingDirectory: "/test",
@@ -489,7 +492,7 @@ describe("buildCombinedReminder", () => {
         cache_creation_input_tokens: 0,
         cache_read_input_tokens: 0,
       },
-      maxTokens: 200000,
+      contextWindow: 200000,
       totalCost: 0.05,
       toolsUsed: [createTool("read")],
       workingDirectory: "/test",
@@ -504,7 +507,7 @@ describe("buildCombinedReminder", () => {
   it("should wrap reminders with separators", () => {
     const result = buildCombinedReminder({
       usage: baseUsage,
-      maxTokens: 200000,
+      contextWindow: 200000,
       totalCost: 0.05,
       toolsUsed: [],
       workingDirectory: "/test",
@@ -518,7 +521,7 @@ describe("buildCombinedReminder", () => {
   it("should respect custom config", () => {
     const result = buildCombinedReminder({
       usage: baseUsage,
-      maxTokens: 200000,
+      contextWindow: 200000,
       totalCost: 0.05,
       toolsUsed: [],
       workingDirectory: "/test",

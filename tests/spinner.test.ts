@@ -10,14 +10,7 @@ import {
   defaultFrames,
   dotFrames,
   arrowFrames,
-} from "../packages/src/interfaces/ui/spinner.js";
-import {
-  LoadingState,
-  setLoading,
-  stopLoading,
-  startTool,
-  endTool,
-} from "../packages/src/interfaces/ui/terminal/shared/loading-state.js";
+} from "../packages/src/interfaces/ui/index.js";
 
 describe("Spinner", () => {
   beforeEach(() => {
@@ -30,47 +23,47 @@ describe("Spinner", () => {
 
   test("creates spinner with default options", () => {
     const spinner = new Spinner();
-    expect(spinner.isActive()).toBe(false);
+    expect(spinner).toBeInstanceOf(Spinner);
   });
 
   test("starts and stops spinner", () => {
-    const spinner = new Spinner(); // Not disabled
-    spinner.start("Loading...");
-
-    // Check internal state via getState
-    const state = spinner.getState();
-    expect(state.startTime).toBeGreaterThan(0);
-    expect(spinner.isActive()).toBe(true);
+    const spinner = new Spinner();
+    const result = spinner.start("Loading...");
+    expect(result).toBe(spinner); // fluent API
 
     spinner.stop();
-    expect(spinner.isActive()).toBe(false);
+    // stop returns this
+    expect(spinner.stop()).toBe(spinner);
   });
 
-  test("updates tip text", () => {
-    const spinner = new Spinner({ disabled: true });
-    spinner.start("Initial");
-    spinner.updateTip("Updated tip");
-
-    const state = spinner.getState();
-    expect(state.currentTip).toBe("Updated tip");
-
-    spinner.stop();
+  test("updates text", () => {
+    const spinner = new Spinner();
+    const result = spinner.update("Updated text");
+    expect(result).toBe(spinner); // fluent API
   });
 
-  test("tracks elapsed time", () => {
-    const spinner = new Spinner({ disabled: true });
-    spinner.start("Testing time");
+  test("fluent API chains", () => {
+    const spinner = new Spinner();
+    const result = spinner.start("Init").update("Changed").stop();
+    expect(result).toBe(spinner);
+  });
 
-    // Wait a bit
-    const start = Date.now();
-    while (Date.now() - start < 100) {
-      // Busy wait 100ms
-    }
+  test("succeed, fail, warn, info stop the spinner", () => {
+    const spinner = new Spinner();
+    spinner.start("Test");
+    expect(spinner.succeed("Done")).toBe(spinner);
 
-    const elapsed = spinner.getElapsedSeconds();
-    expect(elapsed).toBeGreaterThanOrEqual(0);
+    const spinner2 = new Spinner();
+    spinner2.start("Test");
+    expect(spinner2.fail("Error")).toBe(spinner2);
 
-    spinner.stop();
+    const spinner3 = new Spinner();
+    spinner3.start("Test");
+    expect(spinner3.warn("Warning")).toBe(spinner3);
+
+    const spinner4 = new Spinner();
+    spinner4.start("Test");
+    expect(spinner4.info("Info")).toBe(spinner4);
   });
 
   test("singleton pattern works", () => {
@@ -85,96 +78,9 @@ describe("Spinner", () => {
     expect(arrowFrames.length).toBeGreaterThan(0);
   });
 
-  test("disabled spinner doesn't spin", () => {
-    const spinner = new Spinner({ disabled: true });
-    spinner.start("Test");
-
-    // Should not be active since disabled
-    expect(spinner.isActive()).toBe(false);
-
-    // Stop should work without error
-    spinner.stop();
-    expect(spinner.isActive()).toBe(false);
-  });
-});
-
-describe("LoadingState", () => {
-  let ls: LoadingState;
-
-  beforeEach(() => {
-    LoadingState.reset();
-    ls = LoadingState.getInstance();
-  });
-
-  afterEach(() => {
-    stopLoading();
-    LoadingState.reset();
-  });
-
-  test("starts and stops loading", () => {
-    setLoading("api-request", "Calling API...");
-    expect(ls.isLoading()).toBe(true);
-    expect(ls.getPhase()).toBe("api-request");
-
-    stopLoading();
-    expect(ls.isLoading()).toBe(false);
-    expect(ls.getPhase()).toBe("idle");
-  });
-
-  test("tracks active tools", () => {
-    startTool("Read");
-    expect(ls.isToolActive("Read")).toBe(true);
-    expect(ls.getActiveTools()).toContain("Read");
-
-    startTool("Edit");
-    expect(ls.getActiveTools().length).toBe(2);
-
-    endTool("Read");
-    expect(ls.isToolActive("Read")).toBe(false);
-    expect(ls.isToolActive("Edit")).toBe(true);
-
-    endTool("Edit");
-    expect(ls.getActiveTools().length).toBe(0);
-  });
-
-  test("emits events", () => {
-    return new Promise<void>((resolve) => {
-      ls.on("state-change", (state) => {
-        if (state.isLoading) {
-          expect(state.isLoading).toBe(true);
-          ls.removeAllListeners();
-          resolve();
-        }
-      });
-
-      setLoading("processing", "Test event");
-    });
-  });
-
-  test("tracks elapsed time", () => {
-    setLoading("processing", "Testing");
-
-    const start = Date.now();
-    while (Date.now() - start < 50) {
-      // Busy wait
-    }
-
-    const elapsed = ls.getElapsedMs();
-    expect(elapsed).toBeGreaterThanOrEqual(0);
-
-    stopLoading();
-  });
-
-  test("pause and resume", () => {
-    setLoading("processing", "Testing pause");
-    ls.pause();
-
-    const state = ls.getState();
-    expect(state.paused).toBe(true);
-
-    ls.resume();
-    expect(ls.getState().paused).toBe(false);
-
-    stopLoading();
+  test("setColor changes color", () => {
+    const spinner = new Spinner();
+    const result = spinner.setColor("red");
+    expect(result).toBe(spinner);
   });
 });

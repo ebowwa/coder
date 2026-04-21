@@ -1,0 +1,12 @@
+{
+  "sessionId": "recover-1",
+  "createdAt": 1775335740293,
+  "updatedAt": 1775335740294,
+  "interrupted": false,
+  "templateName": null,
+  "totalTurns": 10,
+  "totalCost": 1.5,
+  "checkpointCount": 0,
+  "workingDirectory": "/Users/ebowwa/Desktop/codespaces/packages/src/coder",
+  "model": "unknown"
+}

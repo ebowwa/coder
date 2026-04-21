@@ -70,6 +70,16 @@ export interface CLIArgs {
   /** Original goal for long-running sessions */
   longRunningGoal?: string;
 
+  /** Enable WebSocket status broadcasting (supervisor mode) */
+  enableWebSocket?: boolean;
+  /** Enable SSE status broadcasting (supervisor mode) */
+  enableSSE?: boolean;
+
+  /** Run as a 24/7 daemon -- picks tasks from queue, idles when empty */
+  daemon?: boolean;
+  /** Initial task for daemon mode (optional -- can also submit via HTTP) */
+  daemonTask?: string;
+
   // MCP server presets (from templates)
   /** Preset MCP servers from templates */
   presetMcpServers?: Record<string, MCPServerConfig>;
@@ -85,7 +95,8 @@ export function parseArgs(): CLIArgs {
     // Read from environment variables (can be configured via Doppler)
     model: process.env.ANTHROPIC_MODEL || process.env.ANTHROPIC_DEFAULT_SONNET_MODEL || DEFAULT_MODEL,
     permissionMode: (process.env.CODER_PERMISSION_MODE || "default") as PermissionMode,
-    maxTokens: parseInt(process.env.ANTHROPIC_MAX_TOKENS || process.env.CODER_MAX_TOKENS || "4096"),
+    // 0 = use model's declared maxOutput (capped at 32K per-turn in agentLoop, CC-style)
+    maxTokens: parseInt(process.env.ANTHROPIC_MAX_TOKENS || process.env.CODER_MAX_TOKENS || "0"),
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -101,7 +112,7 @@ export function parseArgs(): CLIArgs {
         result.permissionMode = (args[++i] ?? "default") as PermissionMode;
         break;
       case "--max-tokens":
-        result.maxTokens = parseInt(args[++i] ?? "4096", 10);
+        result.maxTokens = parseInt(args[++i] ?? "16384", 10);
         break;
       case "--system-prompt":
         result.systemPrompt = args[++i];
@@ -201,6 +212,12 @@ export function parseArgs(): CLIArgs {
       case "--long-running-goal":
         result.longRunningGoal = args[++i];
         break;
+      case "--daemon":
+        result.daemon = true;
+        break;
+      case "--daemon-task":
+        result.daemonTask = args[++i];
+        break;
       case "--help":
       case "-h":
         printHelp();
@@ -229,7 +246,7 @@ USAGE:
 OPTIONS:
   -m, --model <model>           Model to use (default: ${DEFAULT_MODEL})
   -p, --permission-mode <mode>  Permission mode (default, acceptEdits, bypassPermissions)
-  --max-tokens <tokens>         Maximum output tokens (default: 4096)
+  --max-tokens <tokens>         Maximum output tokens per turn (default: model max, capped at 32000)
   -v, --version                 Show version and exit
   -d, --debug                   Enable debug output
 
@@ -273,6 +290,8 @@ Query:
   --continuation, --ralph       Enable autonomous loop continuation (keep working until done)
   --long-running                Enable long-running mode for days/weeks of autonomous work
   --long-running-goal <goal>    Original goal for long-running session (auto-saved milestones)
+  --daemon                      Run as 24/7 daemon (picks tasks from queue, idles when empty)
+  --daemon-task <task>          Seed the daemon queue with an initial task
   -h, --help                    Show this help message
 
 EXAMPLES:

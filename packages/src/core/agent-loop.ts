@@ -15,7 +15,7 @@
 
 // Re-export everything from the modular structure
 export { agentLoop } from "./agent-loop/index.js";
-export type { AgentLoopOptions, AgentLoopResult } from "./agent-loop/types.js";
+export type { AgentLoopOptions, AgentLoopResult, LoopEndReason } from "./agent-loop/types.js";
 export { formatCost, formatMetrics, formatCostBrief, formatCacheMetrics } from "./agent-loop/formatters.js";
 
 // Re-export result conditions system (verified loop control - fully dynamic)

@@ -117,16 +117,27 @@ export const ReadTool: ToolDefinition = {
 async function handleImageRead(filePath: string, signal?: AbortSignal): Promise<ToolResult> {
   try {
     const result = await readImageFile(filePath, 25000, signal);
-    const imageBlock = toImageBlock(result);
+    const meta = formatImageResult(result);
 
-    // Return as ContentBlock array for proper image handling
-    // TODO: Return image block when using native Anthropic API (proxies like Z.AI don't support images in tool_result)
-    // For now, return text description only
-    // When proxy support is detected, return: [{ type: "text", text: formatImageResult(result) }, imageBlock]
+    // glm-5 doesn't support vision -- route through the dedicated vision model
+    try {
+      const { getVisionLLM } = await import("../../core/meta-llm-client.js");
+      const analysis = await getVisionLLM().completeWithImage(
+        `You are an image analyzer for a coding agent. Describe what you see concisely and accurately. Focus on: UI elements, layout, text content, errors, visual bugs, colors, and structure. Be factual, not decorative. Max 300 words.`,
+        `Describe this image from file: ${path.basename(filePath)}`,
+        { base64: result.base64, mediaType: result.mediaType },
+        1024,
+      );
+
+      if (analysis?.text) {
+        return {
+          content: `${meta}\n\nVision analysis (via ${analysis.inputTokens + analysis.outputTokens} tokens, ${analysis.durationMs}ms):\n${analysis.text}`,
+        };
+      }
+    } catch { /* vision model unavailable -- fall through */ }
+
     return {
-      content: `${formatImageResult(result)}
-
-Note: Image content was read but cannot be displayed through this API proxy. When using native Anthropic API, the image would be included for visual analysis.`,
+      content: `${meta}\n\nNote: Vision model unavailable. Image was read but could not be analyzed visually.`,
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -672,21 +683,28 @@ Usage notes:
         },
       });
 
-      const stdout = result.stdout?.toString() || "";
+      const MAX_TASK_OUTPUT_CHARS = 4000;
+      const rawStdout = result.stdout?.toString() || "";
       const stderr = result.stderr?.toString() || "";
 
       if (result.exitCode !== 0) {
         return {
-          content: `Agent failed with exit code ${result.exitCode}\n${stderr}\n${stdout}`.trim(),
+          content: `Agent failed with exit code ${result.exitCode}\n${stderr}\n${rawStdout}`.trim(),
           is_error: true,
         };
       }
+
+      const outputTruncated = rawStdout.length > MAX_TASK_OUTPUT_CHARS;
+      const output = outputTruncated
+        ? rawStdout.slice(0, MAX_TASK_OUTPUT_CHARS) +
+          `\n\n[Output truncated: ${rawStdout.length} chars total. Use Read tool for full content.]`
+        : rawStdout;
 
       return {
         content: JSON.stringify({
           agentId,
           status: "completed",
-          output: stdout,
+          output,
           description: description || "Task completed",
         }),
       };
@@ -1618,6 +1636,7 @@ Jupyter notebooks are interactive documents that combine code, text, and visuali
 export const TempGlmVisionTool: ToolDefinition = {
   name: "tempglmvision",
   description: `Analyze images using GLM-4.6V vision model. Use this tool when you need to analyze, describe, or extract information from images. Supports PNG, JPG, JPEG, GIF, and WEBP formats. Accepts both local file paths and remote URLs.`,
+  annotations: { capabilities: ["vision"] },
   input_schema: {
     type: "object",
     properties: {
@@ -1781,6 +1800,7 @@ export const TempGlmVisionTool: ToolDefinition = {
 export const AnalyzeImageTool: ToolDefinition = {
   name: "mcp__4_5v_mcp__analyze_image",
   description: `Analyze an image using advanced AI vision models with comprehensive understanding capabilities. Supports PNG, JPG, JPEG, GIF, and WEBP formats. Accepts both local file paths and remote URLs.`,
+  annotations: { capabilities: ["vision"] },
   input_schema: {
     type: "object",
     properties: {

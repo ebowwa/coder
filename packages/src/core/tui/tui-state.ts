@@ -18,7 +18,7 @@ import { estimateMessagesTokens } from "./token-utils.js";
 // DEFAULT VALUES
 // ============================================
 
-const DEFAULT_MODEL: ClaudeModel = "claude-sonnet-4-6";
+const DEFAULT_MODEL: ClaudeModel = "glm-5";
 
 // ============================================
 // TUI STATE CLASS

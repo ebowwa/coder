@@ -29,10 +29,13 @@ export {
   type GitStatusInfo,
 } from "./system-prompt.js";
 
-// Single query execution
+// Single query & daemon execution
 export {
   runSingleQuery,
+  runDaemonLoop,
   type QueryOptions,
+  type QueryResult,
+  type DaemonOptions,
 } from "./query.js";
 
 // Loading State

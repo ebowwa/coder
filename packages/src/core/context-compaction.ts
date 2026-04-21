@@ -22,7 +22,7 @@ export type {
   CompactionResult,
 } from "../schemas/index.js";
 
-import { SUMMARIZATION_MODEL } from "./models.js";
+// SUMMARIZATION_MODEL no longer needed here -- MetaLLMClient handles model selection
 
 // ============================================
 // CONSTANTS
@@ -309,38 +309,24 @@ export async function summarizeMessages(messages: Message[]): Promise<string> {
 }
 
 // ============================================
-// LLM-BASED SUMMARIZATION
+// LLM-BASED SUMMARIZATION (via MetaLLMClient)
 // ============================================
 
-// LLMSummarizationOptions type is now imported from schemas/index.js
+import { getMetaLLM } from "./meta-llm-client.js";
 
 /**
- * Summarize messages using an LLM for better context preservation.
- * Falls back to simple truncation if LLM fails or no API key provided.
+ * Summarize messages using the meta-LLM (glm-5-turbo) for context preservation.
+ * Falls back to simple truncation if the meta-LLM is unavailable.
  */
 export async function summarizeWithLLM(
   messages: Message[],
-  options: LLMSummarizationOptions = {}
+  _options: LLMSummarizationOptions = {}
 ): Promise<string> {
-  const {
-    apiKey = process.env.ANTHROPIC_AUTH_TOKEN || process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY,
-    model = SUMMARIZATION_MODEL,
-    baseUrl = process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com",
-    timeout = 30000,
-  } = options;
-
-  // No API key - fall back to simple summarization
-  if (!apiKey) {
-    return summarizeMessages(messages);
-  }
-
   try {
-    // Build the conversation text for summarization
     const conversationText = messages.map((msg) => {
       const role = msg.role.toUpperCase();
       const text = extractTextFromMessage(msg);
 
-      // Extract tool info
       const tools: string[] = [];
       for (const block of msg.content) {
         if (typeof block === "object" && block.type === "tool_use") {
@@ -358,72 +344,26 @@ export async function summarizeWithLLM(
       return `${role}:\n${text.slice(0, 2000)}${toolsStr}`;
     }).join("\n\n---\n\n");
 
-    // Build request
-    const requestBody = {
-      model,
-      max_tokens: SUMMARY_MAX_TOKENS,
-      system: SUMMARIZATION_SYSTEM_PROMPT,
-      messages: [{
-        role: "user" as const,
-        content: SUMMARIZATION_PROMPT.replace("{{MESSAGES}}", conversationText),
-      }],
-    };
+    const userPrompt = SUMMARIZATION_PROMPT.replace("{{MESSAGES}}", conversationText);
 
-    // Make API call with timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    const result = await getMetaLLM().complete(
+      SUMMARIZATION_SYSTEM_PROMPT,
+      userPrompt,
+      SUMMARY_MAX_TOKENS,
+    );
 
-    try {
-      const response = await fetch(`${baseUrl}/v1/messages`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify(requestBody),
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`\x1b[33m[Compaction] LLM summarization failed: ${response.status} - ${errorText}\x1b[0m`);
-        return summarizeMessages(messages);
-      }
-
-      const data = await response.json() as {
-        content?: Array<{ type: string; text?: string }>;
-        usage?: { input_tokens: number; output_tokens: number };
-      };
-
-      // Extract text from response
-      const summaryText = data.content
-        ?.filter((block) => block.type === "text")
-        .map((block) => block.text || "")
-        .join("\n") || "";
-
-      if (!summaryText) {
-        console.error("\x1b[33m[Compaction] LLM returned empty summary\x1b[0m");
-        return summarizeMessages(messages);
-      }
-
-      // Log usage for debugging (DISABLED - user is token rich)
-      // if (data.usage) {
-      //   console.log(`\x1b[90m[Compaction] LLM summary: ${data.usage.input_tokens} in, ${data.usage.output_tokens} out\x1b[0m`);
-      // }
-
-      return `[LLM Summary of ${messages.length} messages]\n\n${summaryText}`;
-
-    } finally {
-      clearTimeout(timeoutId);
+    if (!result?.text) {
+      return summarizeMessages(messages);
     }
 
+    console.log(
+      `\x1b[90m[Compaction] LLM summary: ${result.inputTokens} in, ${result.outputTokens} out, ${result.durationMs}ms\x1b[0m`,
+    );
+
+    return `[LLM Summary of ${messages.length} messages]\n\n${result.text}`;
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
     console.error(`\x1b[33m[Compaction] LLM summarization error: ${errorMsg}\x1b[0m`);
-    // Fall back to simple summarization
     return summarizeMessages(messages);
   }
 }

@@ -89,6 +89,8 @@ export interface AgentLoopOptions extends AgentLoopCallbacks {
 /**
  * Result of the agent loop
  */
+export type LoopEndReason = "completed" | "degeneration" | "max_turns" | "aborted" | "error";
+
 export interface AgentLoopResult {
   messages: Message[];
   metrics: QueryMetrics[];
@@ -97,6 +99,7 @@ export interface AgentLoopResult {
   totalCacheMetrics: CacheMetrics;
   compactionCount: number;
   totalTokensCompacted: number;
+  endReason: LoopEndReason;
 }
 
 /**
