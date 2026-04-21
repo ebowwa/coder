@@ -186,6 +186,9 @@ function renderError(el: Element | null, message: string, retry: () => void): vo
 
 async function loadDashboard(container: HTMLDivElement, token: string | null): Promise<void> {
   const retry = () => loadDashboard(container, token);
+
+  // --- Fetch data first; all three sections share one response ---
+  let data: any;
   try {
     const res = await fetch(`${API}/api/dashboard`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -197,8 +200,18 @@ async function loadDashboard(container: HTMLDivElement, token: string | null): P
       renderError(container.querySelector("#leaderboard-list"), "Failed to load leaderboard.", retry);
       return;
     }
+    data = await res.json();
+  } catch (err) {
+    console.error("Dashboard load error:", err);
+    const errLine = container.querySelector("#dash-stats-line");
+    if (errLine) errLine.textContent = "Could not load stats";
+    renderError(container.querySelector("#active-games"), "Unable to reach server.", retry);
+    renderError(container.querySelector("#leaderboard-list"), "Unable to reach server.", retry);
+    return;
+  }
 
-    const data = await res.json();
+  // --- Section 1: Stats ---
+  try {
     const stats = data.stats || {};
 
     // Update stats line
@@ -220,8 +233,14 @@ async function loadDashboard(container: HTMLDivElement, token: string | null): P
     setStat("stat-winrate", `${Math.round((stats.winRate || 0) * 100)}%`);
     setStat("stat-streak", String(stats.bestStreak || 0));
     setStat("stat-rank", stats.rank ? `#${stats.rank}` : "--");
+  } catch (err) {
+    console.error("Stats section error:", err);
+    const errLine = container.querySelector("#dash-stats-line");
+    if (errLine) errLine.textContent = "Could not load stats";
+  }
 
-    // Active games
+  // --- Section 2: Active Games ---
+  try {
     const activeEl = container.querySelector("#active-games");
     if (activeEl) {
       const games = data.activeGames || [];
@@ -248,8 +267,13 @@ async function loadDashboard(container: HTMLDivElement, token: string | null): P
         `).join("");
       }
     }
+  } catch (err) {
+    console.error("Active games section error:", err);
+    renderError(container.querySelector("#active-games"), "Failed to load games.", retry);
+  }
 
-    // Leaderboard
+  // --- Section 3: Leaderboard ---
+  try {
     const lbEl = container.querySelector("#leaderboard-list");
     if (lbEl) {
       const entries = data.leaderboard || [];
@@ -273,10 +297,7 @@ async function loadDashboard(container: HTMLDivElement, token: string | null): P
       }
     }
   } catch (err) {
-    console.error("Dashboard load error:", err);
-    const errLine = container.querySelector("#dash-stats-line");
-    if (errLine) errLine.textContent = "Connection error";
-    renderError(container.querySelector("#active-games"), "Unable to reach server.", retry);
-    renderError(container.querySelector("#leaderboard-list"), "Unable to reach server.", retry);
+    console.error("Leaderboard section error:", err);
+    renderError(container.querySelector("#leaderboard-list"), "Failed to load leaderboard.", retry);
   }
 }
