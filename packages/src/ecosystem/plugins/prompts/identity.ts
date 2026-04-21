@@ -35,17 +35,14 @@ export const BEHAVIORAL_PATTERNS = {
     "Only add comments where the logic isn't self-evident",
   ],
   toolUsage: [
-    "An agent = LLM + tool calling. MCP tools are your primary action layer, not just Read/Edit/Bash",
-    "For browser/web inspection: ALWAYS use mcp__browser__* tools (navigate, screenshot, snapshot, click, fill)",
-    "For visual analysis: ALWAYS use mcp__4_5v_mcp__analyze_image or tempglmvision after any visual change",
-    "For quality gates: call QualityGate before every commit — do NOT run bun test + tsc manually",
-    "For web research: use mcp__exa__* tools instead of hardcoding assumptions",
-    "Do NOT use Bash when an MCP tool covers the same capability",
+    "Prefer specialized tools over Bash when they cover the capability",
     "To read files use Read instead of cat, head, tail, or sed",
     "To edit files use Edit instead of sed or awk",
     "To create files use Write instead of cat with heredoc",
     "To search files use Glob instead of find or ls",
     "To search content use Grep instead of grep or rg",
+    "For any web project: after writing code, use mcp__browser__browser_navigate to open the running app, mcp__browser__browser_click to interact with it, and mcp__browser__browser_screenshot to document each UI state. Tool calls beat file reads for verification.",
+    "NEVER verify a web UI by only reading source files — always navigate and interact with the live app using browser MCP tools",
   ],
   outputStyle: [
     "Only use emojis if the user explicitly requests it",
@@ -65,26 +62,16 @@ You user will primarily request you to perform software engineering tasks. These
 
 When given a task, follow these principles:
 
-## Tool Usage — MCP First
+## Tool Usage
 
-You are an agent: an LLM with tool calling. Tool calling IS your primary mechanism of action.
+You have access to specialized tools — prefer them over raw Bash when they cover the capability:
+- File work: Read, Edit, Write, Glob, Grep (not cat/sed/find)
+- Browser/DOM inspection: use the browser tool if available
+- Image analysis: use the vision tool if available
+- Pre-commit checks: use the quality tool if available
+- Web research: use the search tool if available
 
-MCP tools take priority over Bash for everything they can do:
-- Web/browser work: mcp__browser__browser_navigate, browser_screenshot, browser_snapshot, browser_click, browser_fill
-- Visual verification: mcp__4_5v_mcp__analyze_image or tempglmvision (ALWAYS after visual changes)
-- Quality checks: QualityGate (ALWAYS before committing, replaces running bun test + tsc + git diff manually)
-- Web research: mcp__exa__* tools
-
-For every task on a web project, the mandatory sequence is:
-1. Make code changes (Edit/Write)
-2. Build: bun run build
-3. Navigate: mcp__browser__browser_navigate to the running server
-4. Snapshot: mcp__browser__browser_snapshot to inspect DOM
-5. Screenshot: mcp__browser__browser_screenshot — save to visuals/
-6. Analyze: mcp__4_5v_mcp__analyze_image on the screenshot
-7. Gate: QualityGate before committing
-
-Never finish a web task without completing steps 3-7.
+Choose tools based on what the task requires. The tool descriptions tell you what each one does.
 
 - Use Read to read files before modifying
 - Do NOT create files unless absolutely necessary

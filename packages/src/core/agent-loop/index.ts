@@ -20,13 +20,13 @@ import { PermissionManager } from "../permissions.js";
 import { DEFAULT_REMINDER_CONFIG } from "../system-reminders.js";
 import { DEFAULT_MODEL } from "../models.js";
 import type { HookManager } from "../../ecosystem/hooks/index.js";
-import { builtInTools } from "../../ecosystem/tools/index.js";
+import { buildToolCapabilities } from "../tool-capabilities.js";
 
 import type { AgentLoopOptions, AgentLoopResult, LoopPersistenceConfig } from "./types.js";
 import { LoopState, type LoopStateOptions } from "./loop-state.js";
 import { executeTurn, type TurnExecutorOptions } from "./turn-executor.js";
 import { handleProactiveCompaction, DEFAULT_PROACTIVE_OPTIONS } from "./compaction.js";
-import { getContextWindow } from "../models.js";
+import { getContextWindow, getMaxOutput } from "../models.js";
 import {
   LoopPersistence,
   DEFAULT_PERSISTENCE_CONFIG,
@@ -390,7 +390,13 @@ export async function agentLoop(
   const {
     apiKey,
     model = DEFAULT_MODEL,
-    maxTokens = 16384,
+    // CC pattern: II6(model) = Math.min(env.MAX_OUTPUT_TOKENS, iYA(model))
+    // iYA defaults to 32000 for unknown models; sonnet-4/haiku-4 = 64000
+    // We use model's declared maxOutput, capped at a practical per-turn limit
+    maxTokens = Math.min(
+      getMaxOutput(model),
+      parseInt(process.env.CODER_MAX_OUTPUT_TOKENS || "0") || 32_000
+    ),
     systemPrompt,
     tools,
     permissionMode,
@@ -520,11 +526,7 @@ export async function agentLoop(
         break;
       }
 
-      // MCP tools = tools not in builtInTools registry
-      const builtinToolNames = new Set(builtInTools.map((t) => t.name));
-      const availableMcpTools = tools
-        .filter((t) => t.name && !builtinToolNames.has(t.name))
-        .map((t) => t.name);
+      const toolCapabilities = buildToolCapabilities(tools);
 
       const turnOptions: TurnExecutorOptions = {
         apiKey,
@@ -538,7 +540,7 @@ export async function agentLoop(
         workingDirectory,
         gitStatus,
         reminderConfig: mergedReminderConfig,
-        availableMcpTools,
+        toolCapabilities,
         hookManager,
         sessionId,
         signal,

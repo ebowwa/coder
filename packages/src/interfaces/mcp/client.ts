@@ -29,6 +29,8 @@ export class MCPClientImpl {
   config: MCPServerConfig;
   connected = false;
   tools: MCPTool[] = [];
+  /** Server-declared usage instructions from InitializeResult.instructions */
+  instructions: string | null = null;
 
   private process: ChildProcess | null = null;
   private websocket: WebSocket | null = null;
@@ -92,11 +94,31 @@ export class MCPClientImpl {
       this.connected = false;
     });
 
-    // Wait for process to start
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    // Wait briefly for the process to start or immediately exit
+    await new Promise((resolve) => setTimeout(resolve, 200));
 
-    // Initialize connection
-    await this.initialize();
+    // If the process already exited (crash on startup), bail immediately
+    if (!this.process || this.process.exitCode !== null) {
+      throw new Error(`MCP process exited immediately with code ${this.process?.exitCode}`);
+    }
+
+    // Initialize with a hard timeout AND process-close guard
+    // so a crashing server doesn't stall the whole daemon
+    const initTimeout = this.config.timeout ?? 10_000;
+    const proc = this.process;
+    await Promise.race([
+      this.initialize(),
+      new Promise<never>((_, reject) => {
+        const timer = setTimeout(
+          () => reject(new Error(`MCP initialize timed out after ${initTimeout}ms`)),
+          initTimeout,
+        );
+        proc.once("close", (code) => {
+          clearTimeout(timer);
+          reject(new Error(`MCP process closed during init with code ${code}`));
+        });
+      }),
+    ]);
   }
 
   private async connectHttp(): Promise<void> {
@@ -223,6 +245,10 @@ export class MCPClientImpl {
 
     this.log(`Initialized with: ${JSON.stringify(result)}`);
     this.connected = true;
+    // Capture server-declared instructions for inclusion in the system prompt
+    if (typeof (result as { instructions?: unknown }).instructions === "string") {
+      this.instructions = (result as { instructions: string }).instructions;
+    }
 
     // Send initialized notification
     this.notify("notifications/initialized", {});

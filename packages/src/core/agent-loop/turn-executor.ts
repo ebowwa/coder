@@ -58,7 +58,7 @@ export interface TurnExecutorOptions {
   workingDirectory: string;
   gitStatus: import("../../schemas/index.js").GitStatus | null;
   reminderConfig: import("../system-reminders.js").SystemReminderConfig;
-  availableMcpTools?: string[];
+  toolCapabilities?: import("../tool-capabilities.js").ToolCapabilityMap;
   hookManager?: HookManager;
   sessionId?: string;
   signal?: AbortSignal;
@@ -153,7 +153,7 @@ export async function executeTurn(
     gitStatus,
     turnNumber,
     config: reminderConfig,
-    availableMcpTools: options.availableMcpTools,
+    toolCapabilities: options.toolCapabilities,
   });
 
   if (reminder) {

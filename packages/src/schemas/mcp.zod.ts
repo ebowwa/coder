@@ -193,10 +193,21 @@ export const MCPInputSchemaSchema = z.object({
 /**
  * MCP Tool definition schema
  */
+/** MCP protocol tool annotations (from tools/list response) */
+export const MCPToolAnnotationsSchema = z.object({
+  readOnlyHint: z.boolean().optional(),
+  destructiveHint: z.boolean().optional(),
+  openWorldHint: z.boolean().optional(),
+}).optional();
+
 export const MCPToolSchema = z.object({
   name: z.string().min(1),
   description: z.string(),
   inputSchema: MCPInputSchemaSchema,
+  /** MCP protocol annotations — declared by the server, not inferred */
+  annotations: MCPToolAnnotationsSchema,
+  /** Anthropic-specific metadata extensions (searchHint, capabilities, etc.) */
+  _meta: z.record(z.string(), z.unknown()).optional(),
 });
 
 // ============================================

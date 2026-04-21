@@ -5,6 +5,7 @@
 
 import type { Message, ToolDefinition, ExtendedThinkingConfig, GitStatus } from "../../../../schemas/index.js";
 import { builtInTools } from "../../../../ecosystem/tools/index.js";
+import { buildToolCapabilities, toolsFor, type ToolCapabilityMap } from "../../../../core/tool-capabilities.js";
 import { agentLoop, formatCost, formatCostBrief, createResultConditionsConfig, type ResultConditionsConfig, RALPH_CONTINUATION_CONFIG, type AgentLoopResult } from "../../../../core/agent-loop.js";
 import { HookManager } from "../../../../ecosystem/hooks/index.js";
 import { SessionStore } from "../../../../core/session-store.js";
@@ -18,7 +19,7 @@ import {
 } from "./status-line.js";
 import type { CLIArgs } from "./args.js";
 import { execSync, spawnSync } from "child_process";
-import { readFileSync, existsSync, statSync } from "fs";
+import { readFileSync, existsSync, statSync, copyFileSync } from "fs";
 import { join } from "path";
 import { verifyQualityGate } from "../../../../ecosystem/plugins/daemon/quality-gate.js";
 
@@ -30,7 +31,7 @@ const DAEMON_ASSESS_COOLDOWN_BASE_MS = parseInt(process.env.CODER_ASSESS_COOLDOW
 const DAEMON_ASSESS_COOLDOWN_MAX_MS = 3 * 60_000; // 3 min max between assessments
 const DAEMON_CONSECUTIVE_CLEAN_BACKOFF = 1.5; // gentle backoff -- always stay productive
 
-/** Headless Playwright (dev-browser) often captures WebGL/Three.js as black; Chrome + SwiftShader matches real compositing. */
+/** Vision: try browser MCP (dev-browser script: navigate + viewport + scroll/resize + screenshot), then Chrome + SwiftShader fallback for WebGL. */
 function resolveHeadlessChromeExecutable(): string | null {
   const candidates =
     process.platform === "darwin"
@@ -61,12 +62,14 @@ function tryHeadlessChromeScreenshot(
     "--use-gl=angle",
     "--use-angle=swiftshader",
     "--run-all-compositor-stages-before-draw",
+    "--virtual-time-budget=2000",
     `--screenshot=${outFile}`,
     `--window-size=${width},${height}`,
     url,
   ];
-  const r = spawnSync(chromePath, args, { stdio: "ignore", timeout: 35_000 });
-  if (r.status !== 0 || !existsSync(outFile)) return false;
+  // Hard 15s timeout — kill the process tree if it hangs
+  const r = spawnSync(chromePath, args, { stdio: "ignore", timeout: 15_000, killSignal: "SIGKILL" });
+  if (r.status !== 0 && r.signal !== "SIGKILL" && !existsSync(outFile)) return false;
   try {
     return statSync(outFile).size > 800;
   } catch {
@@ -168,6 +171,186 @@ interface DaemonServer {
 
 const JSON_HEADERS = { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" };
 
+function buildDashboardHtml(stats: ReturnType<StatusWriter["getStats"]> & { sessionId: string }, tasks: Array<{ id: string; status: string; query: string; createdAt: number }> | null): string {
+  const uptimeSec = Math.floor(stats.uptimeMs / 1000);
+  const uptimeStr = uptimeSec > 3600 ? `${Math.floor(uptimeSec/3600)}h ${Math.floor((uptimeSec%3600)/60)}m` : uptimeSec > 60 ? `${Math.floor(uptimeSec/60)}m ${uptimeSec%60}s` : `${uptimeSec}s`;
+
+  const totalCost = (stats.totalInputTokens * 0.0000005 + stats.totalOutputTokens * 0.0000015).toFixed(4);
+  const avgLatency = stats.apiLatencies.length ? Math.round(stats.apiLatencies.reduce((a,b)=>a+b,0)/stats.apiLatencies.length) : 0;
+  const p95Latency = stats.apiLatencies.length ? Math.round([...stats.apiLatencies].sort((a,b)=>a-b)[Math.floor(stats.apiLatencies.length*0.95)] ?? 0) : 0;
+
+  const taskEvents = stats.events.filter(e => e.type === "task_started" || e.type === "task_completed" || e.type === "task_failed");
+  const completedTasks = stats.events.filter(e => e.type === "task_completed").length;
+  const failedTasks = stats.events.filter(e => e.type === "task_failed").length;
+
+  const currentTaskEvent = [...stats.events].reverse().find(e => e.type === "task_started");
+  const currentTaskCompleted = currentTaskEvent && stats.events.find(e => e.type === "task_completed" && e.data.taskId === currentTaskEvent.data.taskId);
+  const currentTask = currentTaskEvent && !currentTaskCompleted ? currentTaskEvent.data : null;
+
+  const toolCounts: Record<string, number> = {};
+  for (const t of stats.toolUses) toolCounts[t.name] = (toolCounts[t.name] ?? 0) + 1;
+  const topTools = Object.entries(toolCounts).sort((a,b)=>b[1]-a[1]).slice(0, 10);
+
+  const mcpByServer: Record<string, { calls: number; errors: number; totalMs: number }> = {};
+  for (const m of stats.mcpCalls) {
+    const entry = mcpByServer[m.server] ?? (mcpByServer[m.server] = { calls: 0, errors: 0, totalMs: 0 });
+    entry.calls++;
+    if (m.isError) entry.errors++;
+    entry.totalMs += m.durationMs;
+  }
+
+  const recentEvents = [...stats.events].reverse().slice(0, 20);
+  const visionScreenshots = stats.events.filter(e => e.type === "vision_verify" && !e.data.analysis?.toString().includes("black")).slice(-14);
+
+  const latencyBars = stats.apiLatencies.slice(-30).map(ms => {
+    const h = Math.min(60, Math.round(ms / 200));
+    const color = ms > 10000 ? "#ef4444" : ms > 5000 ? "#f59e0b" : "#22c55e";
+    return `<div style="display:inline-block;width:8px;height:${h}px;background:${color};margin:1px;vertical-align:bottom;border-radius:2px 2px 0 0" title="${ms}ms"></div>`;
+  }).join("");
+
+  const pendingTasks = tasks?.filter(t => t.status === "pending").length ?? 0;
+  const processingTasks = tasks?.filter(t => t.status === "processing").length ?? 0;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="refresh" content="8">
+<title>Coder Daemon</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',monospace;background:#0f0f0f;color:#e5e5e5;font-size:13px}
+.header{background:#1a1a1a;border-bottom:1px solid #2a2a2a;padding:12px 20px;display:flex;align-items:center;gap:16px}
+.header h1{font-size:15px;font-weight:600;color:#fff}
+.dot{width:8px;height:8px;border-radius:50%;background:#22c55e;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.badge{background:#1e3a1e;color:#4ade80;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600}
+.badge.warn{background:#3a2a1e;color:#fb923c}
+.badge.err{background:#3a1e1e;color:#f87171}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;padding:16px 20px}
+.card{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:8px;padding:14px}
+.card .label{color:#888;font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.card .val{font-size:22px;font-weight:700;color:#fff}
+.card .sub{color:#666;font-size:11px;margin-top:3px}
+.section{margin:0 20px 16px;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:8px}
+.section-header{padding:10px 14px;border-bottom:1px solid #2a2a2a;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#888;font-weight:600;display:flex;justify-content:space-between;align-items:center}
+.section-body{padding:12px 14px}
+.task-current{background:#0f1f0f;border:1px solid #1a3a1a;border-radius:6px;padding:10px 12px;font-size:12px;color:#86efac;line-height:1.5;word-break:break-word}
+.task-list{list-style:none}
+.task-list li{padding:6px 0;border-bottom:1px solid #222;font-size:12px;display:flex;gap:8px;align-items:flex-start}
+.task-list li:last-child{border-bottom:none}
+.status-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;margin-top:4px}
+.processing{background:#22c55e}
+.pending{background:#f59e0b}
+.completed{background:#3b82f6}
+.failed{background:#ef4444}
+table{width:100%;border-collapse:collapse;font-size:12px}
+td,th{padding:6px 8px;text-align:left;border-bottom:1px solid #222}
+th{color:#888;font-weight:500;font-size:11px}
+tr:last-child td{border-bottom:none}
+.mono{font-family:monospace;font-size:11px}
+.event-row{padding:5px 0;border-bottom:1px solid #1e1e1e;display:flex;gap:10px;font-size:11px}
+.event-row:last-child{border-bottom:none}
+.event-type{color:#888;font-family:monospace;min-width:140px}
+.event-data{color:#aaa;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.screenshots{display:flex;flex-wrap:wrap;gap:8px}
+.shot{border-radius:4px;overflow:hidden;border:1px solid #333;font-size:10px;color:#666}
+.shot img{display:block;max-width:120px;max-height:80px;object-fit:cover}
+.shot-label{padding:3px 6px;background:#111}
+.bar-chart{height:64px;display:flex;align-items:flex-end;padding:4px 0}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="dot"></div>
+  <h1>Coder Daemon</h1>
+  <span class="badge">glm-5</span>
+  <span style="color:#555;font-size:11px">${stats.sessionId.split("-").slice(0,2).join("-")}</span>
+  <span style="margin-left:auto;color:#555;font-size:11px">auto-refresh 8s · <a href="/stats" style="color:#555">json</a> · <a href="/tasks" style="color:#555">tasks</a></span>
+</div>
+
+<div class="grid">
+  <div class="card"><div class="label">Uptime</div><div class="val">${uptimeStr}</div></div>
+  <div class="card"><div class="label">Tasks</div><div class="val">${completedTasks}</div><div class="sub">${failedTasks} failed · ${processingTasks} active · ${pendingTasks} queued</div></div>
+  <div class="card"><div class="label">Input Tokens</div><div class="val">${(stats.totalInputTokens/1000).toFixed(1)}k</div></div>
+  <div class="card"><div class="label">Output Tokens</div><div class="val">${(stats.totalOutputTokens/1000).toFixed(1)}k</div></div>
+  <div class="card"><div class="label">Est. Cost</div><div class="val">$${totalCost}</div></div>
+  <div class="card"><div class="label">Avg Latency</div><div class="val">${(avgLatency/1000).toFixed(1)}s</div><div class="sub">p95 ${(p95Latency/1000).toFixed(1)}s</div></div>
+  <div class="card"><div class="label">File Ops</div><div class="val">${stats.fileEdits.length + stats.fileCreates.length}</div><div class="sub">${stats.fileEdits.length} edits · ${stats.fileCreates.length} creates</div></div>
+  <div class="card"><div class="label">MCP Calls</div><div class="val">${stats.mcpCalls.length}</div><div class="sub">${stats.mcpCalls.filter(m=>m.isError).length} errors</div></div>
+</div>
+
+${currentTask ? `
+<div class="section">
+  <div class="section-header"><span>Current Task</span><span class="badge">running</span></div>
+  <div class="section-body">
+    <div class="task-current">${String(currentTask.query ?? "").slice(0, 300).replace(/</g,"&lt;")}</div>
+  </div>
+</div>` : ""}
+
+<div class="section">
+  <div class="section-header">API Latency (last 30 calls)</div>
+  <div class="section-body"><div class="bar-chart">${latencyBars || "<span style='color:#555'>no data</span>"}</div></div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 20px 16px">
+  <div class="section" style="margin:0">
+    <div class="section-header">Tool Usage</div>
+    <div class="section-body">
+      <table><thead><tr><th>Tool</th><th>Calls</th></tr></thead><tbody>
+      ${topTools.map(([name, count]) => `<tr><td class="mono">${name}</td><td>${count}</td></tr>`).join("") || "<tr><td colspan=2 style='color:#555'>none yet</td></tr>"}
+      </tbody></table>
+    </div>
+  </div>
+  <div class="section" style="margin:0">
+    <div class="section-header">MCP Servers</div>
+    <div class="section-body">
+      <table><thead><tr><th>Server</th><th>Calls</th><th>Errors</th><th>Avg ms</th></tr></thead><tbody>
+      ${Object.entries(mcpByServer).map(([s,d]) => `<tr><td class="mono">${s}</td><td>${d.calls}</td><td>${d.errors > 0 ? `<span style="color:#ef4444">${d.errors}</span>` : "0"}</td><td>${Math.round(d.totalMs/d.calls)}</td></tr>`).join("") || "<tr><td colspan=4 style='color:#555'>none</td></tr>"}
+      </tbody></table>
+    </div>
+  </div>
+</div>
+
+${tasks ? `
+<div class="section">
+  <div class="section-header"><span>Task Queue</span><span>${tasks.length} total</span></div>
+  <div class="section-body">
+    <ul class="task-list">
+    ${tasks.slice(0,8).map(t => `<li>
+      <div class="status-dot ${t.status}"></div>
+      <div><span class="mono" style="color:#555">${t.id.split("_").pop()}</span> ${t.query.replace(/\[AUTONOMOUS[^\]]*\]\s*/g,"").replace(/SCOPE CONSTRAINT:[^\n]*/,"").trim().slice(0,120).replace(/</g,"&lt;")}</div>
+    </li>`).join("")}
+    </ul>
+  </div>
+</div>` : ""}
+
+<div class="section">
+  <div class="section-header">Recent Events</div>
+  <div class="section-body">
+  ${recentEvents.map(e => `<div class="event-row">
+    <span class="event-type">${e.type}</span>
+    <span class="event-data">${JSON.stringify(e.data).slice(0,120).replace(/</g,"&lt;")}</span>
+    <span style="color:#444;margin-left:auto;white-space:nowrap">${new Date(e.timestamp).toLocaleTimeString()}</span>
+  </div>`).join("") || "<div style='color:#555'>no events</div>"}
+  </div>
+</div>
+
+${visionScreenshots.length ? `
+<div class="section">
+  <div class="section-header">Vision Snapshots</div>
+  <div class="section-body"><div class="screenshots">
+  ${visionScreenshots.map(e => `<div class="shot">
+    <img src="/visual?route=${encodeURIComponent(String(e.data.route ?? ""))}&view=${encodeURIComponent(String(e.data.view ?? ""))}" onerror="this.style.display='none'">
+    <div class="shot-label">${e.data.route} · ${e.data.view}</div>
+  </div>`).join("")}
+  </div></div>
+</div>` : ""}
+
+<div style="padding:12px 20px;color:#444;font-size:11px">Last updated: ${new Date().toLocaleTimeString()}</div>
+</body></html>`;
+}
+
 function startDaemonServer(
   writer: StatusWriter,
   sessionId: string,
@@ -180,6 +363,15 @@ function startDaemonServer(
       port: STATS_PORT,
       async fetch(req) {
         const url = new URL(req.url);
+
+        // HTML dashboard at root
+        if (url.pathname === "/" || url.pathname === "/dashboard") {
+          const stats = { sessionId: currentSessionId, ...writer.getStats() };
+          const tasks = taskQueue ? taskQueue.list() : null;
+          return new Response(buildDashboardHtml(stats, tasks), {
+            headers: { "Content-Type": "text/html; charset=utf-8", "Access-Control-Allow-Origin": "*" },
+          });
+        }
 
         if (url.pathname === "/stats") {
           return new Response(
@@ -212,7 +404,7 @@ function startDaemonServer(
           }
         }
 
-        const endpoints = ["/stats", ...(taskQueue ? ["/tasks", "/submit (POST)"] : [])];
+        const endpoints = ["/", "/stats", ...(taskQueue ? ["/tasks", "/submit (POST)"] : [])];
         return new Response(JSON.stringify({ endpoints }), { headers: JSON_HEADERS });
       },
     });
@@ -246,6 +438,8 @@ export interface QueryOptions {
   gitStatus?: GitStatus | null;
   /** Shared StatusWriter from daemon -- skips creating a new one */
   sharedStatusWriter?: StatusWriter;
+  /** MCP clients map — passed to vision verification for Playwright-based routing */
+  mcpClients?: Map<string, import("../../../mcp/client.js").MCPClientImpl>;
 }
 
 // ============================================
@@ -327,7 +521,7 @@ export async function runSingleQuery(options: QueryOptions): Promise<QueryResult
       const result = await agentLoop(messages, {
         apiKey,
         model: args.model,
-        maxTokens: args.maxTokens,
+        maxTokens: args.maxTokens || undefined,
         systemPrompt,
         tools,
         permissionMode: args.permissionMode,
@@ -511,6 +705,15 @@ function gatherWorkspaceSignals(workingDirectory: string): string {
     if (out) signals.push(`TEST OUTPUT:\n${out.slice(-1500)}`);
   }
 
+  try {
+    const todos = execSync(
+      "rg -n 'TODO|FIXME|HACK|XXX' --type ts -g '!node_modules' -g '!dist' 2>/dev/null | head -20",
+      { cwd: workingDirectory, timeout: 10_000 },
+    ).toString().trim();
+    if (todos) signals.push(`CODE TODOS:\n${todos}`);
+  } catch { /* rg not available or no matches */ }
+
+  // PROGRESS.md: open todos, unchecked items, planned features
   const progressPath = join(workingDirectory, "PROGRESS.md");
   if (existsSync(progressPath)) {
     try {
@@ -521,16 +724,53 @@ function gatherWorkspaceSignals(workingDirectory: string): string {
       if (todoLines.length > 0) {
         signals.push(`OPEN TODOS (from PROGRESS.md):\n${todoLines.slice(0, 20).join("\n")}`);
       }
+      const unchecked = raw.split("\n").filter((l) => /^\s*-\s*\[ \]/.test(l));
+      if (unchecked.length > 0) {
+        signals.push(`UNCHECKED ITEMS IN PROGRESS.md:\n${unchecked.slice(0, 15).join("\n")}`);
+      }
+      const futureLines = raw.split("\n").filter((l) =>
+        /power.up|custom word|AI opponent|voice chat|achievement|leaderboard|spectator|replay|tournament/i.test(l)
+          && !/\[x\]/i.test(l),
+      );
+      if (futureLines.length > 0) {
+        signals.push(`PLANNED FEATURES (not yet built):\n${futureLines.slice(0, 10).join("\n")}`);
+      }
     } catch { /* ignore */ }
   }
 
+  // Detect source files with no corresponding test file
   try {
-    const todos = execSync(
-      "rg -n 'TODO|FIXME|HACK|XXX' --type ts --type tsx -g '!node_modules' -g '!dist' 2>/dev/null | head -20",
+    const srcFiles = execSync(
+      "find src -name '*.ts' ! -name '*.test.ts' ! -name '*.d.ts' -not -path '*/node_modules/*' 2>/dev/null | head -20",
       { cwd: workingDirectory, timeout: 10_000 },
-    ).toString().trim();
-    if (todos) signals.push(`CODE TODOS:\n${todos}`);
-  } catch { /* rg not available or no matches */ }
+    ).toString().trim().split("\n").filter(Boolean);
+    const testFiles = execSync(
+      "find src -name '*.test.ts' 2>/dev/null | head -20",
+      { cwd: workingDirectory, timeout: 10_000 },
+    ).toString().trim().split("\n").filter(Boolean);
+    const testBases = new Set(testFiles.map((f) => f.replace(/\.test\.ts$/, ".ts")));
+    const untested = srcFiles.filter((f) => !testBases.has(f));
+    if (untested.length > 0) {
+      signals.push(`SOURCE FILES WITH NO TESTS:\n${untested.slice(0, 10).join("\n")}`);
+    }
+  } catch { /* ignore */ }
+
+  // If signals are still empty, force feature-expansion mode
+  if (signals.length === 0) {
+    try {
+      const srcTree = execSync(
+        "find src -name '*.ts' ! -name '*.d.ts' -not -path '*/node_modules/*' 2>/dev/null | head -30",
+        { cwd: workingDirectory, timeout: 10_000 },
+      ).toString().trim();
+      signals.push(
+        `PROJECT IS CLEAN. Expand it with new features.\n` +
+        `Source files:\n${srcTree}\n\n` +
+        `Suggested directions: add power-ups, custom word lists, AI opponent, ` +
+        `improved animations, better error states, accessibility improvements, ` +
+        `more robust multiplayer reconnection, spectator mode, replay viewer.`,
+      );
+    } catch { /* ignore */ }
+  }
 
   return signals.join("\n\n");
 }
@@ -543,6 +783,7 @@ async function runPostTaskVerification(
   workingDirectory: string,
   taskId: string,
   statusWriter: StatusWriter,
+  mcpClients?: Map<string, import("../../../mcp/client.js").MCPClientImpl>,
 ): Promise<void> {
   // 1. QualityGate (build + test + typecheck)
   const gateStart = Date.now();
@@ -553,7 +794,8 @@ async function runPostTaskVerification(
     console.log(
       `\x1b[90m[QualityGate] ${gateStatus} -- tests: ${gate.tests.pass}/${gate.tests.pass + gate.tests.fail}, ts errors: ${gate.tsErrors}, changed: ${gate.filesChanged.length}\x1b[0m`,
     );
-    statusWriter.recordMcpCall("daemon", "QualityGate", gateMs, !gate.passed);
+    // isError = true only when TS errors exist (compilation broken); test failures are expected signals
+    statusWriter.recordMcpCall("daemon", "QualityGate", gateMs, gate.tsErrors > 0);
     statusWriter.recordEvent("quality_gate", {
       taskId,
       passed: gate.passed,
@@ -567,7 +809,14 @@ async function runPostTaskVerification(
   }
 
   // 2. Vision verification for web projects
-  await runVisionVerification(workingDirectory, taskId, statusWriter);
+  // Hard 90s budget for entire vision run — prevents Chrome/Playwright hangs from blocking the daemon
+  await Promise.race([
+    runVisionVerification(workingDirectory, taskId, statusWriter, mcpClients),
+    new Promise<void>((resolve) => setTimeout(() => {
+      console.log("\x1b[33m[Vision] Total timeout (90s) — skipping remaining screenshots\x1b[0m");
+      resolve();
+    }, 90_000)),
+  ]);
 }
 
 /**
@@ -578,6 +827,7 @@ async function runVisionVerification(
   workingDirectory: string,
   taskId: string,
   statusWriter: StatusWriter,
+  mcpClients?: Map<string, import("../../../mcp/client.js").MCPClientImpl>,
 ): Promise<void> {
   const pkgPath = join(workingDirectory, "package.json");
   if (!existsSync(pkgPath)) return;
@@ -649,6 +899,18 @@ async function runVisionVerification(
     if (!existsSync(cacheVisualsDir)) mkdirSyncFs(cacheVisualsDir, { recursive: true });
     const projectVisualsDir = join(workingDirectory, "visuals");
     if (!existsSync(projectVisualsDir)) mkdirSyncFs(projectVisualsDir, { recursive: true });
+
+    // Prune both visuals dirs: keep newest 30 files to prevent unbounded disk growth
+    for (const dir of [cacheVisualsDir, projectVisualsDir]) {
+      try {
+        const { readdirSync, statSync, unlinkSync } = await import("fs");
+        const pngs = readdirSync(dir)
+          .filter((f: string) => f.endsWith(".png"))
+          .map((f: string) => ({ f, mt: statSync(join(dir, f)).mtimeMs }))
+          .sort((a: { mt: number }, b: { mt: number }) => b.mt - a.mt);
+        pngs.slice(30).forEach(({ f }: { f: string }) => { try { unlinkSync(join(dir, f)); } catch {} });
+      } catch {}
+    }
     const logPath = join(workingDirectory, "VISUAL_LOG.md");
     if (!existsSync(logPath)) {
       appendFileSync(logPath, "# Visual Verification Log\n\nAutomated screenshots and vision analysis from daemon runs.\n\n---\n");
@@ -657,13 +919,64 @@ async function runVisionVerification(
     const baseUrl = `http://localhost:${expectedPort}`;
     const chromePath = resolveHeadlessChromeExecutable();
 
-    const views = [
-      { name: "desktop", width: 1280, height: 720 },
-      { name: "mobile", width: 375, height: 812 },
-    ];
+    // Discover app routes from source files — prefers explicit declarations over broad scanning
+    function discoverRoutes(dir: string): string[] {
+      const routes = new Set<string>(["/"]);
+      const srcDir = join(dir, "src");
+
+      // 1. TypeScript union type: PageName = "auth" | "dashboard" | "lobby" | ...
+      //    Most SPA routers define pages as a type union
+      try {
+        const typePattern = String.raw`PageName\s*=\s*([^;]+);`;
+        const routerCandidates = [
+          join(srcDir, "router.ts"), join(srcDir, "routes.ts"),
+          join(srcDir, "router.js"), join(srcDir, "pages.ts"),
+        ].filter(existsSync);
+        for (const f of routerCandidates) {
+          const content = readFileSync(f, "utf-8");
+          const m = content.match(new RegExp(typePattern));
+          if (m) {
+            // Extract quoted strings from the union: "auth" | "dashboard" | ...
+            const names = (m[1]?.match(/"([^"]+)"|'([^']+)'/g) || [])
+              .map((s) => s.replace(/['"]/g, ""));
+            names.forEach((n) => { if (n) routes.add(`#${n}`); });
+          }
+          // Also pull navigate("pageName") literal calls
+          const navMatches = content.match(/navigate\(["']([a-zA-Z][a-zA-Z0-9_-]+)["']/g) || [];
+          navMatches.forEach((s) => {
+            const name = s.match(/["']([a-zA-Z][a-zA-Z0-9_-]+)["']/)?.[1];
+            if (name) routes.add(`#${name}`);
+          });
+        }
+      } catch { /* ignore */ }
+
+      // 2. Express/Bun HTTP route registrations: app.get("/path", ...)
+      try {
+        const serverCandidates = [
+          join(dir, "server/index.ts"), join(dir, "server/index.js"),
+          join(dir, "src/server.ts"), join(dir, "app.ts"),
+        ].filter(existsSync);
+        for (const f of serverCandidates) {
+          const content = readFileSync(f, "utf-8");
+          const matches = content.match(/\.(get|post|all)\(["'](\/[a-zA-Z0-9/_:-]*)['"]/g) || [];
+          matches.forEach((s) => {
+            const path = s.match(/["'](\/[a-zA-Z0-9/_:-]*)['"]/)?.[1];
+            // Only add paths that look like pages (no :id params, not /api/)
+            if (path && !path.includes(":") && !path.startsWith("/api") && path !== "/") {
+              routes.add(path);
+            }
+          });
+        }
+      } catch { /* ignore */ }
+
+      // 3. Fallback: just root if nothing found
+      return [...routes].slice(0, 10);
+    }
+
+    const appRoutes = discoverRoutes(workingDirectory);
+    console.log(`\x1b[90m[Vision] Routes discovered: ${appRoutes.join(", ")}\x1b[0m`);
 
     // Prefer reusing an already-running server (agent started it → WebGL already rendered)
-    // Only start a fresh server if nothing is on the port. Fresh servers need longer to render.
     let usedExistingServer = false;
     try {
       execSync(`curl -s -o /dev/null -w "%{http_code}" http://localhost:${expectedPort}`, { timeout: 2000 });
@@ -672,7 +985,6 @@ async function runVisionVerification(
     } catch { /* nothing running, proceed to start */ }
 
     if (usedExistingServer) {
-      // Server already warm — WebGL is rendering. Short wait for any recent DOM changes.
       await new Promise((r) => setTimeout(r, 1000));
     } else {
       await new Promise((r) => setTimeout(r, 4000));
@@ -680,72 +992,166 @@ async function runVisionVerification(
 
     let anySuccess = false;
 
-    for (const view of views) {
-      const viewStart = Date.now();
-      const viewTs = new Date().toISOString().replace(/[:.]/g, "-");
-      const cachePath = join(cacheVisualsDir, `${viewTs}-${view.name}.png`);
-      const readableName = `${view.name}-${viewTs}.png`;
-      const projectPath = join(projectVisualsDir, readableName);
+    // Resolve browser MCP client if available (dev-browser / Playwright — real navigation + in-page actions)
+    const browserMcpClient = mcpClients?.get("browser") ?? null;
 
-      let captured = false;
-      if (chromePath) {
-        captured = tryHeadlessChromeScreenshot(chromePath, cachePath, view.width, view.height, baseUrl);
-      }
-      if (!captured) {
-        console.log(`\x1b[33m[Vision] ${view.name}: Chrome capture failed or missing (${chromePath ? "chrome" : "no Chrome"})\x1b[0m`);
-        statusWriter.recordMcpCall("vision", `screenshot_${view.name}`, Date.now() - viewStart, true);
-        continue;
-      }
-
+    /** Parse screenshot path from browser_execute_script stdout (last JSON line with "path") */
+    function parseDevBrowserScreenshotPathFromMcpText(raw: string): string | null {
       try {
-        copyFileSync(cachePath, projectPath);
+        const outer = JSON.parse(raw) as { success?: boolean; output?: string };
+        if (outer.success === false) return null;
+        const lines = (outer.output || "").trim().split("\n").filter(Boolean);
+        for (let i = lines.length - 1; i >= 0; i--) {
+          try {
+            const p = JSON.parse(lines[i]!) as { path?: string };
+            if (p.path && existsSync(p.path)) return p.path;
+          } catch { /* line not JSON */ }
+        }
+      } catch { /* ignore */ }
+      return null;
+    }
+
+    /**
+     * One dev-browser script: goto, viewport, wait for SPA, scroll/resize (canvas/WebGL), screenshot.
+     * Separate MCP calls do not share page state with dev-browser CLI — must be one execute_script.
+     */
+    async function captureViaBrowserMcpHarness(
+      routeUrl: string,
+      width: number,
+      height: number,
+      outFile: string,
+    ): Promise<boolean> {
+      if (!browserMcpClient?.connected) return false;
+      const safeFilename = `coder-vision-${Date.now()}-${Math.random().toString(36).slice(2, 10)}.png`;
+      const script = `
+const page = await browser.getPage("main");
+const url = ${JSON.stringify(routeUrl)};
+await page.goto(url, { waitUntil: "domcontentloaded" });
+await page.setViewportSize({ width: ${width}, height: ${height} });
+await page.evaluate(() => new Promise((r) => setTimeout(r, 1800)));
+await page.evaluate(() => {
+  window.dispatchEvent(new Event("resize"));
+  const h = document.documentElement.scrollHeight || 1;
+  window.scrollTo(0, Math.min(400, Math.floor(h / 3)));
+});
+const buf = await page.screenshot();
+const path = await saveScreenshot(buf, ${JSON.stringify(safeFilename)});
+console.log(JSON.stringify({ path }));
+`;
+      const t0 = Date.now();
+      try {
+        const r = await Promise.race([
+          browserMcpClient.callTool("browser_execute_script", { script, headless: true }),
+          new Promise<never>((_, rej) =>
+            setTimeout(() => rej(new Error("browser_execute_script timeout")), 45_000)),
+        ]);
+        const text = typeof r.content === "string" ? r.content : "";
+        const ms = Date.now() - t0;
+        let harnessOk = true;
+        try {
+          const j = JSON.parse(text) as { success?: boolean };
+          if (j.success === false) harnessOk = false;
+        } catch { harnessOk = false; }
+        statusWriter.recordMcpCall("browser", "browser_execute_script", ms, !harnessOk);
+        if (!harnessOk) return false;
+        const shotPath = parseDevBrowserScreenshotPathFromMcpText(text);
+        if (!shotPath) return false;
+        if (statSync(shotPath).size < 800) return false;
+        copyFileSync(shotPath, outFile);
+        return true;
       } catch {
-        statusWriter.recordMcpCall("vision", `screenshot_${view.name}`, Date.now() - viewStart, true);
-        continue;
+        statusWriter.recordMcpCall("browser", "browser_execute_script", Date.now() - t0, true);
+        return false;
       }
+    }
 
-      let analysisText = "";
-      try {
-        const imgData = await readImageFile(cachePath);
-        const analysis = await getVisionLLM().completeWithImage(
-          "You are a UI quality verifier for web applications.",
-          `Analyze this ${view.name} screenshot (${view.width}x${view.height}). If the image is mostly black or empty, say so. Otherwise: does the UI render correctly? Any broken layouts, errors, overflow? Be concise (2-3 sentences).`,
-          { base64: imgData.base64, mediaType: imgData.mediaType },
-          256,
-        );
-        analysisText = analysis?.text?.trim() || "";
-      } catch { /* vision optional */ }
+    // Screenshot each route at desktop + mobile
+    for (const route of appRoutes) {
+      const routeUrl = route.startsWith("#")
+        ? `${baseUrl}/${route}`
+        : `${baseUrl}${route === "/" ? "" : route}`;
+      const routeSlug = route.replace(/[^a-zA-Z0-9]/g, "-").replace(/^-/, "") || "home";
 
-      const viewMs = Date.now() - viewStart;
-      const looksBroken = /mostly black|blank page|empty|no visible content|entirely black/i.test(analysisText);
-      const isViewError = !analysisText || looksBroken;
-      anySuccess = anySuccess || !isViewError;
+      for (const viewport of [
+        { name: "desktop", width: 1280, height: 720 },
+        { name: "mobile", width: 375, height: 812 },
+      ]) {
+        const viewStart = Date.now();
+        const viewTs = new Date().toISOString().replace(/[:.]/g, "-");
+        const label = `${routeSlug}-${viewport.name}`;
+        const cachePath = join(cacheVisualsDir, `${viewTs}-${label}.png`);
+        const readableName = `${label}-${viewTs}.png`;
+        const projectPath = join(projectVisualsDir, readableName);
 
-      if (analysisText) {
-        console.log(`\x1b[90m[Vision] ${view.name}: ${analysisText.slice(0, 120)}\x1b[0m`);
+        // 1) Browser MCP (dev-browser): one script = goto + viewport + wait + scroll/resize + screenshot (real in-page actions)
+        // 2) Headless Chrome: SwiftShader fallback when dev-browser missing or script fails
+        let captured = await captureViaBrowserMcpHarness(routeUrl, viewport.width, viewport.height, cachePath);
+        if (!captured && chromePath) {
+          const args = [
+            "--headless=new", "--no-sandbox", "--disable-dev-shm-usage",
+            "--use-gl=angle", "--use-angle=swiftshader",
+            "--run-all-compositor-stages-before-draw",
+            "--virtual-time-budget=3000",
+            `--screenshot=${cachePath}`,
+            `--window-size=${viewport.width},${viewport.height}`,
+            routeUrl,
+          ];
+          const { spawnSync: ss } = await import("child_process");
+          const r = ss(chromePath, args, { stdio: "ignore", timeout: 35_000 });
+          captured = r.status === 0 && existsSync(cachePath) && statSync(cachePath).size > 800;
+        }
+
+        if (!captured) {
+          console.log(`\x1b[33m[Vision] ${label}: capture failed\x1b[0m`);
+          statusWriter.recordMcpCall("vision", `screenshot_${label}`, Date.now() - viewStart, true);
+          continue;
+        }
+
+        try { copyFileSync(cachePath, projectPath); } catch {
+          statusWriter.recordMcpCall("vision", `screenshot_${label}`, Date.now() - viewStart, true);
+          continue;
+        }
+
+        let analysisText = "";
+        try {
+          console.log(`\x1b[90m[Vision] analysing ${label} (${cachePath})\x1b[0m`);
+          const imgData = await readImageFile(cachePath);
+          console.log(`\x1b[90m[Vision] image loaded ${(imgData.base64.length / 1024).toFixed(0)}KB b64, calling LLM\x1b[0m`);
+          const analysis = await getVisionLLM().completeWithImage(
+            "You are a UI quality verifier. Be concise.",
+            `Route "${route}" · ${viewport.name} ${viewport.width}x${viewport.height}. ` +
+            `Is the UI rendered? List visible components and any errors in 2 sentences max.`,
+            { base64: imgData.base64, mediaType: imgData.mediaType },
+            512,
+          );
+          analysisText = analysis?.text?.trim() || "";
+          console.log(`\x1b[90m[Vision] LLM result: ${analysisText.slice(0, 80) || "(empty)"}\x1b[0m`);
+        } catch (e) {
+          console.error(`\x1b[33m[Vision] analysis error for ${label}: ${e instanceof Error ? e.message : String(e)}\x1b[0m`);
+        }
+
+        const viewMs = Date.now() - viewStart;
+        const looksBroken = /mostly black|blank page|empty|no visible content|entirely black/i.test(analysisText);
+        const isViewError = !analysisText || looksBroken;
+        anySuccess = anySuccess || !isViewError;
+
+        if (analysisText) {
+          console.log(`\x1b[90m[Vision] ${routeSlug}/${viewport.name}: ${analysisText.slice(0, 120)}\x1b[0m`);
+        }
+
+        statusWriter.recordMcpCall("vision", `screenshot_${label}`, viewMs, isViewError);
+        statusWriter.recordEvent("vision_verify", { taskId, route, view: viewport.name, port: expectedPort, analysis: analysisText?.slice(0, 300) });
+
+        try {
+          appendFileSync(logPath, [
+            `\n## ${new Date().toISOString()} -- Task \`${taskId}\` -- \`${route}\` (${viewport.name} ${viewport.width}x${viewport.height})\n`,
+            `**URL:** ${routeUrl}  **Verdict:** ${isViewError ? "FAILED" : "OK"}  **Latency:** ${viewMs}ms\n`,
+            `![${label}](visuals/${readableName})\n`,
+            analysisText ? `> ${analysisText.replace(/\n/g, "\n> ")}\n` : "> (no analysis)\n",
+            "---\n",
+          ].join("\n"));
+        } catch { /* best-effort */ }
       }
-
-      statusWriter.recordMcpCall("vision", `screenshot_${view.name}`, viewMs, isViewError);
-      statusWriter.recordEvent("vision_verify", {
-        taskId,
-        view: view.name,
-        port: expectedPort,
-        analysis: analysisText?.slice(0, 300),
-      });
-
-      try {
-        const entry = [
-          `\n## ${new Date().toISOString()} -- Task \`${taskId}\` (${view.name} ${view.width}x${view.height})\n`,
-          `**Port:** ${expectedPort}  `,
-          `**Verdict:** ${isViewError ? "FAILED" : "OK"}  `,
-          `**Latency:** ${viewMs}ms  `,
-          `**Method:** headless-chrome+swiftshader\n`,
-          `![${view.name}](visuals/${readableName})\n`,
-          analysisText ? `> ${analysisText.replace(/\n/g, "\n> ")}\n` : "> (no analysis)\n",
-          "---\n",
-        ].join("\n");
-        appendFileSync(logPath, entry);
-      } catch { /* best-effort */ }
     }
 
     const visionMs = Date.now() - visionStart;
@@ -775,7 +1181,7 @@ async function buildSelfAssessmentTask(
   workingDirectory: string,
   completedCount: number,
   recentTaskSummaries: string[],
-  availableTools: string[],
+  cap: ToolCapabilityMap,
 ): Promise<string | null> {
   const signals = gatherWorkspaceSignals(workingDirectory);
 
@@ -787,46 +1193,26 @@ async function buildSelfAssessmentTask(
     ? `\nALREADY COMPLETED (do NOT repeat these):\n${recentTaskSummaries.map((s, i) => `${i + 1}. ${s}`).join("\n")}\n`
     : "";
 
-  const hasBrowserTools = availableTools.some((t) => /browser_navigate|browser_screenshot/i.test(t));
-  const hasVisionTools = availableTools.some((t) => /4_5v_mcp|glmvision|tempglm/i.test(t));
-  const hasQualityGate = availableTools.some((t) => /QualityGate/i.test(t));
+  const mcpTools = cap._all.filter((t) => t.name?.startsWith("mcp__")).map((t) => t.name);
+  const pluginToolNames = cap._all
+    .filter((t) => t.name && !t.name.startsWith("mcp__") && !builtInTools.some((b) => b.name === t.name))
+    .map((t) => t.name);
 
-  const toolBlock = availableTools.length > 0
+  const browserTools = mcpTools.filter((t) => t?.includes("browser"));
+  const hasBrowserMcp = browserTools.length > 0;
+
+  const browserBlock = hasBrowserMcp
     ? [
-        `\nAGENT = LLM + TOOL CALLING. MCP tools are your primary action layer, not just Read/Edit/Bash.`,
         ``,
-        `AVAILABLE MCP TOOLS (prefer these over raw Bash equivalents):`,
-        ...availableTools.map((t) => `  - ${t}`),
-        ``,
-        `TOOL SELECTION RULES:`,
-        ...(hasBrowserTools ? [
-          `  - Browser/DOM/UI inspection → mcp__browser__browser_navigate + browser_snapshot + browser_screenshot`,
-          `  - User interactions → browser_click, browser_fill, browser_press (test real flows, not just code)`,
-        ] : []),
-        ...(hasVisionTools ? [
-          `  - Visual analysis → mcp__4_5v_mcp__analyze_image or tempglmvision (REQUIRED after every visual change)`,
-        ] : []),
-        ...(hasQualityGate ? [
-          `  - Before every commit → QualityGate (replaces running bun test + tsc + git diff manually)`,
-        ] : []),
-        `  - Web research → mcp__exa__* (search before implementing unknown patterns)`,
-        ``,
-        `MANDATORY WEB TASK SEQUENCE (skip any step = task is incomplete):`,
-        `  1. Edit code`,
-        `  2. bun run build`,
-        ...(hasBrowserTools ? [
-          `  3. mcp__browser__browser_navigate http://localhost:<port>`,
-          `  4. mcp__browser__browser_snapshot  (inspect DOM state)`,
-          `  5. mcp__browser__browser_screenshot filename=<name>.png  → save path`,
-        ] : []),
-        ...(hasVisionTools ? [
-          `  6. mcp__4_5v_mcp__analyze_image <saved screenshot path>`,
-          `  7. Append to VISUAL_LOG.md: ## [timestamp] - what changed, ![](visuals/file.png), **Analysis:** result`,
-        ] : []),
-        ...(hasQualityGate ? [
-          `  8. QualityGate  (verify tests pass, no TS errors)`,
-        ] : []),
-        `  9. git commit -m "feat: <description>"`,
+        `BROWSER TESTING (REQUIRED for any web project):`,
+        `After writing or modifying code, you MUST:`,
+        `  1. Start the dev server (Bash: bun run dev) if not already running`,
+        `  2. Navigate to the app (${browserTools.find((t) => t?.includes("navigate")) || "mcp__browser__browser_navigate"})`,
+        `  3. Click through every major page/view — don't just look at the homepage`,
+        `  4. Fill forms, press buttons, trigger state changes`,
+        `  5. Screenshot each meaningful state (${browserTools.find((t) => t?.includes("screenshot")) || "mcp__browser__browser_screenshot"})`,
+        `  6. Write findings + screenshot paths to VISUAL_LOG.md`,
+        `This is non-optional — tool calls beat file reads for verification.`,
       ].join("\n")
     : "";
 
@@ -841,20 +1227,22 @@ async function buildSelfAssessmentTask(
         `ONLY reference files inside ${workingDirectory}. Ignore signals from other directories.`,
         ``,
         `Priority order:`,
-        `  1. Build errors or test failures (fix immediately)`,
-        `  2. Uncommitted work (commit it)`,
-        `  3. Code TODOs / FIXMEs in source files`,
-        `  4. Missing or low test coverage (add tests for untested modules)`,
-        `  5. Performance improvements (lazy loading, bundle size, render optimization)`,
-        `  6. Accessibility (ARIA labels, keyboard navigation, color contrast)`,
-        `  7. UI/UX polish (animations, responsive design, error states, loading states)`,
-        `  8. Code quality (extract duplicated logic, improve types, reduce complexity)`,
-        `  9. Documentation (update README, add JSDoc, document APIs)`,
+        `  1. Build errors or test failures → fix immediately, name exact file + line`,
+        `  2. Code TODOs / FIXMEs in source files → implement them`,
+        `  3. UNCHECKED items in PROGRESS.md → implement one`,
+        `  4. PLANNED FEATURES listed in signals → implement the most impactful one (name the file to create/edit)`,
+        `  5. SOURCE FILES WITH NO TESTS → add a test file for one of them`,
+        `  6. Performance / bundle size improvements`,
+        `  7. Accessibility (ARIA labels, keyboard nav, color contrast)`,
+        `  8. UI/UX polish (animations, responsive design, error states, loading states)`,
+        `  9. Code quality (remove duplication, tighten types, reduce complexity)`,
+        ` 10. Add JSDoc to exported functions in a file that lacks it`,
         ``,
-        `There is ALWAYS something to improve. A clean build just means you move to categories 4-9.`,
-        `NEVER respond with NOTHING_ACTIONABLE unless the project has <3 source files.`,
+        `If the project is clean with no obvious gaps, IMPLEMENT A NEW FEATURE. Pick one from the PLANNED FEATURES`,
+        `signal or invent a meaningful improvement. Always name the exact file(s) to create or edit.`,
+        `NEVER respond with NOTHING_ACTIONABLE — there is always something to build or improve.`,
         `NEVER generate a task that only commits/stages files. Commits are handled automatically.`,
-        `Your task MUST involve writing or modifying source code, tests, or documentation content.`,
+        `Your task MUST result in writing or modifying actual source code, tests, or docs.`,
         recentTaskSummaries.length > 0
           ? `ALREADY DONE (do NOT repeat): ${recentTaskSummaries.join(" | ")}`
           : ``,
@@ -881,18 +1269,10 @@ async function buildSelfAssessmentTask(
         return [
           `[AUTONOMOUS ASSESSMENT -- self-generated task #${completedCount + 1}]`,
           scopeRule,
-          `You are a daemon running autonomously. The task queue is empty.`,
-          `The meta-LLM analyzed the workspace and selected this task:`,
-          ``,
           result.text,
+          browserBlock,
           dedupBlock,
-          toolBlock,
-          ``,
-          `After completing: cd ${workingDirectory}, build, test (scoped), commit.`,
-          `For web projects: use vision/screenshot tools to verify UI after changes. Save screenshots to visuals/.`,
-          `Append each screenshot + analysis to VISUAL_LOG.md. Update PROGRESS.md with a visual summary.`,
-          `NEVER run bare \`bun test\` from the repo root. NEVER edit files outside ${workingDirectory}.`,
-        ].join("\n");
+        ].filter(Boolean).join("\n");
       }
     }
   } catch { /* fall through to template */ }
@@ -900,21 +1280,15 @@ async function buildSelfAssessmentTask(
   return [
     `[AUTONOMOUS IMPROVEMENT -- self-generated task #${completedCount + 1}]`,
     scopeRule,
-    `You are a daemon running autonomously. The task queue is empty and the project builds clean.`,
-    `Your job is continuous improvement. Commits are handled automatically -- focus on CODE CHANGES.`,
-    `Pick ONE from this priority list (you MUST write/modify code, not just commit):`,
+    `Pick ONE improvement (must write/modify code, not just commit):`,
     `  1. Add tests for any module with <80% coverage`,
     `  2. Performance: lazy loading, bundle size reduction, render optimization`,
     `  3. Accessibility: ARIA labels, keyboard navigation, screen reader support`,
     `  4. UI polish: better error states, loading indicators, responsive breakpoints`,
     `  5. Code quality: extract duplicated logic, improve TypeScript types, reduce complexity`,
     `  6. Documentation: update README with setup/usage, add JSDoc to public APIs`,
+    browserBlock,
     dedupBlock,
-    toolBlock,
-    `Do NOT repeat work that is already done. Check git log to see recent commits.`,
-    `After completing: cd ${workingDirectory}, build, test (scoped), commit.`,
-    `For web projects: use vision/screenshot tools to verify UI. Save to visuals/.`,
-    `Append each screenshot + analysis to VISUAL_LOG.md. Update PROGRESS.md with a visual summary.`,
     `NEVER edit files outside ${workingDirectory}.`,
     ``,
     `WORKSPACE SIGNALS:`,
@@ -939,17 +1313,12 @@ export async function runDaemonLoop(options: DaemonOptions): Promise<never> {
     taskQueue.submit(options.initialTask);
   }
 
-  // Collect MCP/tool names + descriptions for self-assessment prompts
-  const builtinToolNames = new Set(builtInTools.map((t) => t.name));
-  const availableTools: string[] = [];
-  if (options.tools) {
-    for (const t of options.tools) {
-      if (t.name && !builtinToolNames.has(t.name)) {
-        const desc = (t as { description?: string }).description;
-        availableTools.push(desc ? `${t.name} -- ${desc.slice(0, 80)}` : t.name);
-      }
-    }
-  }
+  // Build capability map once from all loaded tools — single source of truth
+  const cap = buildToolCapabilities(options.tools ?? []);
+  const mcpToolNames = cap._all.filter((t) => t.name?.startsWith("mcp__")).map((t) => t.name);
+  const pluginToolNames = cap._all
+    .filter((t) => t.name && !t.name.startsWith("mcp__") && !builtInTools.some((b) => b.name === t.name))
+    .map((t) => t.name);
 
   let totalDaemonCost = 0;
   let tasksCompleted = 0;
@@ -964,8 +1333,11 @@ export async function runDaemonLoop(options: DaemonOptions): Promise<never> {
   console.log(`\x1b[35m  Or append to ${workingDirectory}/.coder/tasks.jsonl\x1b[0m`);
   console.log(`\x1b[90m  View queue: http://localhost:${STATS_PORT}/tasks\x1b[0m`);
   console.log(`\x1b[90m  View stats: http://localhost:${STATS_PORT}/stats\x1b[0m`);
-  if (availableTools.length > 0) {
-    console.log(`\x1b[90m  MCP tools: ${availableTools.join(", ")}\x1b[0m`);
+  if (mcpToolNames.length > 0) {
+    console.log(`\x1b[90m  MCP tools: ${mcpToolNames.join(", ")}\x1b[0m`);
+  }
+  if (pluginToolNames.length > 0) {
+    console.log(`\x1b[90m  Plugin tools: ${pluginToolNames.join(", ")}\x1b[0m`);
   }
   console.log();
 
@@ -1021,7 +1393,7 @@ export async function runDaemonLoop(options: DaemonOptions): Promise<never> {
           workingDirectory,
           selfGeneratedTasks,
           recentSummaries,
-          availableTools,
+          cap,
         );
         if (autoTask) {
           const submitted = taskQueue.submit(autoTask);
@@ -1069,50 +1441,10 @@ export async function runDaemonLoop(options: DaemonOptions): Promise<never> {
       query: task.query.slice(0, 200),
     });
 
-    // Inject MCP-first directive into every task
-    const hasBrowserMcp = availableTools.some((t) => /browser_navigate/i.test(t));
-    const hasVisionMcp = availableTools.some((t) => /4_5v_mcp|tempglmvision/i.test(t));
-    const hasQualityGateMcp = availableTools.some((t) => /QualityGate/i.test(t));
-
-    const mcpPreamble = (hasBrowserMcp || hasVisionMcp || hasQualityGateMcp)
-      ? [
-          ``,
-          `AGENT DIRECTIVE: You are an LLM with tool calling. MCP tools are your primary action layer.`,
-          `Do NOT rely only on Read/Edit/Bash — you have richer tools available.`,
-          ``,
-          `MCP TOOL OBLIGATIONS for this task:`,
-          ...(hasBrowserMcp ? [
-            `  BROWSER (mcp__browser__*):`,
-            `    - After ANY UI change: browser_navigate → browser_snapshot (inspect DOM) → browser_screenshot`,
-            `    - Test user flows: browser_click, browser_fill, browser_press to interact with the UI`,
-            `    - For WebGL/Three.js canvas (black screenshot issue): use headless Chrome instead:`,
-            `      "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --no-sandbox --disable-dev-shm-usage --use-gl=angle --use-angle=swiftshader --run-all-compositor-stages-before-draw --screenshot=visuals/NAME.png --window-size=1280,720 http://localhost:PORT`,
-          ] : []),
-          ...(hasVisionMcp ? [
-            `  VISION (mcp__4_5v_mcp__analyze_image or tempglmvision):`,
-            `    - Call after EVERY screenshot — analyze quality, layout, errors`,
-            `    - Save screenshot to visuals/ and append to VISUAL_LOG.md:`,
-            `      ## [timestamp] - <what changed>`,
-            `      ![name](visuals/file.png)`,
-            `      **Analysis:** <vision output>`,
-            `      ---`,
-          ] : []),
-          ...(hasQualityGateMcp ? [
-            `  QUALITY (QualityGate):`,
-            `    - Call QualityGate BEFORE every git commit — do NOT run bun test manually`,
-          ] : []),
-          ``,
-          `Capture ALL states: landing, interaction, error, mobile viewport. Not just the default page.`,
-        ].join("\n")
-      : "";
-    const augmentedQuery = mcpPreamble
-      ? `${task.query}\n${mcpPreamble}`
-      : task.query;
-
     try {
       const result = await runSingleQuery({
         ...options,
-        query: augmentedQuery,
+        query: task.query,
         sessionId: taskSessionId,
         sharedStatusWriter: statusWriter,
       });
@@ -1122,7 +1454,7 @@ export async function runDaemonLoop(options: DaemonOptions): Promise<never> {
       tasksCompleted++;
 
       // Automatic post-task verification (QualityGate + Vision if web project)
-      await runPostTaskVerification(workingDirectory, task.id, statusWriter);
+      await runPostTaskVerification(workingDirectory, task.id, statusWriter, options.mcpClients);
 
       statusWriter.recordEvent("task_completed", {
         taskId: task.id,

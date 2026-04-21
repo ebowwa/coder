@@ -1636,6 +1636,7 @@ Jupyter notebooks are interactive documents that combine code, text, and visuali
 export const TempGlmVisionTool: ToolDefinition = {
   name: "tempglmvision",
   description: `Analyze images using GLM-4.6V vision model. Use this tool when you need to analyze, describe, or extract information from images. Supports PNG, JPG, JPEG, GIF, and WEBP formats. Accepts both local file paths and remote URLs.`,
+  annotations: { capabilities: ["vision"] },
   input_schema: {
     type: "object",
     properties: {
@@ -1799,6 +1800,7 @@ export const TempGlmVisionTool: ToolDefinition = {
 export const AnalyzeImageTool: ToolDefinition = {
   name: "mcp__4_5v_mcp__analyze_image",
   description: `Analyze an image using advanced AI vision models with comprehensive understanding capabilities. Supports PNG, JPG, JPEG, GIF, and WEBP formats. Accepts both local file paths and remote URLs.`,
+  annotations: { capabilities: ["vision"] },
   input_schema: {
     type: "object",
     properties: {

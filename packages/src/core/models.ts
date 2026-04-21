@@ -437,7 +437,7 @@ export const MODEL_ALIASES = {
 // ============================================
 
 /** Default model for interactive use (configurable via CODER_DEFAULT_MODEL env var) */
-export const DEFAULT_MODEL = process.env.CODER_DEFAULT_MODEL || "claude-sonnet-4-6";
+export const DEFAULT_MODEL = process.env.CODER_DEFAULT_MODEL || "glm-5";
 
 /** Default model for meta-tasks: compaction, handoff summarization, self-assessment */
 export const META_LLM_MODEL = process.env.CODER_META_MODEL || "glm-5-turbo";

@@ -294,39 +294,99 @@ export async function createMessageStream(
     content: string;
   }
 
+  // OpenAI-format message type that supports tool calls natively
+  type OpenAIToolCall = { id: string; type: "function"; function: { name: string; arguments: string } };
+  type OpenAIContentBlock = { type: "text"; text: string } | { type: "tool_use"; id: string; name: string; input: unknown };
+  type OpenAIFullMessage =
+    | { role: "system"; content: string }
+    | { role: "user"; content: string | OpenAIContentBlock[] }
+    | { role: "assistant"; content: string | null; tool_calls?: OpenAIToolCall[] }
+    | { role: "tool"; tool_call_id: string; content: string };
+
   let openaiRequest: Record<string, unknown> | undefined;
   if (apiFormat === "openai") {
-    // Convert Anthropic-style request to OpenAI format
-    const openaiMessages: OpenAIMessage[] = [];
+    const openaiMessages: OpenAIFullMessage[] = [];
     openaiRequest = {
       model: request.model,
       max_tokens: request.max_tokens,
       messages: openaiMessages,
       stream: true,
+      // Disable parallel tool calls for non-Anthropic models — forces sequential,
+      // reliable tool use which matches how CC handles non-Claude models
+      parallel_tool_calls: false,
     };
 
-    // Add system prompt as first message if present
+    // Add system prompt as first message
     if (request.system) {
       const systemContent = typeof request.system === "string"
         ? request.system
         : request.system.map(b => b.text).join("\n");
-      openaiMessages.push({
-        role: "system",
-        content: systemContent,
-      });
+      openaiMessages.push({ role: "system", content: systemContent });
     }
 
-    // Convert messages
+    // Convert messages — preserve tool_use/tool_result as OpenAI tool call format
     for (const msg of request.messages) {
-      openaiMessages.push({
-        role: msg.role,
-        content: typeof msg.content === "string"
-          ? msg.content
-          : msg.content.map(b => b.type === "text" ? b.text : JSON.stringify(b)).join(""),
-      });
+      if (typeof msg.content === "string") {
+        openaiMessages.push({ role: msg.role as "user" | "assistant", content: msg.content });
+        continue;
+      }
+
+      // Check for tool_use blocks (assistant making tool calls)
+      const toolUseBlocks = msg.content.filter(b => b.type === "tool_use") as Array<{ type: "tool_use"; id: string; name: string; input: unknown }>;
+      // Check for tool_result blocks (user returning tool results)
+      const toolResultBlocks = msg.content.filter(b => b.type === "tool_result") as Array<{ type: "tool_result"; tool_use_id: string; content: unknown }>;
+
+      if (msg.role === "assistant" && toolUseBlocks.length > 0) {
+        // Assistant message with tool calls
+        const textContent = msg.content
+          .filter(b => b.type === "text")
+          .map(b => (b as { type: "text"; text: string }).text)
+          .join("") || null;
+        openaiMessages.push({
+          role: "assistant",
+          content: textContent,
+          tool_calls: toolUseBlocks.map(b => ({
+            id: b.id,
+            type: "function" as const,
+            function: {
+              name: b.name,
+              arguments: typeof b.input === "string" ? b.input : JSON.stringify(b.input),
+            },
+          })),
+        });
+      } else if (msg.role === "user" && toolResultBlocks.length > 0) {
+        // Tool results — one OpenAI "tool" message per result
+        for (const block of toolResultBlocks) {
+          const resultContent = typeof block.content === "string"
+            ? block.content
+            : Array.isArray(block.content)
+              ? block.content.map(b => (b as { text?: string }).text ?? JSON.stringify(b)).join("\n")
+              : JSON.stringify(block.content);
+          openaiMessages.push({
+            role: "tool",
+            tool_call_id: block.tool_use_id,
+            content: resultContent,
+          });
+        }
+        // Any non-tool-result text in the same user turn
+        const extraText = msg.content
+          .filter(b => b.type === "text")
+          .map(b => (b as { type: "text"; text: string }).text)
+          .join("");
+        if (extraText) {
+          openaiMessages.push({ role: "user", content: extraText });
+        }
+      } else {
+        // Plain user/assistant message
+        const text = msg.content
+          .filter(b => b.type === "text")
+          .map(b => (b as { type: "text"; text: string }).text)
+          .join("");
+        openaiMessages.push({ role: msg.role as "user" | "assistant", content: text });
+      }
     }
 
-    // Convert tools to OpenAI format
+    // Convert tools to OpenAI function format
     if (request.tools && request.tools.length > 0) {
       openaiRequest.tools = request.tools.map((t) => ({
         type: "function",
@@ -337,7 +397,6 @@ export async function createMessageStream(
         },
       }));
 
-      // Convert tool_choice
       if (request.tool_choice) {
         const tc = request.tool_choice as { type: string; function?: { name: string } };
         if (tc.type === "auto" || tc.type === "required" || tc.type === "none") {

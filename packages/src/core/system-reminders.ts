@@ -14,6 +14,7 @@ import type {
   SystemReminderConfig,
 } from "../schemas/index.js";
 import { DEFAULT_REMINDER_CONFIG } from "../schemas/index.js";
+import type { ToolCapabilityMap } from "./tool-capabilities.js";
 
 // Re-export types for backward compatibility
 export type {
@@ -278,8 +279,8 @@ export interface CombinedReminderOptions {
   gitStatus?: GitStatus | null;
   turnNumber: number;
   config?: Partial<SystemReminderConfig>;
-  /** MCP tool names available this session — injected into per-turn reminder */
-  availableMcpTools?: string[];
+  /** Capability map built from all loaded tools — replaces raw name arrays */
+  toolCapabilities?: ToolCapabilityMap;
 }
 
 /**
@@ -297,26 +298,11 @@ export function buildCombinedReminder(options: CombinedReminderOptions): string 
     gitStatus,
     turnNumber,
     config: userConfig,
-    availableMcpTools = [],
+    toolCapabilities,
   } = options;
 
   const config = { ...DEFAULT_REMINDER_CONFIG, ...userConfig };
   const reminders: string[] = [];
-
-  // MCP tool reminder — injected every 3 turns to keep model oriented toward MCPs
-  if (availableMcpTools.length > 0 && turnNumber % 3 === 1) {
-    const hasBrowser = availableMcpTools.some((t) => /browser_navigate/i.test(t));
-    const hasVision = availableMcpTools.some((t) => /4_5v_mcp|tempglmvision/i.test(t));
-    const hasQG = availableMcpTools.some((t) => /QualityGate/i.test(t));
-    const mcpLines = [
-      "AGENT REMINDER: You are an LLM with tool calling. Prefer MCP tools over Bash:",
-      ...(hasBrowser ? ["  - browser: browser_navigate -> browser_snapshot -> browser_screenshot (inspect live UI)"] : []),
-      ...(hasVision ? ["  - vision: mcp__4_5v_mcp__analyze_image or tempglmvision (REQUIRED after screenshots)"] : []),
-      ...(hasQG ? ["  - quality: QualityGate (REQUIRED before every git commit)"] : []),
-      "  Do NOT finish a web task without calling browser + vision + QualityGate.",
-    ];
-    reminders.push(mcpLines.join("\n"));
-  }
 
   // Token warning against context window (not per-request output limit)
   const currentTokens = usage.input_tokens + usage.output_tokens;

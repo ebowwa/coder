@@ -95,10 +95,24 @@ export function mcpToolsToToolDefinitions(mcpClients: Map<string, MCPClientImpl>
 
   for (const [serverName, client] of mcpClients) {
     for (const mcpTool of client.tools) {
+      // Map MCP protocol capabilities onto ToolDefinition.annotations.capabilities
+      // Priority: tool-level _meta.capabilities > tool annotations.capabilities
+      const metaCaps = (mcpTool._meta?.["capabilities"] as string[] | undefined) ?? [];
+      const annotationCaps = (mcpTool.annotations as { capabilities?: string[] } | undefined)?.capabilities ?? [];
+      const resolvedCaps = metaCaps.length > 0 ? metaCaps : annotationCaps;
+
       tools.push({
         name: `mcp__${serverName}__${mcpTool.name}`,
         description: mcpTool.description,
         input_schema: mcpTool.inputSchema,
+        isMcp: true,
+        mcpInfo: { serverName, toolName: mcpTool.name },
+        annotations: {
+          readOnlyHint: mcpTool.annotations?.readOnlyHint,
+          destructiveHint: mcpTool.annotations?.destructiveHint,
+          openWorldHint: mcpTool.annotations?.openWorldHint,
+          capabilities: resolvedCaps.length > 0 ? resolvedCaps : undefined,
+        },
         handler: async (args: Record<string, unknown>, context: ToolContext) => {
           if (!client.connected) {
             return {

@@ -1,0 +1,82 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches: [main, dev]
+    paths-ignore:
+      - 'assignments/**'
+      - 'docs/**'
+      - '*.md'
+      - '.claude/**'
+      - 'memory/**'
+
+jobs:
+  deploy:
+    name: Deploy to seed-node-prod
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          command_timeout: 30m
+          script: |
+            set -euo pipefail
+
+            export PATH="$HOME/.cargo/bin:$HOME/.bun/bin:$PATH"
+
+            echo "=== Coder VPS Deploy ==="
+            echo "Branch: ${{ github.ref_name }}"
+            echo "Commit: ${{ github.sha }}"
+            echo "Timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+            cd /root/packages
+
+            # Fetch latest
+            git fetch origin
+            CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+            TARGET_BRANCH="${{ github.ref_name }}"
+
+            if [ "$CURRENT_BRANCH" != "$TARGET_BRANCH" ]; then
+              echo "Switching from $CURRENT_BRANCH to $TARGET_BRANCH"
+              git checkout "$TARGET_BRANCH"
+            fi
+
+            # Check for uncommitted changes (daemon auto-commits)
+            if ! git diff --quiet; then
+              echo "Dirty working tree - committing pending changes first"
+              git add -A
+              git commit -m "chore(daemon): auto-commit before deploy" || true
+            fi
+
+            # Pull latest
+            git pull origin "$TARGET_BRANCH"
+
+            # Install dependencies
+            bun install
+
+            # Build Rust native module (coder's own native)
+            echo "Building Rust native module..."
+            cd packages/rust && cargo build --release --target-dir ./target && cd ../..
+
+            # Copy built .so directly to native/ (avoids napi CLI ESM issues on VPS)
+            cp packages/rust/target/release/libclaude_code_native.so native/claude_code_native.linux-x64-gnu.node
+            echo "Copied native binary to native/"
+
+            # Build TypeScript bundle
+            echo "Building TypeScript bundle..."
+            bun run build:ts
+
+            # Build type declarations
+            bun run build:types
+
+            # Link globally
+            bun link
+
+            # Verify
+            echo "=== Deploy Complete ==="
+            coder --version 2>/dev/null || echo "coder binary check failed"
+            echo "Deployed: $(date -u +%Y-%m-%dT%H:%M:%SZ)"

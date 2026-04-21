@@ -71,7 +71,7 @@ async function main(): Promise<void> {
   // Get git status for system prompt
   const gitStatus = await getGitStatus(process.cwd());
 
-  // Build system prompt
+  // Build system prompt — MCP server instructions from InitializeResult (CC pattern)
   const systemPrompt = await buildCompleteSystemPrompt(process.cwd(), {
     systemPrompt: args.systemPrompt,
     appendSystemPrompt: args.appendSystemPrompt,
@@ -79,6 +79,7 @@ async function main(): Promise<void> {
     agentId: args.agentId,
     agentName: args.agentName,
     teamName: args.teamName,
+    mcpClients: setup.mcpClients,
   });
 
   // Handle session resume
@@ -135,6 +136,7 @@ async function main(): Promise<void> {
       workingDirectory: process.cwd(),
       gitStatus,
       initialTask: args.daemonTask || query || undefined,
+      mcpClients: setup.mcpClients,
     });
     return;
   }

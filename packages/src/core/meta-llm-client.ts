@@ -41,6 +41,7 @@ export class MetaLLMClient {
 
     this.apiKey =
       opts?.apiKey ??
+      process.env.Z_AI_API_KEY ??
       process.env.ZHIPU_API_KEY ??
       process.env.ANTHROPIC_AUTH_TOKEN ??
       process.env.ANTHROPIC_API_KEY ??
@@ -140,9 +141,12 @@ export class MetaLLMClient {
     systemPrompt: string,
     userText: string,
     image: { base64: string; mediaType: string } | { url: string },
-    maxTokens = 2048,
+    maxTokens = 512,
   ): Promise<MetaLLMResponse | null> {
-    if (!this.apiKey) return null;
+    if (!this.apiKey) {
+      console.error(`\x1b[33m[VisionLLM] no API key — vision disabled\x1b[0m`);
+      return null;
+    }
 
     const imageContent =
       "url" in image
@@ -157,6 +161,9 @@ export class MetaLLMClient {
     const body = {
       model: this.model,
       max_tokens: maxTokens,
+      temperature: 0,
+      // Disable extended chain-of-thought so tokens go to response content, not reasoning_content
+      enable_thinking: false,
       messages: [
         { role: "system", content: systemPrompt },
         {
@@ -209,8 +216,13 @@ export class MetaLLMClient {
         };
 
         const msg = data.choices?.[0]?.message;
-        const text = msg?.content || msg?.reasoning_content || "";
-        if (!text) return null;
+        const finishReason = (data as { choices?: Array<{ finish_reason?: string }> }).choices?.[0]?.finish_reason;
+        // Prefer explicit content; fall back to reasoning_content when content is empty (e.g. finish_reason=length on thinking models)
+        const text = (msg?.content?.trim()) || (msg?.reasoning_content?.trim()) || "";
+        if (!text) {
+          console.error(`\x1b[33m[VisionLLM] empty response (finish_reason=${finishReason})\x1b[0m`);
+          return null;
+        }
 
         return {
           text,

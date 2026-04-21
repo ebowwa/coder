@@ -95,7 +95,8 @@ export function parseArgs(): CLIArgs {
     // Read from environment variables (can be configured via Doppler)
     model: process.env.ANTHROPIC_MODEL || process.env.ANTHROPIC_DEFAULT_SONNET_MODEL || DEFAULT_MODEL,
     permissionMode: (process.env.CODER_PERMISSION_MODE || "default") as PermissionMode,
-    maxTokens: parseInt(process.env.ANTHROPIC_MAX_TOKENS || process.env.CODER_MAX_TOKENS || "16384"),
+    // 0 = use model's declared maxOutput (capped at 32K per-turn in agentLoop, CC-style)
+    maxTokens: parseInt(process.env.ANTHROPIC_MAX_TOKENS || process.env.CODER_MAX_TOKENS || "0"),
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -245,7 +246,7 @@ USAGE:
 OPTIONS:
   -m, --model <model>           Model to use (default: ${DEFAULT_MODEL})
   -p, --permission-mode <mode>  Permission mode (default, acceptEdits, bypassPermissions)
-  --max-tokens <tokens>         Maximum output tokens (default: 4096)
+  --max-tokens <tokens>         Maximum output tokens per turn (default: model max, capped at 32000)
   -v, --version                 Show version and exit
   -d, --debug                   Enable debug output
 

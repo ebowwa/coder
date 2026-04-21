@@ -22,6 +22,7 @@ const QualityGateTool: ToolDefinition = {
   name: "QualityGate",
   description:
     "Run the quality gate (bun test + tsc --noEmit + git diff) against a working directory. Returns structured pass/fail with test counts, TS error count, and changed files list.",
+  annotations: { capabilities: ["quality"] },
   input_schema: {
     type: "object",
     properties: {

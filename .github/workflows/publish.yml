@@ -1,0 +1,47 @@
+name: Publish to npm
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  publish:
+    name: Publish @ebowwa/coder
+    runs-on: ubuntu-latest
+    environment: npm-publish
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          version: latest
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - run: bun install --frozen-lockfile
+
+      - name: Build Rust native module
+        run: bun run build:native
+
+      - name: Build TypeScript bundle
+        run: bun run build:ts
+
+      - name: Build type declarations
+        run: bun run build:types
+
+      - name: Verify package contents
+        run: |
+          echo "Package: @ebowwa/coder"
+          echo "Version: $(node -p "require('./package.json').version")"
+          echo ""
+          echo "Files to publish:"
+          npx npm-packlist 2>/dev/null || ls -la dist/ native/ packages/src/
+
+      - name: Publish to npm
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
