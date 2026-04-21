@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*'
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   publish:
     name: Publish @ebowwa/coder
@@ -18,7 +21,7 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
         with:
-          version: latest
+          bun-version: latest
 
       - uses: dtolnay/rust-toolchain@stable
 

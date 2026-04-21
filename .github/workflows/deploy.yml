@@ -10,6 +10,9 @@ on:
       - '.claude/**'
       - 'memory/**'
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   deploy:
     name: Deploy to seed-node-prod
