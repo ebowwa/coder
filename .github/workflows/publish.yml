@@ -22,7 +22,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - run: bun install --frozen-lockfile
+      - run: bun install
 
       - name: Build Rust native module
         run: bun run build:native

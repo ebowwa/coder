@@ -30,7 +30,7 @@ jobs:
           key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
           restore-keys: bun-${{ runner.os }}-
 
-      - run: bun install --frozen-lockfile
+      - run: bun install
 
       - name: TypeScript type-check
         run: bunx tsc --noEmit
@@ -45,7 +45,7 @@ jobs:
         with:
           version: latest
 
-      - run: bun install --frozen-lockfile
+      - run: bun install
 
       - name: Biome lint
         run: |
@@ -88,7 +88,7 @@ jobs:
         with:
           version: latest
 
-      - run: bun install --frozen-lockfile
+      - run: bun install
 
       - name: Build Rust native module
         env:
@@ -114,7 +114,7 @@ jobs:
         with:
           version: latest
 
-      - run: bun install --frozen-lockfile
+      - run: bun install
 
       - name: Build TypeScript bundle
         run: bun run build:ts
@@ -140,7 +140,7 @@ jobs:
         with:
           version: latest
 
-      - run: bun install --frozen-lockfile
+      - run: bun install
 
       - name: Download dist
         uses: actions/download-artifact@v4
