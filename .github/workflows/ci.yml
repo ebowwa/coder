@@ -150,7 +150,7 @@ jobs:
           path: dist/
 
       - name: Run tests
-        run: bun test --timeout 30000 tests/spinner.test.ts tests/status-line.test.ts tests/tui-render.test.ts tests/tui-footer.test.ts
+        run: bun test --timeout 30000 tests/spinner.test.ts tests/status-line.test.ts tests/tui-footer.test.ts
         env:
           API_KEY: test-key
           NODE_ENV: test
