@@ -168,13 +168,10 @@ describe("Status Line", () => {
         tokensUsed: 0,
         maxTokens: 200_000,
         model: "claude-sonnet-4-6",
-        terminalWidth: 120, // Wide enough for full format
+        terminalWidth: 120,
       };
 
       const result = renderStatusLine(options);
-      expect(result).toContain("Context left until auto-compact");
-      expect(result).toContain("100%");
-      expect(result).toContain("0 tokens");
       expect(result).toContain("default");
     });
 
@@ -274,9 +271,9 @@ describe("Status Line", () => {
   });
 
   describe("shouldShowAutoCompactWarning", () => {
-    test("returns true for low context", () => {
+    test("returns false (disabled - user is token rich)", () => {
       const info = calculateContextInfo(180_000, "claude-sonnet-4-6");
-      expect(shouldShowAutoCompactWarning(info)).toBe(true);
+      expect(shouldShowAutoCompactWarning(info)).toBe(false);
     });
 
     test("returns false for normal context", () => {
@@ -286,18 +283,16 @@ describe("Status Line", () => {
   });
 
   describe("renderAutoCompactWarning", () => {
-    test("renders critical warning", () => {
+    test("returns empty string (disabled)", () => {
       const info = calculateContextInfo(195_000, "claude-sonnet-4-6");
       const warning = renderAutoCompactWarning(info);
-      expect(warning).toContain("critical");
-      expect(warning).toContain("Auto-compact");
+      expect(warning).toBe("");
     });
 
-    test("renders low warning", () => {
-      // Use 175,000 tokens which leaves 12.5% - in the low range (8-15%)
+    test("returns empty string for low context (disabled)", () => {
       const info = calculateContextInfo(175_000, "claude-sonnet-4-6");
       const warning = renderAutoCompactWarning(info);
-      expect(warning).toContain("low");
+      expect(warning).toBe("");
     });
 
     test("returns empty string for normal context", () => {
