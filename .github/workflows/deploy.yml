@@ -69,7 +69,23 @@ jobs:
             # Link globally
             bun link
 
+            # Restart daemon with new build
+            echo "Restarting coder-daemon service..."
+            systemctl restart coder-daemon
+            sleep 5
+
+            # Health check
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:7420/stats)
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "Daemon healthy (HTTP 200)"
+            else
+              echo "WARNING: Daemon health check returned HTTP $HTTP_CODE"
+              systemctl status coder-daemon --no-pager -l || true
+            fi
+
             # Verify
             echo "=== Deploy Complete ==="
             coder --version 2>/dev/null || echo "coder binary check failed"
+            echo "Daemon: $(systemctl is-active coder-daemon)"
+            echo "Dashboard: http://localhost:7420"
             echo "Deployed: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
