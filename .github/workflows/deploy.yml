@@ -65,8 +65,8 @@ jobs:
             # Build type declarations
             bun run build:types
 
-            # Install globally via bun
-            bun install -g .
+            # Link globally via bun (bun install -g . hits dependency loop)
+            bun link
 
             # Verify
             echo "=== Deploy Complete ==="
