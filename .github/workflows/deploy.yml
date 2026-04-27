@@ -2,7 +2,7 @@ name: Deploy to VPS
 
 on:
   push:
-    branches: [main, dev]
+    branches: [dev]
     paths-ignore:
       - 'assignments/**'
       - 'docs/**'
@@ -29,33 +29,31 @@ jobs:
           script: |
             set -euo pipefail
 
-            export PATH="$HOME/.cargo/bin:$HOME/.bun/bin:$PATH"
+            export PATH="$HOME/.bun/bin:$HOME/.local/bin:$PATH"
 
             echo "=== Coder VPS Deploy ==="
             echo "Branch: ${{ github.ref_name }}"
             echo "Commit: ${{ github.sha }}"
             echo "Timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-            cd /root/packages
-
-            TARGET_BRANCH="${{ github.ref_name }}"
-
-            # Fetch latest from origin
-            git fetch origin
-
-            # Force-sync to remote branch (VPS is a deployment target, not a dev machine)
-            # bun install modifies bun.lock/package.json so plain git pull fails
-            git checkout "$TARGET_BRANCH" 2>/dev/null || true
-            git reset --hard "origin/$TARGET_BRANCH"
+            # Clone or update coder repo
+            if [ -d /root/coder ]; then
+              cd /root/coder
+              git fetch origin
+              git reset --hard "origin/${{ github.ref_name }}"
+            else
+              git clone -b ${{ github.ref_name }} https://github.com/ebowwa/coder.git /root/coder
+              cd /root/coder
+            fi
 
             # Install dependencies
             bun install
 
-            # Build Rust native module (coder's own native)
+            # Build Rust native module
             echo "Building Rust native module..."
             cd packages/rust && cargo build --release --target-dir ./target && cd ../..
 
-            # Copy built .so directly to native/ (avoids napi CLI ESM issues on VPS)
+            # Copy built .so to native/
             cp packages/rust/target/release/libclaude_code_native.so native/claude_code_native.linux-x64-gnu.node
             echo "Copied native binary to native/"
 
@@ -66,26 +64,10 @@ jobs:
             # Build type declarations
             bun run build:types
 
-            # Link globally
-            bun link
-
-            # Restart daemon with new build
-            echo "Restarting coder-daemon service..."
-            systemctl restart coder-daemon
-            sleep 5
-
-            # Health check
-            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:7420/stats)
-            if [ "$HTTP_CODE" = "200" ]; then
-              echo "Daemon healthy (HTTP 200)"
-            else
-              echo "WARNING: Daemon health check returned HTTP $HTTP_CODE"
-              systemctl status coder-daemon --no-pager -l || true
-            fi
+            # Install globally via bun
+            bun install -g .
 
             # Verify
             echo "=== Deploy Complete ==="
             coder --version 2>/dev/null || echo "coder binary check failed"
-            echo "Daemon: $(systemctl is-active coder-daemon)"
-            echo "Dashboard: http://localhost:7420"
             echo "Deployed: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
