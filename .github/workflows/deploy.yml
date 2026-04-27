@@ -29,7 +29,8 @@ jobs:
           script: |
             set -euo pipefail
 
-            export PATH="$HOME/.bun/bin:$HOME/.local/bin:$PATH"
+            source "$HOME/.cargo/env" 2>/dev/null || true
+            export PATH="$HOME/.bun/bin:$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 
             echo "=== Coder VPS Deploy ==="
             echo "Branch: ${{ github.ref_name }}"
